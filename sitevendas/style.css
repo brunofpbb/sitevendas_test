@@ -1064,7 +1064,7 @@ footer { text-align: center; }
   box-shadow:0 12px 40px rgba(0,0,0,.25); max-width:520px; width:92%;
 }
 #issuance-overlay .io-title{ font:600 18px/1.25 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin-top:12px; }
-#issuance-overlay .io-sub{ font:400 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#555; margin-top:6px; }
+#issuance-overlay .io-sub{ font:480 15px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#555; margin-top:6px; }
 #issuance-overlay .io-spinner{
   width:48px; height:48px; margin:0 auto;
   border-radius:50%; border:4px solid #e6e6e6; border-top-color:#2563eb;
