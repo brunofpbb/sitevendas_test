@@ -411,6 +411,8 @@ function attachAutocomplete(input, panel, source){
     }
   }
 
+
+  /*
   function finalizeToPayment(){
     const user = JSON.parse(localStorage.getItem('user') || 'null');
 
@@ -439,6 +441,48 @@ function attachAutocomplete(input, panel, source){
     localStorage.removeItem('pendingPurchase');
     location.href = 'payment.html';
   }
+
+*/
+
+
+    function finalizeToPayment(){
+    // pega o usuário do localStorage, mas só considera logado se tiver e-mail
+    let rawUser = null;
+    try {
+      rawUser = JSON.parse(localStorage.getItem('user') || 'null');
+    } catch(_) {
+      rawUser = null;
+    }
+    const user = (rawUser && rawUser.email) ? rawUser : null;
+
+    // compõe legs para salvar (ida e possivelmente volta)
+    const toSave = state.selected.map(s => ({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      schedule: s.schedule,
+      seats: s.seats,
+      passengers: s.passengers,
+      price: (Number(String(s.schedule.price).replace(',', '.')) || 0) * (s.seats?.length || 0),
+      date: s.schedule.date,
+      paid: false
+    }));
+
+    // se NÃO estiver logado → salva compra pendente, define redirect e manda pro login
+    if (!user) {
+      localStorage.setItem('pendingPurchase', JSON.stringify({ legs: toSave }));
+      localStorage.setItem('postLoginRedirect', 'payment.html');
+      location.href = 'login.html';
+      return;
+    }
+
+    // se já estiver logado → grava direto em bookings e segue pro pagamento
+    const old = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const onlyPaid = old.filter(b => b.paid === true);
+    localStorage.setItem('bookings', JSON.stringify([...onlyPaid, ...toSave]));
+    localStorage.removeItem('pendingPurchase');
+    location.href = 'payment.html';
+  }
+
+  
 });
 
 
@@ -449,7 +493,7 @@ function updateUserNav() {
     if (!nav) return;
 
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-
+/*
     // DESLOGADO
     if (!user || !user.email) {
       nav.innerHTML = `
@@ -457,7 +501,30 @@ function updateUserNav() {
       `;
       return;
     }
+*/
 
+    // DESLOGADO
+  if (!user || !user.email) {
+    nav.innerHTML = `
+      <a class="pill cta-enter" href="login.html" id="nav-login">Entrar</a>
+    `;
+
+    // guarda de onde o usuário veio, para voltar depois do login
+    const link = nav.querySelector('#nav-login');
+    if (link) {
+      link.addEventListener('click', () => {
+        const href = location.href;
+        // pega só o arquivo (index.html, profile.html, etc.)
+        const file = href.substring(href.lastIndexOf('/') + 1) || 'index.html';
+        localStorage.setItem('postLoginRedirect', file);
+      });
+    }
+    return;
+  }
+
+
+
+    
     // LOGADO
     const name = user.name || user.email;
 
