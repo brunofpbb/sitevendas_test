@@ -112,8 +112,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // guarda o usuário e redireciona
-      localStorage.setItem('user', JSON.stringify(data.user));
-      if (typeof updateUserNav === 'function') updateUserNav();
+     // localStorage.setItem('user', JSON.stringify(data.user));
+    //  if (typeof updateUserNav === 'function') updateUserNav();
+
+    // guarda o usuário e redireciona
+try {
+  const oldUser = JSON.parse(localStorage.getItem('user') || '{}');
+  // mescla: mantém telefone/nome que já estavam no localStorage
+  const merged  = Object.assign({}, oldUser, data.user);
+  localStorage.setItem('user', JSON.stringify(merged));
+} catch (_) {
+  // se der erro no parse, salva o que veio da API mesmo
+  localStorage.setItem('user', JSON.stringify(data.user));
+}
+
+if (typeof updateUserNav === 'function') updateUserNav();
+
+
+
+      
 
       const redirect = localStorage.getItem('postLoginRedirect');
       if (redirect) {
