@@ -473,7 +473,8 @@ function toYMD(dateStr) {
     // ===== Responsividade =====
     function applyScale() {
       const w = img?.getBoundingClientRect().width || BASE_IMG_WIDTH;
-      const scale = Math.max(0.6, Math.min(1.5, w / BASE_IMG_WIDTH));
+   //   const scale = Math.max(0.6, Math.min(1.5, w / BASE_IMG_WIDTH));
+      const scale = Math.min(1.5, w / BASE_IMG_WIDTH);
       root.style.setProperty('--grid-top',  (BASE_TOP   * scale) + 'px');
       root.style.setProperty('--grid-left', (BASE_LEFT  * scale) + 'px');
       root.style.setProperty('--cell-w',    (BASE_CELL_W* scale) + 'px');
