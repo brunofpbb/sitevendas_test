@@ -531,7 +531,7 @@ function toYMD(dateStr) {
 
   // pequeno ajuste só no mobile: puxa um pouco para a esquerda
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  const extraLeft = isMobile ? -10 : 0; // teste -8, -10, -12 se precisar
+  const extraLeft = isMobile ? -5 : 0; // teste -8, -10, -12 se precisar
 
   root.style.setProperty('--grid-top',  (BASE_TOP   * scale) + 'px');
   root.style.setProperty('--grid-left', (BASE_LEFT  * scale + extraLeft) + 'px');
