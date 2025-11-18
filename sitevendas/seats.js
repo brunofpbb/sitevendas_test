@@ -537,7 +537,7 @@ function applyScale() {
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
   // pequeno ajuste só para mobile (puxa um pouco para a esquerda)
-  const baseLeft = isMobile ? (BASE_LEFT - 8) : BASE_LEFT;
+  const baseLeft = isMobile ? (BASE_LEFT - 30) : BASE_LEFT;
 
   root.style.setProperty('--grid-top',  (BASE_TOP   * scale) + 'px');
   root.style.setProperty('--grid-left', (baseLeft   * scale) + 'px');
