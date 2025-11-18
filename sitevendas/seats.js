@@ -42,6 +42,31 @@
   row-gap: var(--gap-y, ${BASE_GAP_Y}px);
 }
 
+
+
+
+
+
+/* Ajuste fino do ônibus no mobile: traz as poltronas um pouco pra esquerda */
+@media (max-width: 768px){
+  .seats-onepage .bus-grid{
+    transform: translateX(-18px);  /* teste -16, -18, -20 até encaixar */
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .seats-onepage .seat{
   background:#eaf5ea; color:#1a301a;
   border:1px solid #d8ead8; border-radius:6px;
