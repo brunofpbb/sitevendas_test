@@ -529,7 +529,7 @@ footer{
 @media (max-width: 768px) {
   /* Só o layout do seats.html (#bus-layout) */
   #bus-layout .bus-grid {
-    margin: 0 18px 0 125px;  /* antes ficava em 140px. Se ainda ficar muito à direita,
+    margin: 0 18px 0 80px;  /* antes ficava em 140px. Se ainda ficar muito à direita,
                                 pode testar 120px ou 130px */
   }
 }
@@ -1665,3 +1665,11 @@ footer { text-align: center; }
 }
 
 
+
+
+/* Campos Nome / CPF / Telefone empilhados no mobile */
+@media (max-width: 768px) {
+  #passengers-row .grid-row{
+    grid-template-columns: 1fr;   /* 1 campo por linha */
+  }
+}
