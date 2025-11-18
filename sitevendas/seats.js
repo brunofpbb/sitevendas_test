@@ -71,15 +71,51 @@
 .seats-onepage .info-line{ margin:10px 0 4px; color:var(--muted); font-weight:700; }
 .seats-onepage .counter{ margin-bottom:14px; }
 
+
+
+
+
+
+
 /* Lista de passageiros (inputs com estilo de form-control) */
 .seats-onepage .pax { display:none; margin-top:12px; }
 .seats-onepage .pax.readonly input{ background:#f7f7f7; color:#666; }
 .seats-onepage .pax-list{ display:flex; flex-direction:column; gap:10px; }
-.seats-onepage .pax-row{ display:grid; grid-template-columns: 90px 1.3fr 1fr 1fr; gap:12px; align-items:center; }
-.seats-onepage .pax-row .label{ color:#2a3b2a; font-weight:600; text-align:right; padding-right:6px; }
+.seats-onepage .pax-row{
+  display:grid;
+  grid-template-columns: 90px 1.3fr 1fr 1fr;
+  gap:12px;
+  align-items:center;
+}
+.seats-onepage .pax-row .label{
+  color:#2a3b2a;
+  font-weight:600;
+  text-align:right;
+  padding-right:6px;
+}
+
+/* MOBILE: empilha os campos para não estourar a largura */
+@media (max-width: 768px){
+  .seats-onepage .pax-row{
+    grid-template-columns: 1fr;
+  }
+  .seats-onepage .pax-row .label{
+    text-align:left;
+    padding-right:0;
+  }
+}
 
 /* fallback de .form-control (parecido com os campos da esquerda) */
 .seats-onepage .pax-row .form-control{
+
+
+
+
+
+
+
+
+
   height: 36px;
   padding: 6px 10px;
   border: 1px solid #ced4da;
@@ -470,6 +506,8 @@ function toYMD(dateStr) {
       container.dispatchEvent(new CustomEvent('seats:back'));
     });
 
+
+    /*
     // ===== Responsividade =====
     function applyScale() {
       const w = img?.getBoundingClientRect().width || BASE_IMG_WIDTH;
@@ -482,6 +520,30 @@ function toYMD(dateStr) {
       root.style.setProperty('--gap-x',     (BASE_GAP_X * scale) + 'px');
       root.style.setProperty('--gap-y',     (BASE_GAP_Y * scale) + 'px');
     }
+*/
+
+
+  function applyScale() {
+  const w = img?.getBoundingClientRect().width || BASE_IMG_WIDTH;
+
+  // deixa a escala funcionar bem em telas pequenas
+  const scale = Math.max(0.35, Math.min(1.5, w / BASE_IMG_WIDTH));
+
+  // pequeno ajuste só no mobile: puxa um pouco para a esquerda
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const extraLeft = isMobile ? -10 : 0; // teste -8, -10, -12 se precisar
+
+  root.style.setProperty('--grid-top',  (BASE_TOP   * scale) + 'px');
+  root.style.setProperty('--grid-left', (BASE_LEFT  * scale + extraLeft) + 'px');
+  root.style.setProperty('--cell-w',    (BASE_CELL_W* scale) + 'px');
+  root.style.setProperty('--cell-h',    (BASE_CELL_H* scale) + 'px');
+  root.style.setProperty('--gap-x',     (BASE_GAP_X * scale) + 'px');
+  root.style.setProperty('--gap-y',     (BASE_GAP_Y * scale) + 'px');
+}
+
+
+    
+    
     const ro = new ResizeObserver(applyScale);
     ro.observe(img);
     img.addEventListener('load', applyScale);
