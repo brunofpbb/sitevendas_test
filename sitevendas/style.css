@@ -7,14 +7,14 @@ nav{margin-top:.5rem} nav a{color:#fff;margin:0 .5rem;text-decoration:none}
 
 /* ===== Layout (apenas 2 cards) ===== */
 .two-cols{
+  box-sizing: border-box;
   width: 100%;
-  max-width: none;
-  margin: 24px;
-  padding: 24px;                 /* sem respiro */
+  max-width: 1200px;        /* largura máxima do miolo */
+  margin: 24px auto;        /* centraliza e NÃO soma largura lateral */
+  padding: 24px;
   display: grid;
   grid-template-columns: 340px minmax(780px, 1050px) 1fr;
   gap: 26px;
-  align-items: start;
 }
 
 .search-card{
