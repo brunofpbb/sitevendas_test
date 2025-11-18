@@ -50,7 +50,7 @@
 /* Ajuste fino do ônibus no mobile: traz as poltronas um pouco pra esquerda */
 @media (max-width: 768px){
   .seats-onepage .bus-grid{
-    transform: translateX(-65px);  /* teste -16, -18, -20 até encaixar */
+    transform: translateX(-80px);  /* teste -16, -18, -20 até encaixar */
   }
 }
 
