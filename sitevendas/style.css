@@ -522,26 +522,6 @@ footer{
 
 
 
-
-
-
-/* Ajuste fino do ônibus no mobile */
-@media (max-width: 768px) {
-  /* Só o layout do seats.html (#bus-layout) */
-  #bus-layout .bus-grid {
-    margin: 0 18px 0 80px;  /* antes ficava em 140px. Se ainda ficar muito à direita,
-                                pode testar 120px ou 130px */
-  }
-}
-
-
-
-
-
-
-
-
-
 /* Ajuste fino do encaixe dos assentos no bus-blank */
 :root{
   /* mexa nessas 2 variáveis se precisar alinhar 2–4px */
@@ -740,20 +720,6 @@ footer { text-align: center; flex: 0 0 auto; }
   grid-template-columns: 1.5fr 1fr 1fr;
   gap: 10px;
 }
-
-
-
-
-/* Campos Nome / CPF / Telefone empilhados no mobile */
-@media (max-width: 768px) {
-  #passengers-row .grid-row{
-    grid-template-columns: 1fr;   /* 1 campo por linha */
-  }
-}
-
-
-
-
 
 
 
@@ -1665,11 +1631,3 @@ footer { text-align: center; }
 }
 
 
-
-
-/* Campos Nome / CPF / Telefone empilhados no mobile */
-@media (max-width: 768px) {
-  #passengers-row .grid-row{
-    grid-template-columns: 1fr;   /* 1 campo por linha */
-  }
-}
