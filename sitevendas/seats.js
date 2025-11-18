@@ -523,23 +523,30 @@ function toYMD(dateStr) {
 */
 
 
-  function applyScale() {
-  const w = img?.getBoundingClientRect().width || BASE_IMG_WIDTH;
+function applyScale() {
+  if (!img) return;
 
-  // deixa a escala funcionar bem em telas pequenas
-  const scale = Math.max(0.35, Math.min(1.5, w / BASE_IMG_WIDTH));
+  const w = img.getBoundingClientRect().width || BASE_IMG_WIDTH;
 
-  // pequeno ajuste só no mobile: puxa um pouco para a esquerda
+  // escala real baseada na largura do ônibus (sem mínimo forçado)
+  let scale = w / BASE_IMG_WIDTH;
+
+  // limita só pra não ficar gigante em telas enormes
+  if (scale > 1.5) scale = 1.5;
+
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  const extraLeft = isMobile ? -5 : 0; // teste -8, -10, -12 se precisar
+
+  // pequeno ajuste só para mobile (puxa um pouco para a esquerda)
+  const baseLeft = isMobile ? (BASE_LEFT - 8) : BASE_LEFT;
 
   root.style.setProperty('--grid-top',  (BASE_TOP   * scale) + 'px');
-  root.style.setProperty('--grid-left', (BASE_LEFT  * scale + extraLeft) + 'px');
+  root.style.setProperty('--grid-left', (baseLeft   * scale) + 'px');
   root.style.setProperty('--cell-w',    (BASE_CELL_W* scale) + 'px');
   root.style.setProperty('--cell-h',    (BASE_CELL_H* scale) + 'px');
   root.style.setProperty('--gap-x',     (BASE_GAP_X * scale) + 'px');
   root.style.setProperty('--gap-y',     (BASE_GAP_Y * scale) + 'px');
 }
+
 
 
     
