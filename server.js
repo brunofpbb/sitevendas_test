@@ -1444,9 +1444,42 @@ if (!guardOnce(String(mpPaymentId))) {
 
     console.log('[Praxio][Venda] body:', JSON.stringify(bodyVenda).slice(0, 4000));
 
-    // 4) Chama Praxio
+    /*/ 4) Chama Praxio
+    const vendaResult = await praxioVendaPassagem(bodyVenda);
+    console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
+
+
+        // 4) Chama Praxio
     const vendaResult = await praxioVendaPassagem(bodyVenda);
     console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
+
+    // 🔎 Validação extra: garantir que existem bilhetes válidos
+    const lista = Array.isArray(vendaResult.ListaPassagem)
+      ? vendaResult.ListaPassagem
+      : [];
+
+    if (!lista.length) {
+      const msg = vendaResult.Mensagem || vendaResult.MensagemDetalhada || 'Praxio não retornou nenhum bilhete.';
+      throw new Error(`Venda Praxio sem bilhetes: ${msg}`);
+    }
+
+    // 🔎 Verificar erro por poltrona (Sucesso=false / Mensagem preenchida)
+    const errosPoltronas = lista.filter(p =>
+      p.Sucesso === false ||
+      (p.Mensagem && String(p.Mensagem).trim() !== '') ||
+      (p.MensagemDetalhada && String(p.MensagemDetalhada).trim() !== '')
+    );
+
+    if (errosPoltronas.length) {
+      const msgs = errosPoltronas
+        .map(p => p.Mensagem || p.MensagemDetalhada)
+        .filter(Boolean)
+        .join(' | ');
+
+      throw new Error(`Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`);
+    }
+  
+    
 
     // 5) Gerar PDFs (local) e subir no Drive
     const subDir = new Date().toISOString().slice(0,10);
@@ -1741,11 +1774,39 @@ const attachmentsBrevo = emailAttachments.map(a => ({
 // 7) Retorno para o front
     return res.json({ ok: true, venda: vendaResult, arquivos });
 
-  } catch (e) {
+/*  } catch (e) {
     console.error('praxio/vender error:', e);
     return res.status(500).json({ ok:false, error: e.message || 'Falha ao vender/gerar bilhete.' });
   }
+});*/
+
+
+  } catch (e) {
+    console.error('[Praxio][Venda] erro:', e);
+
+    const msg = e && e.message
+      ? e.message
+      : 'Falha ao vender/gerar bilhete.';
+
+    // se for erro conhecido de venda (poltrona indisponível etc.) devolve 400,
+    // senão 500 (erro interno)
+    const isPraxioError = /Erro na venda de uma ou mais poltronas|Venda Praxio sem bilhetes|Falha VendaPassagem/i
+      .test(msg);
+
+    const status = isPraxioError ? 400 : 500;
+
+    return res
+      .status(status)
+      .json({ ok: false, error: msg });   // mantém "error" porque o payment.js usa j.error
+  }
 });
+
+
+
+
+
+
+    
 
 /* =================== Fallback para .html =================== */
 app.get('*', (req, res, next) => {
