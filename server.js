@@ -1463,6 +1463,7 @@ if (!guardOnce(String(mpPaymentId))) {
       throw new Error(`Venda Praxio sem bilhetes: ${msg}`);
     }
 
+    /*
     // 🔎 Verificar erro por poltrona (Sucesso=false / Mensagem preenchida)
     const errosPoltronas = lista.filter(p =>
       p.Sucesso === false ||
@@ -1477,7 +1478,33 @@ if (!guardOnce(String(mpPaymentId))) {
         .join(' | ');
 
       throw new Error(`Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`);
-    }
+    }*/
+
+
+
+    // 🔎 Verificar erro por poltrona
+const errosPoltronas = lista.filter(p => {
+  const msg = (p.Mensagem || p.MensagemDetalhada || '').toLowerCase();
+
+  // Considera erro se:
+  // - a própria Praxio marcou Sucesso === false
+  // - OU a mensagem tiver palavras típicas de erro
+  const temTextoErro = /erro|indispon[ií]vel|falha/.test(msg);
+
+  return p.Sucesso === false || temTextoErro;
+});
+
+if (errosPoltronas.length) {
+  const msgs = errosPoltronas
+    .map(p => p.Mensagem || p.MensagemDetalhada)
+    .filter(Boolean)
+    .join(' | ');
+
+  throw new Error(
+    `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
+  );
+}
+
   
     
 
