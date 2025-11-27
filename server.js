@@ -16,6 +16,75 @@ function fetchWithTimeout(url, opts = {}, ms = 10000) {
 }
 
 
+
+
+// === Log e alerta de falhas de emissão ===
+const ERROR_LOG_DIR  = path.join(__dirname, 'logs');
+const ERROR_LOG_FILE = path.join(ERROR_LOG_DIR, 'vendas-falhas.log');
+const ADMIN_ALERT_EMAIL =
+  process.env.ADMIN_ALERT_EMAIL || 'informaticamaciel2010@gmail.com';
+
+async function logVendaFalha(entry) {
+  try {
+    await fs.promises.mkdir(ERROR_LOG_DIR, { recursive: true });
+    const linha = JSON.stringify({
+      ts: new Date().toISOString(),
+      ...entry,
+    }) + '\n';
+    await fs.promises.appendFile(ERROR_LOG_FILE, linha, 'utf8');
+    console.error('[Venda][Erro] registrado em log:', ERROR_LOG_FILE);
+  } catch (e) {
+    console.error('[Venda][Erro] falha ao gravar log:', e?.message || e);
+  }
+}
+
+async function notifyAdminVendaFalha(entry) {
+  try {
+    const appName = process.env.APP_NAME || 'Turin Transportes';
+    const fromName = process.env.SUPPORT_FROM_NAME || appName;
+    const fromEmail =
+      process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+
+    const subject =
+      `[${appName}] Falha na emissão de bilhete (payment ${entry?.mpPaymentId || entry?.payment?.id || '—'})`;
+
+    const body = [
+      'Falha na emissão do bilhete após pagamento aprovado.',
+      '',
+      `Erro: ${entry.errorMessage || entry.error || '(sem mensagem)'}`,
+      '',
+      'Dados da venda/pagamento:',
+      JSON.stringify(entry, null, 2),
+    ].join('\n');
+
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: ADMIN_ALERT_EMAIL,
+      subject,
+      text: body,
+    });
+
+    console.log('[Venda][Erro] alerta enviado para', ADMIN_ALERT_EMAIL);
+  } catch (e) {
+    console.error('[Venda][Erro] falha ao enviar e-mail de alerta:', e?.message || e);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // === serviços de bilhete (PDF) ===
 const { mapVendaToTicket } = require('./services/ticket/mapper');
 const { generateTicketPdf } = require('./services/ticket/pdf');
@@ -1330,27 +1399,7 @@ app.post('/api/praxio/vender', async (req, res) => {
     } = req.body || {};
 
 
-        // mpPaymentId é o id único da compra no MP (vem do body)
-
-    
-    /*
-
-if (!guardOnce(String(mpPaymentId))) {
-  console.warn('[Idem] pular envio (já processado) para payment=', mpPaymentId);
-  return res.json({ ok: true, venda: vendaResult, arquivos, note: 'idempotent-skip' });
-}
-
-
-if (!guardOnce(String(mpPaymentId))) {
-  console.warn('[Idem] pular processamento (já processado) payment=', mpPaymentId);
-  return res.json({ ok: true, note: 'idempotent-skip' });
-}
-
-*/
-
-
-
-
+  
     
 
     // 1) Revalida o pagamento
@@ -1452,6 +1501,61 @@ if (!guardOnce(String(mpPaymentId))) {
         // 4) Chama Praxio
     const vendaResult = await praxioVendaPassagem(bodyVenda);
     console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
+
+
+
+
+
+
+        // --- Se a Praxio não devolver bilhete, registra erro e avisa suporte
+    const semBilhetes =
+      !vendaResult ||
+      vendaResult.Sucesso === false ||
+      !Array.isArray(vendaResult.ListaPassagem) ||
+      vendaResult.ListaPassagem.length === 0;
+
+    if (semBilhetes) {
+      const msgPraxi =
+        vendaResult?.Mensagem ||
+        vendaResult?.Mensagem2 ||
+        vendaResult?.MensagemDetalhada ||
+        'Retorno da Praxio sem bilhetes (ListaPassagem vazia).';
+
+      const erroEntry = {
+        stage: 'praxio-venda',
+        mpPaymentId,
+        userEmail,
+        userPhone,
+        schedule,
+        passengers,
+        totalAmount,
+        bodyVenda,
+        vendaResult,
+        errorMessage: msgPraxi,
+      };
+
+      await logVendaFalha(erroEntry);
+      await notifyAdminVendaFalha(erroEntry);
+
+      return res.status(502).json({
+        ok: false,
+        error: 'Falha na emissão do bilhete na Praxio.',
+        message: msgPraxi,
+      });
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
     // 🔎 Validação extra: garantir que existem bilhetes válidos
     const lista = Array.isArray(vendaResult.ListaPassagem)
@@ -1796,16 +1900,10 @@ const attachmentsBrevo = emailAttachments.map(a => ({
 
 
 
-    
+/*    
 
 // 7) Retorno para o front
     return res.json({ ok: true, venda: vendaResult, arquivos });
-
-/*  } catch (e) {
-    console.error('praxio/vender error:', e);
-    return res.status(500).json({ ok:false, error: e.message || 'Falha ao vender/gerar bilhete.' });
-  }
-});*/
 
 
   } catch (e) {
@@ -1828,7 +1926,63 @@ const attachmentsBrevo = emailAttachments.map(a => ({
   }
 });
 
+*/
 
+
+
+
+
+
+return res.json({ ok: true, vendaResult, arquivos });
+  } catch (err) {
+    console.error('[Praxio][Venda] erro inesperado:', err);
+
+    try {
+      const erroEntry = {
+        stage: 'exception',
+        mpPaymentId: req.body?.mpPaymentId || null,
+        userEmail: req.body?.userEmail || '',
+        userPhone: req.body?.userPhone || '',
+        schedule: req.body?.schedule || null,
+        passengers: req.body?.passengers || null,
+        totalAmount: req.body?.totalAmount || null,
+        errorMessage: err?.message || String(err),
+        stack: err?.stack || null,
+      };
+
+      await logVendaFalha(erroEntry);
+      await notifyAdminVendaFalha(erroEntry);
+    } catch (inner) {
+      console.error('[Praxio][Venda] falha ao registrar erro:', inner);
+    }
+
+    return res.status(500).json({
+      ok: false,
+      error: 'Erro interno ao emitir o bilhete. Nosso suporte já foi notificado.',
+    });
+  }
+});
+Co
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
 
 
