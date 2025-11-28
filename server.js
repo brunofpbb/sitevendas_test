@@ -355,7 +355,7 @@ async function sheetsAppendBilhetes({
     const pagoSP = dtAp
       ? (new Date(dtAp)).toLocaleString('sv-SE', { timeZone:'America/Sao_Paulo', hour12:false }).replace(' ','T') + '-03:00'
       : '';
-
+/*
     const tipo = String(payment?.payment_type_id || '').toLowerCase();   // 'pix'|'credit_card'|'debit_card'
     const forma = tipo === 'pix' ? 'PIX'
                 : tipo === 'debit_card' ? 'Cartão de Débito'
@@ -371,6 +371,29 @@ const pmId   = String(payment?.payment_method_id || '').toLowerCase(); // costum
 // Código para a planilha (você pediu código, não descrição)
 const tipoPagamento =
   (pmId.includes('pix') || mpType === 'pix' || mpType === 'bank_transfer') ? '0' : '3';
+
+    */
+
+
+// Identificação robusta do método
+const mpType = String(payment?.payment_type_id   || '').toLowerCase();   // 'credit_card' | 'debit_card' | 'bank_transfer'...
+const pmId   = String(payment?.payment_method_id || '').toLowerCase();   // ex.: 'pix', 'visa', 'master', ...
+
+// Descrição amigável para a planilha
+const forma =
+  pmId.includes('pix') || mpType === 'pix' || mpType === 'bank_transfer'
+    ? 'Pix'
+    : mpType === 'debit_card'
+      ? 'Cartão de Débito'
+      : mpType === 'credit_card'
+        ? 'Cartão de Crédito'
+        : '';
+
+// Código numérico para a planilha (0 = Pix, 3 = Cartão)
+const tipoPagamento = forma === 'Pix' ? '0' : '3';
+
+
+    
 
 
 // garanta que é array de bilhetes válidos
