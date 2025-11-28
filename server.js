@@ -320,7 +320,7 @@ function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
   if (po && pd && iO && iD && po === iO && pd === iD) return 'Ida';
   if (po && pd && vO && vD && po === vO && pd === vD) return 'Volta';
 
-  // 3) fallback (ex.: idaVoltaDefault do bundle)
+  ) fallback (ex.: idaVoltaDefault do bundle)
   return (String(fallback).toLowerCase() === 'volta') ? 'Volta' : 'Ida';
 }
 
@@ -924,6 +924,9 @@ app.post('/api/cancel-ticket', async (req, res) => {
     const grava = await praxioGravaDevolucao({ idSessao: IdSessaoOp, xmlPassagem });
     console.log('[PRAXIO] RES GravaDevolucao =>', JSON.stringify(grava).slice(0, 800));
 
+
+    /*
+
     // 3) MP — calcula disponível e estorna (LOGs)
     const pay = await mpGetPayment(paymentId);
     const total = +Number(pay.transaction_amount || 0).toFixed(2);
@@ -951,6 +954,119 @@ app.post('/api/cancel-ticket', async (req, res) => {
     } else {
       console.log('[MP] Sem valor disponível para estorno. valorRefund=', valorRefund, 'disponivel=', disponivel);
     }
+
+
+
+    */
+
+
+
+
+
+
+        // 3) MP — calcula disponível e estorna (LOGs)
+    const pay = await mpGetPayment(paymentId);
+    const total = +Number(pay.transaction_amount || 0).toFixed(2);
+    const refundedSoFar = Array.isArray(pay.refunds)
+      ? +pay.refunds.reduce((a, r) => a + (+Number(r.amount || 0).toFixed(2)), 0).toFixed(2)
+      : 0;
+    const disponivel = Math.max(0, +Number(total - refundedSoFar).toFixed(2));
+    console.log('[MP] paymentId=', paymentId, 'total=', total, 'refundedSoFar=', refundedSoFar, 'disponivel=', disponivel);
+
+    let valorRefund = Math.min(valorRefundDesejado, disponivel);
+    if (valorRefund < 0) valorRefund = 0;
+
+    let refund = null;
+    let refundErroInterno = false;
+
+    if (valorRefund > 0) {
+      console.log(
+        '[MP] POST refund url= https://api.mercadopago.com/v1/payments/'+paymentId+'/refunds',
+        'body=', { amount: +Number(valorRefund).toFixed(2) },
+        'headers:', { 'X-Idempotency-Key': correlationID || '(auto)' }
+      );
+      try {
+        refund = await mpRefund({ paymentId, amount: valorRefund, idempotencyKey: correlationID });
+        console.log('[MP] RES refund =>', JSON.stringify(refund).slice(0, 800));
+      } catch (err) {
+        const det =
+          err?.details?.cause?.[0]?.description ||
+          err?.details?.message ||
+          err?.message ||
+          '';
+
+        console.error('[MP] refund erro:', det, err?.details || err);
+
+        // Se for INTERNAL_ERROR do MP, não vamos quebrar o cancelamento,
+        // só logar e avisar o suporte para fazer o estorno manual.
+        if (String(det).toLowerCase().includes('internal_error')) {
+          refundErroInterno = true;
+
+          const entry = {
+            stage: 'cancel-ticket-refund',
+            numeroPassagem,
+            paymentId,
+            valorOriginal,
+            valorRefundDesejado,
+            valorRefundCalculado: valorRefund,
+            total,
+            refundedSoFar,
+            disponivel,
+            errorMessage: det,
+            mpError: err?.details || err,
+          };
+
+          try {
+            await logVendaFalha(entry);
+            await notifyAdminVendaFalha(entry);
+          } catch (inner) {
+            console.error('[cancel-ticket] falha ao registrar erro de refund:', inner);
+          }
+
+          // mantém "refund" null; vamos devolver uma nota explicativa na resposta
+        } else {
+          // Outros erros continuam derrubando o cancelamento
+          throw new Error(det || 'Falha ao estornar no Mercado Pago');
+        }
+      }
+    } else {
+      console.log('[MP] Sem valor disponível para estorno. valorRefund=', valorRefund, 'disponivel=', disponivel);
+    }
+
+    // 4) Sheets — marcar "Cancelado" (não falha a operação se o update quebrar)
+    let planilha = { ok: true };
+    try {
+      await sheetsUpdateStatus(rowIndex, 'Cancelado');
+    } catch (err) {
+      console.error('[Sheets] Falha ao atualizar Status:', err?.message || err);
+      planilha = { ok: false, error: err?.message || String(err) };
+    }
+
+    return res.json({
+      ok: true,
+      numeroPassagem,
+      valorOriginal,
+      valorRefund,
+      praxio: { verifica: ver, grava },
+      mp: refund
+        ? refund
+        : (refundErroInterno
+            ? { note: 'Cancelado na Praxio. Estorno não concluído no Mercado Pago (internal_error). Suporte será notificado.' }
+            : { note: 'Sem estorno (indisponível).' }),
+      planilha,
+    });
+
+
+
+
+
+
+
+
+
+
+
+    
 
     // 4) Sheets — marcar "Cancelado" (não falha a operação se o update quebrar)
     let planilha = { ok: true };
