@@ -1962,7 +1962,6 @@ return res.json({ ok: true, vendaResult, arquivos });
     });
   }
 });
-Co
 
 
 
