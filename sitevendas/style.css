@@ -901,7 +901,9 @@ footer { text-align: center; flex: 0 0 auto; }
 #pix-code{ min-width: 260px; }
 
 
-
+#pix-box h4 {
+  text-align: center;
+}
 
 
 
