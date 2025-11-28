@@ -1087,14 +1087,14 @@ app.post('/api/cancel-ticket', async (req, res) => {
       praxio: { verifica: ver, grava },
       mp: refund ? refund : { note: 'Sem estorno (indisponível).' },
       planilha
-    });
+    });*/
   } catch (e) {
     const http = e?.code === 'PRAXIO_BLOQUEADO' ? 409 : 500;
     console.error('[cancel-ticket] erro:', e);
     return res.status(http).json({ ok: false, error: e.message || 'Falha no cancelamento', details: e.details || null });
   }
 });
-*/
+
 
 /* =================== SMTP / Brevo =================== */
 function createSSL() {
