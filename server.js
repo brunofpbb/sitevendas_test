@@ -38,6 +38,9 @@ async function logVendaFalha(entry) {
   }
 }
 
+
+/*
+
 async function notifyAdminVendaFalha(entry) {
   try {
     const appName = process.env.APP_NAME || 'Turin Transportes';
@@ -69,7 +72,66 @@ async function notifyAdminVendaFalha(entry) {
     console.error('[Venda][Erro] falha ao enviar e-mail de alerta:', e?.message || e);
   }
 }
+*/
 
+
+
+
+
+
+
+async function notifyAdminVendaFalha(entry) {
+  try {
+    const appName = process.env.APP_NAME || 'Turin Transportes';
+    const fromName = process.env.SUPPORT_FROM_NAME || appName;
+    const fromEmail =
+      process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+
+    const subject =
+      `[${appName}] Falha na emissão de bilhete (payment ${entry?.mpPaymentId || entry?.payment?.id || '—'})`;
+
+    const body = [
+      'Falha na emissão do bilhete após pagamento aprovado.',
+      '',
+      `Erro: ${entry.errorMessage || entry.error || '(sem mensagem)'}`,
+      '',
+      'Dados da venda/pagamento:',
+      JSON.stringify(entry, null, 2),
+    ].join('\n');
+
+    let sent = false;
+    try {
+      const got = await ensureTransport();
+      if (got.transporter) {
+        await got.transporter.sendMail({
+          from: `"${fromName}" <${fromEmail}>`,
+          to: ADMIN_ALERT_EMAIL,
+          subject,
+          text: body,
+        });
+        console.log('[Venda][Erro] alerta enviado via SMTP para', ADMIN_ALERT_EMAIL);
+        sent = true;
+      }
+    } catch (e) {
+      console.error('[Venda][Erro] falha ao enviar alerta via SMTP:', e?.message || e);
+    }
+
+    // fallback Brevo
+    if (!sent) {
+      await sendViaBrevoApi({
+        to: ADMIN_ALERT_EMAIL,
+        subject,
+        html: body.replace(/\n/g, '<br>'),
+        text: body,
+        fromEmail,
+        fromName,
+      });
+      console.log('[Venda][Erro] alerta enviado via Brevo para', ADMIN_ALERT_EMAIL);
+    }
+  } catch (e) {
+    console.error('[Venda][Erro] falha ao enviar e-mail de alerta:', e?.message || e);
+  }
+}
 
 
 
