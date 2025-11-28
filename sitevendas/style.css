@@ -68,8 +68,13 @@ nav{margin-top:.5rem} nav a{color:#fff;margin:0 .5rem;text-decoration:none}
 
 
 
-
-
+/* Subtítulo da tela de pagamento */
+#bricks-card .mute {
+  text-align: center;    /* centraliza */
+  font-weight: 600;      /* negrito (pode usar bold também) */
+  font-size: 18px;       /* maior que o padrão, menor que o h2 */
+  
+}
 
 
 
@@ -398,7 +403,7 @@ footer{
 
 /* Título centralizado do card da direita */
 .step-title{ text-align:center; }
-.mute{ text-align:center; }
+.{ text-align:center; }
 
 /* Autocomplete discreto (já enviado antes) */
 .ac-panel{ position:relative; height:0; }
@@ -900,10 +905,25 @@ footer { text-align: center; flex: 0 0 auto; }
 #pix-box .pix-row{ flex-wrap: wrap; }
 #pix-code{ min-width: 260px; }
 
-
-#pix-box h4 {
+#pix-status {
   text-align: center;
 }
+
+
+
+/* Subtítulo da tela de pagamento */
+#pix-box h4 {
+  text-align: center;    /* centraliza */
+  font-weight: 600;      /* negrito (pode usar bold também) */
+  font-size: 18px;       /* maior que o padrão, menor que o h2 */
+  
+}
+
+
+
+
+
+
 
 
 
