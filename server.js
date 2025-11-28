@@ -320,9 +320,10 @@ function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
   if (po && pd && iO && iD && po === iO && pd === iD) return 'Ida';
   if (po && pd && vO && vD && po === vO && pd === vD) return 'Volta';
 
-  ) fallback (ex.: idaVoltaDefault do bundle)
+  // fallback (ex.: idaVoltaDefault do bundle)
   return (String(fallback).toLowerCase() === 'volta') ? 'Volta' : 'Ida';
 }
+
 
 
 
