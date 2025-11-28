@@ -1066,7 +1066,7 @@ app.post('/api/cancel-ticket', async (req, res) => {
 
 
 
-    
+    /*
 
     // 4) Sheets — marcar "Cancelado" (não falha a operação se o update quebrar)
     let planilha = { ok: true };
@@ -1092,7 +1092,7 @@ app.post('/api/cancel-ticket', async (req, res) => {
     return res.status(http).json({ ok: false, error: e.message || 'Falha no cancelamento', details: e.details || null });
   }
 });
-
+*/
 
 /* =================== SMTP / Brevo =================== */
 function createSSL() {
