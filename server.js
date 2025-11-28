@@ -1054,6 +1054,7 @@ app.post('/api/cancel-ticket', async (req, res) => {
             ? { note: 'Cancelado na Praxio. Estorno não concluído no Mercado Pago (internal_error). Suporte será notificado.' }
             : { note: 'Sem estorno (indisponível).' }),
       planilha,
+      }
     });
 
 
