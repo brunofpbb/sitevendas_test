@@ -45,6 +45,7 @@ nav{margin-top:.5rem} nav a{color:#fff;margin:0 .5rem;text-decoration:none}
 
 /* ===== Form ===== */
 .step-title{margin:0 0 .75rem}
+.mute{margin:0 0 .75rem}
 .form-vert .form-row{margin-bottom:10px}
 .form-vert input{width:100%}
 .actions{margin-top:.75rem;display:flex;gap:10px}
@@ -189,8 +190,6 @@ footer{
 }
 .btn-disabled:hover{ filter:none; }
 
-/* título central já vem inline; mantemos aqui se preferir global */
-/* .auth-card .step-title{ text-align:center; } */
 
 /* card de reserva em grade: conteúdo à esquerda, ações à direita (sem empurrar linhas) */
 .card-grid{
@@ -399,6 +398,7 @@ footer{
 
 /* Título centralizado do card da direita */
 .step-title{ text-align:center; }
+.mute{ text-align:center; }
 
 /* Autocomplete discreto (já enviado antes) */
 .ac-panel{ position:relative; height:0; }
