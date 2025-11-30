@@ -256,6 +256,68 @@ function inferLegType(it, idx, order) {
 }
 
 
+  // ===== Pré-reserva no Sheets (antes de criar o pagamento) =====
+  async function preRegistrarNoSheets(externalReference) {
+    try {
+      if (!externalReference) return;
+      if (!Array.isArray(order) || !order.length) return;
+
+      const userLS = JSON.parse(localStorage.getItem('user') || 'null') || {};
+      const userEmail = (userLS.email || '').toString();
+      const userPhone = (userLS.phone || userLS.telefone || '').toString();
+
+      const bilhetes = [];
+
+      order.forEach((it, idx) => {
+        const s = getScheduleFromItem(it) || {};
+        const paxList = getPassengersFromItem(it) || [];
+        const idaVolta = inferLegType(it, idx, order);
+
+        const sch = it.schedule || {};
+        const origemNome  = sch.originName  || sch.origem  || '';
+        const destinoNome = sch.destinationName || sch.destino || '';
+        const dataViagem  = sch.date || sch.dataViagem || '';
+
+        const totalItem = itemSubtotal(it);
+        const qtdPax = paxList.length || 1;
+        const valorPorPassageiro = totalItem / qtdPax;
+
+        paxList.forEach(p => {
+          bilhetes.push({
+            poltrona: p.seatNumber,
+            nomeCliente: p.name,
+            docCliente: p.document,
+            valor: valorPorPassageiro,
+            dataViagem,
+            horaPartida: s.horaPartida,
+            origemNome,
+            destinoNome,
+            idaVolta
+          });
+        });
+      });
+
+      if (!bilhetes.length) return;
+
+      await fetch('/api/sheets/pre-reserva', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          external_reference: externalReference,
+          userEmail,
+          userPhone,
+          bilhetes
+        })
+      });
+    } catch (e) {
+      console.warn('[pre-reserva] falhou, seguindo sem gravar no Sheets:', e);
+    }
+  }
+
+
+  
+
+
 // atualiza UM booking (por índice) com os arquivos gerados
 function mergeFilesIntoBookingAtIndex(openIdx, arquivos) {
   if (!Array.isArray(arquivos) || !arquivos.length) return;
@@ -561,6 +623,11 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
             Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
             if (body.payer && body.payer.identification === undefined) delete body.payer.identification;
 
+            // grava pré-reserva no Sheets antes de criar o pagamento
+            await preRegistrarNoSheets(idem);
+
+
+            
             const resp = await fetch('/api/mp/pay', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': idem },
