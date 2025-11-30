@@ -355,25 +355,6 @@ async function sheetsAppendBilhetes({
     const pagoSP = dtAp
       ? (new Date(dtAp)).toLocaleString('sv-SE', { timeZone:'America/Sao_Paulo', hour12:false }).replace(' ','T') + '-03:00'
       : '';
-/*
-    const tipo = String(payment?.payment_type_id || '').toLowerCase();   // 'pix'|'credit_card'|'debit_card'
-    const forma = tipo === 'pix' ? 'PIX'
-                : tipo === 'debit_card' ? 'Cartão de Débito'
-                : tipo === 'credit_card' ? 'Cartão de Crédito'
-                : '';
-
-
-    
-// Identificação robusta do método
-const mpType = String(payment?.payment_type_id   || '').toLowerCase(); // 'pix' | 'credit_card' | 'debit_card' | 'bank_transfer'...
-const pmId   = String(payment?.payment_method_id || '').toLowerCase(); // costuma conter 'pix'
-
-// Código para a planilha (você pediu código, não descrição)
-const tipoPagamento =
-  (pmId.includes('pix') || mpType === 'pix' || mpType === 'bank_transfer') ? '0' : '3';
-
-    */
-
 
 // Identificação robusta do método
 const mpType = String(payment?.payment_type_id   || '').toLowerCase();   // 'credit_card' | 'debit_card' | 'bank_transfer'...
@@ -392,10 +373,7 @@ const forma =
 // Código numérico para a planilha (0 = Pix, 3 = Cartão)
 const tipoPagamento = forma === 'Pix' ? '0' : '3';
 
-
-    
-
-
+ 
 // garanta que é array de bilhetes válidos
 const list = Array.isArray(bilhetes) ? bilhetes.filter(Boolean) : [];
 
@@ -464,6 +442,119 @@ const values = list.map(b => {
     return { ok:false, error: e?.message || String(e) };
   }
 }
+
+
+
+// === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
+app.post('/api/sheets/pre-reserva', async (req, res) => {
+  try {
+    const {
+      external_reference,
+      userEmail = '',
+      userPhone = '',
+      bilhetes = []
+    } = req.body || {};
+
+    if (!external_reference || !Array.isArray(bilhetes) || !bilhetes.length) {
+      return res.status(400).json({
+        ok: false,
+        error: 'external_reference e bilhetes são obrigatórios.'
+      });
+    }
+
+    const sheets = await sheetsAuthRW();
+    const spreadsheetId = process.env.SHEETS_BPE_ID;
+    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AG';
+
+    const phoneDigits = String(userPhone || '').replace(/\D/g, '');
+    const phoneSheet = phoneDigits ? `55${phoneDigits}` : '';
+
+    const now = nowSP();
+
+    const values = bilhetes.map((b) => {
+      const dataViagem = b.dataViagem || b.date || '';
+      const horaPartida = (b.horaPartida || '').toString().slice(0, 5);
+      const dataHoraViagem = dataViagem && horaPartida
+        ? `${dataViagem} ${horaPartida}`
+        : (dataViagem || horaPartida);
+
+      const sentido = (String(b.idaVolta || '').toLowerCase() === 'volta')
+        ? 'Volta'
+        : 'Ida';
+
+      const nome = b.nomeCliente || b.nome || '';
+      const doc = String(b.docCliente || b.cpf || b.document || '')
+        .replace(/\D/g, '');
+
+      const valorNumber =
+        Number(String(b.valor || b.price || 0).replace(',', '.')) || 0;
+      const valor = valorNumber.toFixed(2);
+
+      return [
+        now,                    // Data/horaSolicitação
+        nome,                   // Nome
+        phoneSheet,             // Telefone
+        userEmail,              // E-mail
+        doc,                    // CPF
+        valor,                  // Valor
+        '2',                    // ValorConveniencia (mantém 2 como hoje)
+        '',                     // ComissaoMP
+        '',                     // ValorLiquido
+        '',                     // NumPassagem
+        '93',                   // SeriePassagem
+        'Aguardando pagamento', // StatusPagamento
+        'Pendente',             // Status
+        '',                     // ValorDevolucao
+        sentido,                // Sentido
+        '',                     // Data/hora_Pagamento
+        '',                     // NomePagador
+        '',                     // CPF_Pagador
+        '',                     // ID_Transação
+        '',                     // TipoPagamento
+        '',                     // correlationID
+        '',                     // idURL
+        external_reference,     // Referencia
+        '',                     // Forma_Pagamento
+        '',                     // idUser
+        dataViagem,             // Data_Viagem
+        dataHoraViagem,         // Data_Hora
+        b.origemNome  || b.origem  || '',   // Origem
+        b.destinoNome || b.destino || '',   // Destino
+        '',                     // Identificador (livre pra uso futuro)
+        '',                     // idPagamento
+        '',                     // LinkBPE
+        b.poltrona || b.seatNumber || ''    // Poltrona
+      ];
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values }
+    });
+
+    console.log('[Sheets][pre-reserva] append ok:', values.length, 'linhas');
+
+    return res.json({ ok: true, appended: values.length });
+  } catch (e) {
+    console.error('[Sheets][pre-reserva] erro:', e);
+    return res.status(500).json({
+      ok: false,
+      error: e?.message || String(e)
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
 
 
 // normaliza texto: minúsculo, sem acento e sem sinais
@@ -632,6 +723,133 @@ async function sheetsUpdateStatus(rowIndex, status) {
 }
 
 
+
+// Atualiza status de pagamento no Sheets usando a Referencia
+async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
+  if (!externalReference) {
+    console.warn('[Sheets][Pgto] externalReference vazio, nada a atualizar');
+    return { ok: false, error: 'externalReference vazio' };
+  }
+  const sheets = getSheets();
+  const { spreadsheetId, range, tab } = resolveSheetEnv();
+
+  const read = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range
+  });
+
+  const rows = read.data.values || [];
+  if (!rows.length) {
+    console.warn('[Sheets][Pgto] Nenhuma linha na aba BPE');
+    return { ok: false, error: 'aba vazia' };
+  }
+
+  const header = rows[0].map(v => String(v || '').trim());
+  const findCol = (name) =>
+    header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+
+  const colRef          = findCol('Referencia');
+  const colStatus       = findCol('Status');
+  const colStatusPg     = findCol('StatusPagamento');
+  const colDataPg       = findCol('Data/hora_Pagamento');
+  const colIdPg         = findCol('idPagamento');
+  const colTipoPg       = findCol('TipoPagamento');
+  const colFormaPg      = findCol('Forma_Pagamento');
+  const colIdTransacao  = findCol('ID_Transação');
+
+  if (colRef < 0) {
+    console.warn('[Sheets][Pgto] Coluna "Referencia" não encontrada no header');
+    return { ok: false, error: 'coluna Referencia não encontrada' };
+  }
+
+  const parseDt = (dt) => {
+    if (!dt) return nowSP();
+    const d = new Date(dt);
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm   = pad(d.getMonth() + 1);
+    const dd   = pad(d.getDate());
+    const hh   = pad(d.getHours());
+    const mi   = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  };
+
+  const statusMP = String(payment?.status || '').toLowerCase();
+  const statusPagamento =
+    (statusMP === 'approved' || statusMP === 'accredited')
+      ? 'Aprovado'
+      : (statusMP === 'pending'
+          ? 'Pendente'
+          : (statusMP === 'rejected' ? 'Rejeitado' : payment?.status || ''));
+
+  const mpType = String(payment?.payment_type_id || payment?.payment_method_id || '').toLowerCase();
+  const forma =
+    mpType === 'pix'         ? 'PIX'
+      : mpType === 'debit_card'  ? 'Cartão de Débito'
+      : mpType === 'credit_card' ? 'Cartão de Crédito'
+      : (payment?.payment_method_id || '').toString().toUpperCase();
+
+  const tipo =
+    mpType === 'pix' ? '8'
+      : (mpType === 'debit_card' || mpType === 'credit_card') ? '3'
+      : '';
+
+  const idPagamento = payment?.id ? String(payment.id) : '';
+  const idTransacao = payment?.transaction_details?.external_resource_url
+    || payment?.transaction_amount
+    || '';
+
+  const dataPagamento = parseDt(payment?.date_approved || payment?.date_created);
+
+  const data = [];
+  rows.forEach((row, idx) => {
+    if (idx === 0) return; // header
+    if (String(row[colRef] || '').trim() !== String(externalReference).trim()) {
+      return;
+    }
+
+    const newRow = [...row];
+
+    if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
+    // se ainda não foi emitido, mantemos Status como está (Pendente)
+    if (colStatus >= 0 && !newRow[colStatus]) newRow[colStatus] = 'Pendente';
+    if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;
+    if (colIdPg >= 0 && idPagamento) newRow[colIdPg] = idPagamento;
+    if (colTipoPg >= 0 && tipo) newRow[colTipoPg] = tipo;
+    if (colFormaPg >= 0 && forma) newRow[colFormaPg] = forma;
+    if (colIdTransacao >= 0 && idTransacao) newRow[colIdTransacao] = String(idTransacao);
+
+    const rowNumber = idx + 1;
+    data.push({
+      range: `${tab}!A${rowNumber}:AG${rowNumber}`,
+      values: [newRow]
+    });
+  });
+
+  if (!data.length) {
+    console.log('[Sheets][Pgto] Nenhuma linha encontrada para referencia =', externalReference);
+    return { ok: true, updated: 0 };
+  }
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data
+    }
+  });
+
+  console.log('[Sheets][Pgto] Atualizadas', data.length, 'linhas para referencia', externalReference);
+  return { ok: true, updated: data.length };
+}
+
+
+
+
+
+
+
+
 /* ============================================================================
    Descobrir e-mail do cliente (prioriza login, inclui body.userEmail)
 ============================================================================ */
@@ -717,6 +935,53 @@ app.get('/api/mp/wait-flush', async (req, res) => {
 
 
 
+// Webhook do Mercado Pago (pagamento aprovado / etc.)
+app.post('/api/mp/webhook', async (req, res) => {
+  try {
+    const body = req.body || {};
+    console.log('[MP][Webhook] body:', JSON.stringify(body).slice(0, 500));
+
+    let paymentId = null;
+
+    if (body?.data?.id) {
+      paymentId = body.data.id;
+    } else if (body?.resource && typeof body.resource === 'string') {
+      const m = body.resource.match(/\/(\d+)(\?.*)?$/);
+      if (m) paymentId = m[1];
+    } else if (body?.id) {
+      paymentId = body.id;
+    }
+
+    if (!paymentId) {
+      console.warn('[MP][Webhook] Sem paymentId no payload, ignorando.');
+      return res.status(200).json({ ok: true, received: true, ignored: true });
+    }
+
+    const payment = await mpGetPayment(paymentId);
+    if (!payment) {
+      console.warn('[MP][Webhook] Não foi possível obter detalhes do pagamento', paymentId);
+      return res.status(200).json({ ok: true, received: true, noPayment: true });
+    }
+
+    const extRef = payment.external_reference;
+    if (!extRef) {
+      console.warn('[MP][Webhook] Pagamento sem external_reference, id=', paymentId);
+      return res.status(200).json({ ok: true, received: true, noRef: true });
+    }
+
+    // Atualiza somente informações de pagamento nas linhas já gravadas na pré-reserva
+    await sheetsUpdatePaymentStatusByRef(extRef, payment);
+
+    return res.status(200).json({ ok: true, processed: true });
+  } catch (e) {
+    console.error('[MP][Webhook] erro:', e);
+    // Mesmo em erro, responde 200 para evitar excesso de retentativas
+    return res.status(200).json({
+      ok: false,
+      error: e?.message || String(e)
+    });
+  }
+});
 
 
 
