@@ -1497,7 +1497,7 @@ app.get('/api/mp/wait-flush', async (req, res) => {
 });
 
 
-/*
+
 // Webhook do Mercado Pago (pagamento aprovado / etc.)
 app.post('/api/mp/webhook', async (req, res) => {
   try {
@@ -1545,7 +1545,7 @@ app.post('/api/mp/webhook', async (req, res) => {
     });
   }
 });
-*/
+
 
 
 
