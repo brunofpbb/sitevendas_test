@@ -187,4 +187,28 @@ router.get('/payment/:id', async (req, res) => {
 });
 
 
+
+
+// === Webhook do Mercado Pago ===
+// Use esta URL no painel do MP: https://SEU_DOMINIO/api/mp/webhook
+router.get('/webhook', (req, res) => {
+  // alguns ambientes do MP chamam GET só para testar se a URL existe
+  res.status(200).send('ok');
+});
+
+router.post('/webhook', async (req, res) => {
+  try {
+    // por enquanto só loga para debug;
+    // depois aqui podemos buscar o payment e disparar emissão via Sheets/Praxio
+    console.log('[MP webhook] evento recebido:', JSON.stringify(req.body || {}));
+    res.sendStatus(200);
+  } catch (e) {
+    console.error('[MP webhook] erro ao processar evento:', e);
+    res.sendStatus(500);
+  }
+});
+
+
+
+
 module.exports = router;
