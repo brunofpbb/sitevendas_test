@@ -1148,6 +1148,267 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 
 
 
+// === Helpers para trabalhar com a planilha BPE por "Referencia" ===
+async function sheetsFindByRef(externalRef) {
+  const spreadsheetId = process.env.SHEETS_BPE_ID;
+  const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
+
+  const sheets = await sheetsAuthRW();
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+  });
+
+  const values = resp.data.values || [];
+  if (!values.length) return { header: [], entries: [] };
+
+  const header = values[0];
+  const idx = (name) => header.indexOf(name);
+
+  const col = {
+    dataSolic:      idx('Data/horaSolicitação'),
+    nome:           idx('Nome'),
+    telefone:       idx('Telefone'),
+    email:          idx('E-mail'),
+    cpf:            idx('CPF'),
+    valor:          idx('Valor'),
+    statusPag:      idx('StatusPagamento'),
+    status:         idx('Status'),
+    sentindo:       idx('Sentido'),
+    dtPag:          idx('Data/hora_Pagamento'),
+    idTransacao:    idx('ID_Transação'),
+    tipoPagamento:  idx('TipoPagamento'),
+    formaPag:       idx('Forma_Pagamento'),
+    ref:            idx('Referencia'),
+    numPassagem:    idx('NumPassagem'),
+    seriePassagem:  idx('SeriePassagem'),
+    origem:         idx('Origem'),
+    destino:        idx('Destino'),
+    dataViagem:     idx('Data_Viagem'),
+    horaPartida:    idx('Hora_Partida'),
+    poltrona:       idx('poltrona'),
+    idViagem:       idx('IdViagem'),
+    idOrigem:       idx('IdOrigem'),
+    idDestino:      idx('IdDestino'),
+  };
+
+  const norm = (v) => (v || '').toString().trim();
+
+  const entries = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const refVal = col.ref >= 0 ? norm(row[col.ref]) : '';
+    if (!refVal) continue;
+    if (refVal !== norm(externalRef)) continue;
+
+    entries.push({
+      rowIndex: i + 1,         // linha real na planilha (1-based)
+      raw: row,
+      status:    col.status    >= 0 ? norm(row[col.status])    : '',
+      statusPag: col.statusPag >= 0 ? norm(row[col.statusPag]) : '',
+      numPassagem: col.numPassagem >= 0 ? norm(row[col.numPassagem]) : '',
+      nome:      col.nome      >= 0 ? norm(row[col.nome])      : '',
+      cpf:       col.cpf       >= 0 ? norm(row[col.cpf])       : '',
+      telefone:  col.telefone  >= 0 ? norm(row[col.telefone])  : '',
+      email:     col.email     >= 0 ? norm(row[col.email])     : '',
+      valor:     col.valor     >= 0 ? norm(row[col.valor])     : '',
+      sentido:   col.sentindo  >= 0 ? norm(row[col.sentindo])  : '',
+      origem:    col.origem    >= 0 ? norm(row[col.origem])    : '',
+      destino:   col.destino   >= 0 ? norm(row[col.destino])   : '',
+      dataViagem:   col.dataViagem   >= 0 ? norm(row[col.dataViagem])   : '',
+      horaPartida:  col.horaPartida  >= 0 ? norm(row[col.horaPartida])  : '',
+      poltrona:     col.poltrona     >= 0 ? norm(row[col.poltrona])     : '',
+      idViagem:     col.idViagem     >= 0 ? norm(row[col.idViagem])     : '',
+      idOrigem:     col.idOrigem     >= 0 ? norm(row[col.idOrigem])     : '',
+      idDestino:    col.idDestino    >= 0 ? norm(row[col.idDestino])    : '',
+    });
+  }
+
+  return { header, entries };
+}
+
+
+
+async function sheetsDeleteRowsByRef(externalRef) {
+  if (!externalRef) return;
+
+  const spreadsheetId = process.env.SHEETS_BPE_ID;
+  const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
+
+  const sheets = await sheetsAuthRW();
+
+  // lê valores para descobrir quais linhas têm essa referência
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+  });
+
+  const values = resp.data.values || [];
+  if (values.length <= 1) return; // só cabeçalho
+
+  const header = values[0];
+  const idxRef = header.indexOf('Referencia');
+  if (idxRef < 0) return;
+
+  const norm = (v) => (v || '').toString().trim();
+  const rowsToDelete = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i] || [];
+    const refVal = norm(row[idxRef]);
+    if (refVal && refVal === norm(externalRef)) {
+      rowsToDelete.push(i); // índice relativo ao sheet (0 = cabeçalho)
+    }
+  }
+
+  if (!rowsToDelete.length) return;
+
+  // pega sheetId da aba BPE
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = (meta.data.sheets || []).find(
+    (s) => s.properties && s.properties.title === (range.split('!')[0] || 'BPE')
+  );
+  if (!sheet) return;
+
+  const sheetId = sheet.properties.sheetId;
+
+  // deleta de baixo pra cima pra não deslocar
+  const requests = rowsToDelete
+    .sort((a, b) => b - a)
+    .map((rowIdx) => ({
+      deleteDimension: {
+        range: {
+          sheetId,
+          dimension: 'ROWS',
+          startIndex: rowIdx,
+          endIndex: rowIdx + 1,
+        },
+      },
+    }));
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  });
+}
+
+
+
+
+async function emitirBilhetesViaWebhook(payment) {
+  const extRef = (payment?.external_reference || '').trim();
+  if (!extRef) {
+    console.warn('[Webhook][Emit] pagamento sem external_reference, ignorando');
+    return;
+  }
+
+  const { entries } = await sheetsFindByRef(extRef);
+  if (!entries || !entries.length) {
+    console.log('[Webhook][Emit] nenhuma linha encontrada no Sheets para', extRef);
+    return;
+  }
+
+  // se já tem pelo menos 1 linha emitida / com NumPassagem, não vende de novo
+  const jaEmitido = entries.some(e => {
+    const st = (e.status || '').toLowerCase();
+    const temNum = !!(e.numPassagem || '');
+    return st === 'emitido' || temNum;
+  });
+
+  if (jaEmitido) {
+    console.log('[Webhook][Emit] já existe emissão no Sheets para', extRef);
+    return;
+  }
+
+  // agrupa por viagem (ida / volta)
+  const grupos = new Map(); // key -> { schedule, passageiros, idaVolta }
+  for (const e of entries) {
+    const key = [
+      e.idViagem || '',
+      e.idOrigem || '',
+      e.idDestino || '',
+      e.dataViagem || '',
+      e.horaPartida || '',
+      (e.sentido || '').toLowerCase()
+    ].join('|');
+
+    let g = grupos.get(key);
+    if (!g) {
+      const idaVolta = (e.sentido || '').toLowerCase().startsWith('volta') ? 'volta' : 'ida';
+      g = {
+        schedule: {
+          idViagem:  e.idViagem,
+          idOrigem:  e.idOrigem,
+          idDestino: e.idDestino,
+          dataViagem: e.dataViagem,
+          date:       e.dataViagem,
+          horaPartida: e.horaPartida,
+          origem:     e.origem,
+          destino:    e.destino,
+          originName: e.origem,
+          destinationName: e.destino,
+        },
+        idaVolta,
+        passageiros: [],
+      };
+      grupos.set(key, g);
+    }
+
+    g.passageiros.push({
+      seatNumber: e.poltrona,
+      name:       e.nome,
+      document:   e.cpf,
+      price:      e.valor ? Number(e.valor.replace(',', '.')) : undefined,
+      phone:      e.telefone,
+    });
+  }
+
+  const PORT = process.env.PORT || 8080;
+  const serverBase = `http://127.0.0.1:${PORT}`;
+
+  const allEntries = entries;
+  const firstEntry = allEntries[0] || {};
+  const userEmail = firstEntry.email || '';
+  const userPhone = firstEntry.telefone || '';
+
+  for (const g of grupos.values()) {
+    const totalAmount = g.passageiros.reduce((sum, p) => sum + (p.price || 0), 0)
+      || Number(payment.transaction_amount || 0);
+
+    const body = {
+      mpPaymentId: payment.id,
+      schedule: g.schedule,
+      passengers: g.passageiros,
+      totalAmount,
+      idEstabelecimentoVenda: '1',
+      idEstabelecimentoTicket: g.schedule.agencia || '93',
+      serieBloco: '93',
+      userEmail,
+      userPhone,
+      idaVolta: g.idaVolta,
+    };
+
+    try {
+      console.log('[Webhook][Emit] chamando /api/praxio/vender via webhook', body.schedule);
+      const r = await fetch(`${serverBase}/api/praxio/vender`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
+        body: JSON.stringify(body),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, j);
+      }
+    } catch (err) {
+      console.error('[Webhook][Emit] Erro HTTP ao chamar /api/praxio/vender:', err);
+    }
+  }
+}
+
+
+
+
+
 
 
 
@@ -2649,7 +2910,8 @@ const attachmentsBrevo = emailAttachments.map(a => ({
   } else {
     console.warn('[Email] comprador sem e-mail. Pulando envio.');
   }
-
+  
+/*
   // 2) SHEETS – 1 linha por bilhete
   await sheetsAppendBilhetes({
     spreadsheetId: process.env.SHEETS_BPE_ID,
@@ -2666,6 +2928,41 @@ const attachmentsBrevo = emailAttachments.map(a => ({
     userPhone,                           // normalizado
     idaVoltaDefault: idaVolta
   });
+  
+  */
+
+
+  // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
+try {
+  const ref = payment?.external_reference || null;
+  if (ref) {
+    console.log('[Sheets] limpando pré-reservas da referência', ref);
+    await sheetsDeleteRowsByRef(ref);
+  }
+} catch (err) {
+  console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
+}
+
+// 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
+await sheetsAppendBilhetes({
+  spreadsheetId: process.env.SHEETS_BPE_ID,
+  range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AG',
+  bilhetes: bilhetes.map(b => ({
+    ...b,
+    driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
+           || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
+           || ''
+  })),
+  schedule,
+  payment,
+  userEmail,
+  userPhone,
+  idaVoltaDefault: idaVolta
+});
+
+
+  
+  
 });
 
 
