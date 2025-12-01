@@ -188,7 +188,7 @@ router.get('/payment/:id', async (req, res) => {
 
 
 
-
+/*
 // === Webhook do Mercado Pago ===
 // Use esta URL no painel do MP: https://SEU_DOMINIO/api/mp/webhook
 router.get('/webhook', (req, res) => {
@@ -208,7 +208,7 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
-
+*/
 
 
 module.exports = router;
