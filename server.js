@@ -333,10 +333,10 @@ function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
 // Converte “2025-11-03 10:48” -> “2025-11-03T10:48-03:00”
 const toISO3 = (s) => s ? (s.replace(' ', 'T') + '-03:00') : '';
 
-
+/*
 async function sheetsAppendBilhetes({
   spreadsheetId,
-  range = 'BPE!A:AG',
+  range = 'BPE!A:AK',
   bilhetes,                    // [{ numPassagem, nomeCliente, docCliente, valor, poltrona, driveUrl, origem, destino, idaVolta }]
   schedule,                    // { date, horaPartida, originName/destinationName ... }
   payment,                     // objeto do MP
@@ -437,11 +437,313 @@ const values = list.map(b => {
 
     console.log('[Sheets] append ok:', values.length, 'linhas');
     return { ok:true, appended: values.length };
+  
   } catch (e) {
     console.error('[Sheets] append erro:', e?.message || e);
     return { ok:false, error: e?.message || String(e) };
   }
 }
+
+*/
+
+// === Grava / atualiza bilhetes no Sheets (usa Referencia) ===
+async function sheetsAppendBilhetes({
+  bilhetes,
+  schedule,
+  payment,
+  userEmail,
+  userPhone,
+  idaVoltaDefault
+}) {
+  try {
+    if (!Array.isArray(bilhetes) || !bilhetes.length) {
+      return { ok: true, appended: 0, updated: 0 };
+    }
+
+    const sheets = await sheetsAuthRW();
+    const spreadsheetId = process.env.SHEETS_BPE_ID;
+    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
+
+    const extRef = String(payment?.external_reference || '').trim();
+
+    // --- infos de pagamento (comissão, líquido, tipo, forma etc.) ---
+    const mpAmount = Number(payment?.transaction_amount || 0);
+    const mpFee =
+      Number(payment?.fee_details?.[0]?.amount || 0) ||
+      Number(payment?.fee_amount || 0);
+    const fee = mpFee;
+    const net = mpAmount - fee;
+
+    const mpType = String(payment?.payment_type_id || '').toLowerCase();
+    const tipoPagamento = (mpType === 'pix') ? '8' : '3'; // 8=PIX, 3=Cartão
+    const forma =
+      mpType === 'pix'
+        ? 'PIX'
+        : mpType === 'debit_card'
+          ? 'Cartão de Débito'
+          : 'Cartão de Crédito';
+
+    const chId = String(payment?.id || '');
+    const pagoSP = nowSP(); // data/hora pagamento no fuso -03:00
+
+    const scheduleDate = schedule?.date || '';
+    const scheduleHora = (schedule?.horaPartida || '').toString().slice(0, 5);
+    const dataViagemDefault = scheduleDate;
+    const dataHoraViagemDefault =
+      scheduleDate && scheduleHora
+        ? `${scheduleDate} ${scheduleHora}`
+        : (scheduleDate || scheduleHora || '');
+
+    const userPhoneDigits = String(userPhone || '').replace(/\D/g, '');
+    const telefoneSheet = userPhoneDigits ? `55${userPhoneDigits}` : '';
+
+    // ================================================================
+    // 1) Lê o Sheets para tentar achar linhas da pré-reserva por Referencia
+    // ================================================================
+    let rows = [];
+    let header = [];
+    let headerNorm = [];
+
+    const norm = (s) =>
+      String(s || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase();
+
+    const getIdx = (...names) => {
+      const want = names.map(norm);
+      return headerNorm.findIndex((h) => want.includes(h));
+    };
+
+    let hasPreReserva = false;
+
+    if (extRef) {
+      const read = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range
+      });
+
+      rows = read.data.values || [];
+      if (rows.length) {
+        header = rows[0].map((h) => (h || '').toString().trim());
+        headerNorm = header.map(norm);
+
+        const idxRef = getIdx('referencia');
+
+        if (idxRef >= 0) {
+          // verifica se existe pelo menos uma linha com essa Referencia
+          hasPreReserva = rows.some((row, i) => {
+            if (i === 0) return false;
+            return String(row[idxRef] || '').trim() === extRef;
+          });
+        }
+      }
+    }
+
+    // ================================================================
+    // 2) Se NÃO houver pré-reserva, mantém comportamento antigo (append)
+    // ================================================================
+    if (!hasPreReserva) {
+      const dataViagem = dataViagemDefault;
+      const dataHoraViagem = dataHoraViagemDefault;
+
+      const values = bilhetes.map((b) => {
+        const sentido = b?.idaVolta
+          ? String(b.idaVolta).toLowerCase() === 'volta'
+            ? 'Volta'
+            : 'Ida'
+          : (String(idaVoltaDefault).toLowerCase() === 'volta'
+              ? 'Volta'
+              : 'Ida');
+
+        return [
+          nowSP(),                                // Data/horaSolicitação
+          b.nomeCliente || '',                    // Nome
+          telefoneSheet,                          // Telefone
+          (userEmail || ''),                      // E-mail
+          b.docCliente || '',                     // CPF
+          Number(b.valor ?? 0).toFixed(2),        // Valor
+          '2',                                    // ValorConveniencia
+          String(fee).toString().replace('.', ','), // ComissaoMP
+          String(net).toString().replace('.', ','), // ValorLiquido
+          b.numPassagem || '',                    // NumPassagem
+          '93',                                   // SeriePassagem
+          String(payment?.status || ''),          // StatusPagamento
+          'Emitido',                              // Status
+          '',                                     // ValorDevolucao
+          sentido,                                // Sentido
+          pagoSP,                                 // Data/hora_Pagamento
+          '',                                     // NomePagador
+          '',                                     // CPF_Pagador
+          chId,                                   // ID_Transação
+          tipoPagamento,                          // TipoPagamento
+          '',                                     // correlationID
+          '',                                     // idURL
+          extRef,                                 // Referencia
+          forma,                                  // Forma_Pagamento
+          '',                                     // idUser (pode preencher depois se quiser)
+          dataViagem,                             // Data_Viagem
+          dataHoraViagem,                         // Data_Hora
+          b.origem || schedule?.originName || schedule?.origem || '',         // Origem
+          b.destino || schedule?.destinationName || schedule?.destino || '',  // Destino
+          '',                                     // Identificador
+          payment?.id || '',                      // idPagamento
+          b.driveUrl || '',                       // LinkBPE
+          b.poltrona || ''                        // Poltrona
+        ];
+      });
+
+      if (!values.length) return { ok: true, appended: 0, updated: 0 };
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range,
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values }
+      });
+
+      console.log('[Sheets] append ok (sem pré-reserva):', values.length, 'linhas');
+      return { ok: true, appended: values.length, updated: 0 };
+    }
+
+    // ================================================================
+    // 3) Há pré-reserva → atualiza linhas existentes (upsert por Referencia+Poltrona)
+    // ================================================================
+    const idxRef         = getIdx('referencia');
+    const idxNumPassagem = getIdx('numpassagem', 'bilhete');
+    const idxStatus      = getIdx('status');
+    const idxStatusPay   = getIdx('statuspagamento');
+    const idxValorLiq    = getIdx('valorliquido');
+    const idxComissao    = getIdx('comissaomp');
+    const idxDataPgto    = getIdx('datahorapagamento', 'datahora_pagamento');
+    const idxIdTrans     = getIdx('id_transacao', 'idtransacao');
+    const idxTipoPay     = getIdx('tipopagamento');
+    const idxFormaPay    = getIdx('forma_pagamento', 'formapagamento');
+    const idxIdPag       = getIdx('idpagamento');
+    const idxLinkBPE     = getIdx('linkbpe');
+    const idxPoltrona    = getIdx('poltrona');
+    const idxNome        = getIdx('nome');
+    const idxCpf         = getIdx('cpf');
+    const idxEmail       = getIdx('email', 'e-mail');
+    const idxTelefone    = getIdx('telefone', 'celular');
+    const idxDataViagem  = getIdx('data_viagem', 'dataviagem');
+    const idxDataHora    = getIdx('data_hora', 'datahora');
+    const idxOrigem      = getIdx('origem');
+    const idxDestino     = getIdx('destino');
+    const idxSentido     = getIdx('sentido');
+    const idxIdViagem    = getIdx('idviagem');
+    const idxIdOrigem    = getIdx('idorigem');
+    const idxIdDestino   = getIdx('iddestino');
+    const idxHoraPartida = getIdx('hora_partida', 'horapartida');
+
+    const usedRows = new Set();
+    const updates = [];
+
+    const dataViagem = dataViagemDefault;
+    const horaPartida = scheduleHora;
+    const dataHoraViagem = dataHoraViagemDefault;
+
+    // helper: encontra linha da pré-reserva para um bilhete (por Referencia + Poltrona)
+    const findRowForBilhete = (b) => {
+      const seat = String(b.poltrona || b.seatNumber || '').trim();
+      for (let i = 1; i < rows.length; i++) {
+        if (usedRows.has(i)) continue;
+        const row = rows[i] || [];
+        if (idxRef >= 0 && String(row[idxRef] || '').trim() !== extRef) continue;
+        if (idxPoltrona >= 0 && seat) {
+          if (String(row[idxPoltrona] || '').trim() !== seat) continue;
+        }
+        // achou candidato
+        usedRows.add(i);
+        return i;
+      }
+      return -1;
+    };
+
+    for (const b of bilhetes) {
+      const rowIndex = findRowForBilhete(b);
+      if (rowIndex < 0) {
+        // não achou linha correspondente → deixa para um futuro append se quiser
+        continue;
+      }
+
+      const oldRow = rows[rowIndex] || [];
+      const newRow = [...oldRow];
+
+      const sentido = b?.idaVolta
+        ? String(b.idaVolta).toLowerCase() === 'volta'
+          ? 'Volta'
+          : 'Ida'
+        : (String(idaVoltaDefault).toLowerCase() === 'volta'
+            ? 'Volta'
+            : 'Ida');
+
+      if (idxNumPassagem >= 0) newRow[idxNumPassagem] = b.numPassagem || newRow[idxNumPassagem] || '';
+      if (idxStatus >= 0)      newRow[idxStatus]      = 'Emitido';
+      if (idxStatusPay >= 0)   newRow[idxStatusPay]   = String(payment?.status || '');
+      if (idxValorLiq >= 0)    newRow[idxValorLiq]    = String(net).toString().replace('.', ',');
+      if (idxComissao >= 0)    newRow[idxComissao]    = String(fee).toString().replace('.', ',');
+      if (idxDataPgto >= 0)    newRow[idxDataPgto]    = pagoSP;
+      if (idxIdTrans >= 0)     newRow[idxIdTrans]     = chId;
+      if (idxTipoPay >= 0)     newRow[idxTipoPay]     = tipoPagamento;
+      if (idxFormaPay >= 0)    newRow[idxFormaPay]    = forma;
+      if (idxIdPag >= 0)       newRow[idxIdPag]       = payment?.id || newRow[idxIdPag] || '';
+      if (idxLinkBPE >= 0)     newRow[idxLinkBPE]     = b.driveUrl || newRow[idxLinkBPE] || '';
+
+      if (idxNome >= 0 && b.nomeCliente) newRow[idxNome] = b.nomeCliente;
+      if (idxCpf >= 0 && b.docCliente)   newRow[idxCpf]  = b.docCliente;
+      if (idxEmail >= 0 && userEmail)    newRow[idxEmail] = userEmail;
+      if (idxTelefone >= 0 && telefoneSheet) newRow[idxTelefone] = telefoneSheet;
+
+      if (idxDataViagem >= 0 && dataViagem) newRow[idxDataViagem] = dataViagem;
+      if (idxDataHora >= 0 && dataHoraViagem) newRow[idxDataHora] = dataHoraViagem;
+      if (idxOrigem >= 0)
+        newRow[idxOrigem] = b.origem || schedule?.originName || schedule?.origem || newRow[idxOrigem] || '';
+      if (idxDestino >= 0)
+        newRow[idxDestino] = b.destino || schedule?.destinationName || schedule?.destino || newRow[idxDestino] || '';
+      if (idxSentido >= 0) newRow[idxSentido] = sentido;
+
+      if (idxIdViagem >= 0 && schedule?.idViagem) newRow[idxIdViagem] = schedule.idViagem;
+      if (idxIdOrigem >= 0 && schedule?.idOrigem) newRow[idxIdOrigem] = schedule.idOrigem;
+      if (idxIdDestino >= 0 && schedule?.idDestino) newRow[idxIdDestino] = schedule.idDestino;
+      if (idxHoraPartida >= 0 && horaPartida) newRow[idxHoraPartida] = horaPartida;
+
+      updates.push({ rowNumber: rowIndex + 1, values: newRow });
+    }
+
+    if (!updates.length) {
+      console.log('[Sheets] não encontrou linhas p/ atualizar, nenhuma alteração feita.');
+      return { ok: true, appended: 0, updated: 0 };
+    }
+
+    const tab = (range.includes('!') ? range.split('!')[0] : 'BPE');
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: updates.map((u) => ({
+          range: `${tab}!A${u.rowNumber}:AK${u.rowNumber}`,
+          values: [u.values]
+        }))
+      }
+    });
+
+    console.log('[Sheets] update ok (pré-reserva → emitido):', updates.length, 'linhas');
+    return { ok: true, appended: 0, updated: updates.length };
+  } catch (e) {
+    console.error('[Sheets] append/upsert erro:', e?.message || e);
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+
+
+
+
+
+
 
 
 
@@ -464,7 +766,7 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
 
     const sheets = await sheetsAuthRW();
     const spreadsheetId = process.env.SHEETS_BPE_ID;
-    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AG';
+    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
 
     const phoneDigits = String(userPhone || '').replace(/\D/g, '');
     const phoneSheet = phoneDigits ? `55${phoneDigits}` : '';
@@ -569,7 +871,7 @@ app.get('/api/sheets/bpe-by-email', async (req, res) => {
 
     const sheets = await sheetsAuth();
     const spreadsheetId = process.env.SHEETS_BPE_ID;
-    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AF';
+    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
 
     const r = await sheets.spreadsheets.values.get({ spreadsheetId, range });
     const rows = r.data.values || [];
@@ -2351,7 +2653,7 @@ const attachmentsBrevo = emailAttachments.map(a => ({
   // 2) SHEETS – 1 linha por bilhete
   await sheetsAppendBilhetes({
     spreadsheetId: process.env.SHEETS_BPE_ID,
-    range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AG',
+    range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
     bilhetes: bilhetes.map(b => ({
       ...b,
       driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
