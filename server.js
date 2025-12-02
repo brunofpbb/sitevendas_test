@@ -1498,6 +1498,9 @@ app.get('/api/mp/wait-flush', async (req, res) => {
 
 
 
+
+/*
+
 // Webhook do Mercado Pago (pagamento aprovado / etc.)
 app.post('/api/mp/webhook', async (req, res) => {
   try {
@@ -1545,6 +1548,33 @@ app.post('/api/mp/webhook', async (req, res) => {
     });
   }
 });
+
+*/
+
+
+
+
+// Webhook do Mercado Pago (pagamento aprovado / etc.)
+app.post('/api/mp/webhook', async (req, res) => {
+  try {
+    console.log('=== [MP][Webhook] CHEGOU ===');
+    console.log('Headers:', JSON.stringify(req.headers || {}, null, 2));
+    console.log('Body   :', JSON.stringify(req.body || {}, null, 2).slice(0, 2000));
+
+    // sempre devolve 200 pro MP não considerar erro
+    return res.status(200).send('ok');
+  } catch (e) {
+    console.error('[MP][Webhook] erro inesperado:', e);
+    // mesmo em erro devolve 200 para o MP não ficar retentando loucamente
+    return res.status(200).send('ok');
+  }
+});
+
+
+
+
+
+
 
 
 
