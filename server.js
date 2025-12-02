@@ -306,14 +306,21 @@ async function sheetsAppendBilhetes({
     const fee = mpFee;
     const net = mpAmount - fee;
 
-    const mpType = String(payment?.payment_type_id || '').toLowerCase();
-    const tipoPagamento = (mpType === 'pix') ? '8' : '3'; // 8=PIX, 3=Cartão
-    const forma =
-      mpType === 'pix'
-        ? 'PIX'
-        : mpType === 'debit_card'
-          ? 'Cartão de Débito'
-          : 'Cartão de Crédito';
+const mpType   = String(payment?.payment_type_id || '').toLowerCase(); // credit_card, debit_card, ...
+const mpMethod = String(
+  payment?.payment_method_id || payment?.payment_method?.id || ''
+).toLowerCase(); // ex.: 'pix'
+
+const isPix = mpMethod === 'pix';
+
+const tipoPagamento = isPix ? '8' : '3'; // 8=PIX, 3=Cartão (crédito/débito)
+const forma =
+  isPix
+    ? 'PIX'
+    : mpType === 'debit_card'
+      ? 'Cartão de Débito'
+      : 'Cartão de Crédito';
+
 
     const chId = String(payment?.id || '');
     const pagoSP = nowSP(); // data/hora pagamento no fuso -03:00
@@ -422,6 +429,10 @@ async function sheetsAppendBilhetes({
           payment?.id || '',                      // idPagamento
           b.driveUrl || '',                       // LinkBPE
           b.poltrona || ''                        // Poltrona
+          schedule?.idViagem  || '',              // IdViagem  (nova)
+          schedule?.idOrigem  || '',              // IdOrigem  (nova)
+          schedule?.idDestino || '',              // IdDestino (nova)
+          scheduleHora                               // Hora_Partida (nova)
         ];
       });
 
@@ -791,7 +802,7 @@ function resolveSheetEnv() {
   const spreadsheetId = process.env.SHEETS_BPE_ID; // <- usa só o que você já tem
   if (!spreadsheetId) throw new Error('SHEETS_BPE_ID não definido no ambiente');
 
-  // se vier "BPE!A:AG", extrai "BPE"
+  // se vier "", extrai "BPE"
   const guessedTab = (process.env.SHEETS_BPE_RANGE || '').split('!')[0] || '';
   const tab = guessedTab || 'BPE';
   const range = `${tab}!A:AG`; // sua aba usa A:AG
@@ -2291,6 +2302,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       return res.status(400).json({ ok:false, error:'Valor do item maior que o total pago.' });
     }
 
+    /*
     // tipo/forma de pagamento
     const mpType = String(payment?.payment_type_id || '').toLowerCase(); // 'credit_card'|'debit_card'|'pix'|...
     const tipoPagamento = (mpType === 'pix') ? '8' : '3';                // 8=PIX | 3=Cartão
@@ -2300,6 +2312,42 @@ app.post('/api/praxio/vender', async (req, res) => {
     const formaPagamento = (mpType === 'pix') ? 'PIX'
                         : (mpType === 'debit_card') ? 'Cartão de Débito'
                         : 'Cartão de Crédito';
+
+*/
+
+
+
+const mpType   = String(payment?.payment_type_id || '').toLowerCase();
+const mpMethod = String(
+  payment?.payment_method_id || payment?.payment_method?.id || ''
+).toLowerCase();
+
+const isPix = mpMethod === 'pix';
+
+const tipoPagamento = isPix ? '8' : '3'; // 8=PIX | 3=Cartão
+const tipoCartao    = isPix
+  ? '0'                                  // 0 = PIX na Praxio
+  : mpType === 'credit_card'
+    ? '1'                                // crédito
+    : mpType === 'debit_card'
+      ? '2'                              // débito
+      : '1';
+
+const formaPagamento = isPix
+  ? 'PIX'
+  : mpType === 'debit_card'
+    ? 'Cartão de Débito'
+    : 'Cartão de Crédito';
+
+
+
+
+
+
+
+
+    
+    
     const parcelas = Number(payment?.installments || 1);
 
     // helpers datas
@@ -2671,7 +2719,7 @@ try {
 // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
 await sheetsAppendBilhetes({
   spreadsheetId: process.env.SHEETS_BPE_ID,
-  range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AG',
+  range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
   bilhetes: bilhetes.map(b => ({
     ...b,
     driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
