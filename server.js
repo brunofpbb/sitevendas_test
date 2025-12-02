@@ -1079,7 +1079,7 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
   const statusMP = String(payment?.status || '').toLowerCase();
   const statusPagamento =
     (statusMP === 'approved' || statusMP === 'accredited')
-      ? 'Aprovado'
+      ? 'approved'
       : (statusMP === 'pending'
           ? 'Pendente'
           : (statusMP === 'rejected' ? 'Rejeitado' : payment?.status || ''));
