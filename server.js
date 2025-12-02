@@ -39,47 +39,6 @@ async function logVendaFalha(entry) {
 }
 
 
-/*
-
-async function notifyAdminVendaFalha(entry) {
-  try {
-    const appName = process.env.APP_NAME || 'Turin Transportes';
-    const fromName = process.env.SUPPORT_FROM_NAME || appName;
-    const fromEmail =
-      process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
-
-    const subject =
-      `[${appName}] Falha na emissão de bilhete (payment ${entry?.mpPaymentId || entry?.payment?.id || '—'})`;
-
-    const body = [
-      'Falha na emissão do bilhete após pagamento aprovado.',
-      '',
-      `Erro: ${entry.errorMessage || entry.error || '(sem mensagem)'}`,
-      '',
-      'Dados da venda/pagamento:',
-      JSON.stringify(entry, null, 2),
-    ].join('\n');
-
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: ADMIN_ALERT_EMAIL,
-      subject,
-      text: body,
-    });
-
-    console.log('[Venda][Erro] alerta enviado para', ADMIN_ALERT_EMAIL);
-  } catch (e) {
-    console.error('[Venda][Erro] falha ao enviar e-mail de alerta:', e?.message || e);
-  }
-}
-*/
-
-
-
-
-
-
-
 async function notifyAdminVendaFalha(entry) {
   try {
     const appName = process.env.APP_NAME || 'Turin Transportes';
@@ -134,19 +93,6 @@ async function notifyAdminVendaFalha(entry) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 // === serviços de bilhete (PDF) ===
 const { mapVendaToTicket } = require('./services/ticket/mapper');
 const { generateTicketPdf } = require('./services/ticket/pdf');
@@ -169,10 +115,7 @@ function normalizePhoneBR(v) {
   return d || ''; // ex.: "31999998888"
 }
 
-/**
- * Prioriza e-mail do login (mesma regra do e-mail que você envia o PDF),
- * com fallback para o e-mail do comprador (MP ou vendaResult).
- */
+
 function getLoginEmail(req, payment, vendaResult) {
   const fromLogin =
     getMail(req?.user?.email) ||
@@ -333,118 +276,7 @@ function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
 // Converte “2025-11-03 10:48” -> “2025-11-03T10:48-03:00”
 const toISO3 = (s) => s ? (s.replace(' ', 'T') + '-03:00') : '';
 
-/*
-async function sheetsAppendBilhetes({
-  spreadsheetId,
-  range = 'BPE!A:AK',
-  bilhetes,                    // [{ numPassagem, nomeCliente, docCliente, valor, poltrona, driveUrl, origem, destino, idaVolta }]
-  schedule,                    // { date, horaPartida, originName/destinationName ... }
-  payment,                     // objeto do MP
-  userEmail,
-  userPhone,
-  idaVoltaDefault = ''
-}) {
-  try {
-    const sheets = await sheetsAuthRW();
 
-    const fee  = payment?.fee_details?.[0]?.amount ?? '';
-    const net  = payment?.transaction_details?.net_received_amount ?? '';
-    const chId = payment?.charges_details?.[0]?.id ?? '';
-    const dtAp = payment?.date_approved || null;
-
-    const pagoSP = dtAp
-      ? (new Date(dtAp)).toLocaleString('sv-SE', { timeZone:'America/Sao_Paulo', hour12:false }).replace(' ','T') + '-03:00'
-      : '';
-
-// Identificação robusta do método
-const mpType = String(payment?.payment_type_id   || '').toLowerCase();   // 'credit_card' | 'debit_card' | 'bank_transfer'...
-const pmId   = String(payment?.payment_method_id || '').toLowerCase();   // ex.: 'pix', 'visa', 'master', ...
-
-// Descrição amigável para a planilha
-const forma =
-  pmId.includes('pix') || mpType === 'pix' || mpType === 'bank_transfer'
-    ? 'Pix'
-    : mpType === 'debit_card'
-      ? 'Cartão de Débito'
-      : mpType === 'credit_card'
-        ? 'Cartão de Crédito'
-        : '';
-
-// Código numérico para a planilha (0 = Pix, 3 = Cartão)
-const tipoPagamento = forma === 'Pix' ? '0' : '3';
-
- 
-// garanta que é array de bilhetes válidos
-const list = Array.isArray(bilhetes) ? bilhetes.filter(Boolean) : [];
-
-const values = list.map(b => {
-  // fonte de data/hora
-  const dataViagem  = (b?.dataViagem || schedule?.date || schedule?.dataViagem || '');
-  const horaPartida = String(b?.horaPartida || schedule?.horaPartida || schedule?.departureTime || '').slice(0,5);
-  const dataHoraViagem = (dataViagem && horaPartida) ? `${dataViagem} ${horaPartida}` : (dataViagem || horaPartida);
-
-  // sentido por bilhete, com fallback do bundle
-  const sentido = b?.idaVolta
-    ? String(b.idaVolta)
-    : (String(idaVoltaDefault).toLowerCase() === 'volta' ? 'Volta' : 'Ida');
-
-  return [
-    nowSP(),                                // Data/horaSolicitação
-    b.nomeCliente || '',                    // Nome
-    (userPhone ? ('55' + userPhone) : ''),  // Telefone (DDI 55)
-    (userEmail || ''),                      // E-mail
-    b.docCliente || '',                     // CPF
-    Number(b.valor ?? 0).toFixed(2),        // Valor
-    '2',                                    // ValorConveniencia
-    String(fee).toString().replace('.', ','), // ComissaoMP
-    String(net).toString().replace('.', ','), // ValorLiquido
-    b.numPassagem || '',                    // NumPassagem
-    '93',                                   // SeriePassagem
-    String(payment?.status || ''),          // StatusPagamento
-    'Emitido',                              // Status
-    '',                                     // ValorDevolucao
-    sentido,                                // Sentido
-    pagoSP,                                 // Data/hora_Pagamento
-    '',                                     // NomePagador
-    '',                                     // CPF_Pagador
-    chId,                                   // ID_Transação
-    tipoPagamento,                          // TipoPagamento (0=PIX, 3=Cartão)
-    '',                                     // correlationID
-    '',                                     // idURL
-    payment?.external_reference || '',      // Referencia
-    forma,                                  // Forma_Pagamento (rótulo)
-    '',                                     // idUser
-    dataViagem,                             // Data_Viagem
-    dataHoraViagem,                         // Data_Hora
-    b.origem || schedule?.originName || schedule?.origem || '',         // Origem
-    b.destino || schedule?.destinationName || schedule?.destino || '',  // Destino
-    '',                                     // Identificador
-    payment?.id || '',                      // idPagamento
-    b.driveUrl || '',                       // LinkBPE
-    b.poltrona || ''                        // Poltrona
-  ];
-});
-
-    if (!values.length) return { ok:true, appended:0 };
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values }
-    });
-
-    console.log('[Sheets] append ok:', values.length, 'linhas');
-    return { ok:true, appended: values.length };
-  
-  } catch (e) {
-    console.error('[Sheets] append erro:', e?.message || e);
-    return { ok:false, error: e?.message || String(e) };
-  }
-}
-
-*/
 
 // === Grava / atualiza bilhetes no Sheets (usa Referencia) ===
 async function sheetsAppendBilhetes({
@@ -739,120 +571,6 @@ async function sheetsAppendBilhetes({
 }
 
 
-
-
-
-
-
-
-/*
-
-// === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
-app.post('/api/sheets/pre-reserva', async (req, res) => {
-  try {
-    const {
-      external_reference,
-      userEmail = '',
-      userPhone = '',
-      bilhetes = []
-    } = req.body || {};
-
-    if (!external_reference || !Array.isArray(bilhetes) || !bilhetes.length) {
-      return res.status(400).json({
-        ok: false,
-        error: 'external_reference e bilhetes são obrigatórios.'
-      });
-    }
-
-    const sheets = await sheetsAuthRW();
-    const spreadsheetId = process.env.SHEETS_BPE_ID;
-    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
-
-    const phoneDigits = String(userPhone || '').replace(/\D/g, '');
-    const phoneSheet = phoneDigits ? `55${phoneDigits}` : '';
-
-    const now = nowSP();
-
-    const values = bilhetes.map((b) => {
-      const dataViagem = b.dataViagem || b.date || '';
-      const horaPartida = (b.horaPartida || '').toString().slice(0, 5);
-      const dataHoraViagem = dataViagem && horaPartida
-        ? `${dataViagem} ${horaPartida}`
-        : (dataViagem || horaPartida);
-
-      const sentido = (String(b.idaVolta || '').toLowerCase() === 'volta')
-        ? 'Volta'
-        : 'Ida';
-
-      const nome = b.nomeCliente || b.nome || '';
-      const doc = String(b.docCliente || b.cpf || b.document || '')
-        .replace(/\D/g, '');
-
-      const valorNumber =
-        Number(String(b.valor || b.price || 0).replace(',', '.')) || 0;
-      const valor = valorNumber.toFixed(2);
-
-      return [
-        now,                    // Data/horaSolicitação
-        nome,                   // Nome
-        phoneSheet,             // Telefone
-        userEmail,              // E-mail
-        doc,                    // CPF
-        valor,                  // Valor
-        '2',                    // ValorConveniencia (mantém 2 como hoje)
-        '',                     // ComissaoMP
-        '',                     // ValorLiquido
-        '',                     // NumPassagem
-        '93',                   // SeriePassagem
-        'Aguardando pagamento', // StatusPagamento
-        'Pendente',             // Status
-        '',                     // ValorDevolucao
-        sentido,                // Sentido
-        '',                     // Data/hora_Pagamento
-        '',                     // NomePagador
-        '',                     // CPF_Pagador
-        '',                     // ID_Transação
-        '',                     // TipoPagamento
-        '',                     // correlationID
-        '',                     // idURL
-        external_reference,     // Referencia
-        '',                     // Forma_Pagamento
-        '',                     // idUser
-        dataViagem,             // Data_Viagem
-        dataHoraViagem,         // Data_Hora
-        b.origemNome  || b.origem  || '',   // Origem
-        b.destinoNome || b.destino || '',   // Destino
-        '',                     // Identificador (livre pra uso futuro)
-        '',                     // idPagamento
-        '',                     // LinkBPE
-        b.poltrona || b.seatNumber || ''    // Poltrona
-      ];
-    });
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values }
-    });
-
-    console.log('[Sheets][pre-reserva] append ok:', values.length, 'linhas');
-
-    return res.json({ ok: true, appended: values.length });
-  } catch (e) {
-    console.error('[Sheets][pre-reserva] erro:', e);
-    return res.status(500).json({
-      ok: false,
-      error: e?.message || String(e)
-    });
-  }
-});
-
-
-*/
-
-
 // === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
 app.post('/api/sheets/pre-reserva', async (req, res) => {
   try {
@@ -932,10 +650,11 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
         '',                     // idPagamento
         '',                     // LinkBPE
         b.poltrona || b.seatNumber || '',   // Poltrona
-        b.idViagem  || b.id_viagem  || '',  // IdViagem  (NOVA COLUNA)
-        b.idOrigem  || b.id_origem  || '',  // IdOrigem  (NOVA COLUNA)
-        b.idDestino || b.id_destino || '',  // IdDestino (NOVA COLUNA)
+        b.idViagem  || b.id_viagem  || idViagem || '',  // IdViagem  (NOVA COLUNA)
+        b.idOrigem  || b.id_origem  || idOrigem || '',  // IdOrigem  (NOVA COLUNA)
+        b.idDestino || b.id_destino || idDestino ||'',  // IdDestino (NOVA COLUNA) 
         horaPartida             // Hora_Partida (NOVA COLUNA)
+        
       ];
     });
 
@@ -958,10 +677,6 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
     });
   }
 });
-
-
-
-
 
 
 // normaliza texto: minúsculo, sem acento e sem sinais
@@ -1251,8 +966,6 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 }
 
 
-
-
 // === Helpers para trabalhar com a planilha BPE por "Referencia" ===
 async function sheetsFindByRef(externalRef) {
   const spreadsheetId = process.env.SHEETS_BPE_ID;
@@ -1511,13 +1224,6 @@ async function emitirBilhetesViaWebhook(payment) {
 }
 
 
-
-
-
-
-
-
-
 /* ============================================================================
    Descobrir e-mail do cliente (prioriza login, inclui body.userEmail)
 ============================================================================ */
@@ -1666,89 +1372,6 @@ app.post('/api/mp/webhook', async (req, res) => {
     });
   }
 });
-
-
-
-
-
-
-
-/*
-// Webhook do Mercado Pago (pagamento aprovado / etc.)
-app.post('/api/mp/webhook', async (req, res) => {
-  try {
-    const body = req.body || {};
-    console.log('[MP][Webhook] body:', JSON.stringify(body).slice(0, 500));
-
-    let paymentId = null;
-
-    if (body?.data?.id) {
-      paymentId = body.data.id;
-    } else if (body?.resource && typeof body.resource === 'string') {
-      const m = body.resource.match(/\/(\d+)(\?.*)?$/);
-      if (m) paymentId = m[1];
-    } else if (body?.id) {
-      paymentId = body.id;
-    }
-
-    if (!paymentId) {
-      console.warn('[MP][Webhook] Sem paymentId no payload, ignorando.');
-      return res.status(200).json({ ok: true, received: true, ignored: true });
-    }
-
-    const payment = await mpGetPayment(paymentId);
-    if (!payment) {
-      console.warn('[MP][Webhook] Não foi possível obter detalhes do pagamento', paymentId);
-      return res.status(200).json({ ok: true, received: true, noPayment: true });
-    }
-
-    const extRef = payment.external_reference;
-    if (!extRef) {
-      console.warn('[MP][Webhook] Pagamento sem external_reference, id=', paymentId);
-      return res.status(200).json({ ok: true, received: true, noRef: true });
-    }
-
-    // Atualiza somente informações de pagamento nas linhas já gravadas na pré-reserva
-    await sheetsUpdatePaymentStatusByRef(extRef, payment);
-
-    return res.status(200).json({ ok: true, processed: true });
-  } catch (e) {
-    console.error('[MP][Webhook] erro:', e);
-    // Mesmo em erro, responde 200 para evitar excesso de retentativas
-    return res.status(200).json({
-      ok: false,
-      error: e?.message || String(e)
-    });
-  }
-});
-
-*/
-
-
-/*
-
-// Webhook do Mercado Pago (pagamento aprovado / etc.)
-app.post('/api/mp/webhook', async (req, res) => {
-  try {
-    console.log('=== [MP][Webhook] CHEGOU ===');
-    console.log('Headers:', JSON.stringify(req.headers || {}, null, 2));
-    console.log('Body   :', JSON.stringify(req.body || {}, null, 2).slice(0, 2000));
-
-    // sempre devolve 200 pro MP não considerar erro
-    return res.status(200).send('ok');
-  } catch (e) {
-    console.error('[MP][Webhook] erro inesperado:', e);
-    // mesmo em erro devolve 200 para o MP não ficar retentando loucamente
-    return res.status(200).send('ok');
-  }
-});
-
-*/
-
-
-
-
-
 
 
 
@@ -1979,46 +1602,7 @@ app.post('/api/cancel-ticket', async (req, res) => {
     const grava = await praxioGravaDevolucao({ idSessao: IdSessaoOp, xmlPassagem });
     console.log('[PRAXIO] RES GravaDevolucao =>', JSON.stringify(grava).slice(0, 800));
 
-
-    /*
-
-    // 3) MP — calcula disponível e estorna (LOGs)
-    const pay = await mpGetPayment(paymentId);
-    const total = +Number(pay.transaction_amount || 0).toFixed(2);
-    const refundedSoFar = Array.isArray(pay.refunds)
-      ? +pay.refunds.reduce((a, r) => a + (+Number(r.amount || 0).toFixed(2)), 0).toFixed(2)
-      : 0;
-    const disponivel = Math.max(0, +Number(total - refundedSoFar).toFixed(2));
-    console.log('[MP] paymentId=', paymentId, 'total=', total, 'refundedSoFar=', refundedSoFar, 'disponivel=', disponivel);
-
-    let valorRefund = Math.min(valorRefundDesejado, disponivel);
-    if (valorRefund < 0) valorRefund = 0;
-
-    let refund = null;
-    if (valorRefund > 0) {
-      console.log('[MP] POST refund url= https://api.mercadopago.com/v1/payments/'+paymentId+'/refunds',
-                  'body=', { amount: +Number(valorRefund).toFixed(2) },
-                  'headers:', { 'X-Idempotency-Key': correlationID || '(auto)' });
-      try {
-        refund = await mpRefund({ paymentId, amount: valorRefund, idempotencyKey: correlationID });
-        console.log('[MP] RES refund =>', JSON.stringify(refund).slice(0, 800));
-      } catch (err) {
-        const det = err?.details?.cause?.[0]?.description || err?.details?.message || err?.message;
-        throw new Error(det || 'Falha ao estornar no Mercado Pago');
-      }
-    } else {
-      console.log('[MP] Sem valor disponível para estorno. valorRefund=', valorRefund, 'disponivel=', disponivel);
-    }
-
-
-
-    */
-
-
-
-
-
-
+   
         // 3) MP — calcula disponível e estorna (LOGs)
     const pay = await mpGetPayment(paymentId);
     const total = +Number(pay.transaction_amount || 0).toFixed(2);
@@ -2112,36 +1696,6 @@ app.post('/api/cancel-ticket', async (req, res) => {
       
     });
 
-
-
-
-
-
-
-
-
-
-
-    /*
-
-    // 4) Sheets — marcar "Cancelado" (não falha a operação se o update quebrar)
-    let planilha = { ok: true };
-    try {
-      await sheetsUpdateStatus(rowIndex, 'Cancelado');
-    } catch (err) {
-      console.error('[Sheets] Falha ao atualizar Status:', err?.message || err);
-      planilha = { ok: false, error: err?.message || String(err) };
-    }
-
-    return res.json({
-      ok: true,
-      numeroPassagem,
-      valorOriginal,
-      valorRefund,
-      praxio: { verifica: ver, grava },
-      mp: refund ? refund : { note: 'Sem estorno (indisponível).' },
-      planilha
-    });*/
   } catch (e) {
     const http = e?.code === 'PRAXIO_BLOQUEADO' ? 409 : 500;
     console.error('[cancel-ticket] erro:', e);
@@ -2340,11 +1894,6 @@ function normalizeHoraPartida(h) {
 }
 
 
-
-
-
-
-
 // ==== Agregador por compra (webhook/e-mail/Sheets) ====
 // groupId -> { timer, startedAt, base, bilhetes:[], arquivos:[], emailAttachments:[], expected, flushed }
 const AGGR = new Map();
@@ -2420,16 +1969,6 @@ const tryFlush = async () => {
   clearTimeout(e.timer);
   e.timer = setTimeout(tryFlush, AGGR_DEBOUNCE_MS);
 }
-
-
-
-
-
-
-
-
-
-
 
 
 // === Idempotência curta para evitar duplo envio por compra ===
@@ -2738,9 +2277,6 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
 
-
-
-
         // --- Se a Praxio não devolver bilhete, registra erro e avisa suporte
     const semBilhetes =
       !vendaResult ||
@@ -2778,18 +2314,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       });
     }
 
-
-
-
-
-
-
-
-
-
-
-
-    
+ 
 
     // 🔎 Validação extra: garantir que existem bilhetes válidos
     const lista = Array.isArray(vendaResult.ListaPassagem)
@@ -2801,25 +2326,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       throw new Error(`Venda Praxio sem bilhetes: ${msg}`);
     }
 
-    /*
-    // 🔎 Verificar erro por poltrona (Sucesso=false / Mensagem preenchida)
-    const errosPoltronas = lista.filter(p =>
-      p.Sucesso === false ||
-      (p.Mensagem && String(p.Mensagem).trim() !== '') ||
-      (p.MensagemDetalhada && String(p.MensagemDetalhada).trim() !== '')
-    );
-
-    if (errosPoltronas.length) {
-      const msgs = errosPoltronas
-        .map(p => p.Mensagem || p.MensagemDetalhada)
-        .filter(Boolean)
-        .join(' | ');
-
-      throw new Error(`Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`);
-    }*/
-
-
-
+   
     // 🔎 Verificar erro por poltrona
 const errosPoltronas = lista.filter(p => {
   const msg = (p.Mensagem || p.MensagemDetalhada || '').toLowerCase();
@@ -2843,7 +2350,6 @@ if (errosPoltronas.length) {
   );
 }
 
-  
     
 
     // 5) Gerar PDFs (local) e subir no Drive
@@ -2876,26 +2382,6 @@ if (errosPoltronas.length) {
       // 5.2 subir no Drive (opcional)
       let drive = null;
       try {
-       /* const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
-        //const sentido = resolveSentido(p, schedule, scheduleVolta, idaVoltaDefault);
-        //const sentido = (String(idaVolta).toLowerCase()==='volta') ? 'volta' : 'ida';
-        const buf = await fs.promises.readFile(localPath);
-        const nome = `${slug(ticket.nomeCliente || 'passageiro')}_${ticket.numPassagem}_${sentido}.pdf`;
-        drive = await uploadPdfToDrive({
-          buffer: buf,
-          filename: nome,
-          folderId: process.env.GDRIVE_FOLDER_ID,
-        });
-
-
-       
-        // preparar anexos para e-mail
-        emailAttachments.push({
-          filename: nome,
-          contentBase64: buf.toString('base64'),
-          buffer: buf,
-        });*/
-
       const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
       const buf = await fs.promises.readFile(localPath);
 const nome = `${slug(ticket.nomeCliente || 'passageiro')}_${ticket.numPassagem}_${sentido}.pdf`;
@@ -2905,10 +2391,6 @@ drive = await uploadPdfToDrive({
   folderId: process.env.GDRIVE_FOLDER_ID,
 });
 emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), buffer: buf });
-
-
-
-
         
       } catch (e) {
         console.error('[Drive] upload falhou:', e?.message || e);
@@ -2933,28 +2415,6 @@ emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), b
         driveFileId: drive?.id || null
       });
 
-/*bilhetesPayload.push({
-  numPassagem: p.NumPassagem || ticket.numPassagem,
-  chaveBPe:    p.ChaveBPe || ticket.chaveBPe || null,
-  origem:      p.Origem || ticket.origem || schedule?.originName || schedule?.origem || null,
-  destino:     p.Destino || ticket.destino || schedule?.destinationName || schedule?.destino || null,
-  origemNome:  ticket.origem || schedule?.originName || schedule?.origem || null,      // p/ cabeçalho da rota
-  destinoNome: ticket.destino || schedule?.destinationName || schedule?.destino || null,
-  poltrona:    p.Poltrona || ticket.poltrona || null,
-  nomeCliente: p.NomeCliente || ticket.nomeCliente || null,
-  docCliente:  p.DocCliente || ticket.docCliente || null,
-  valor:       p.ValorPgto ?? ticket.valor ?? null,
-
-  // ✅ adiciona Data/Hora por bilhete
-  dataViagem:  p.DataViagem || ticket.dataViagem || schedule?.date || schedule?.dataViagem || '',
-  horaPartida: p.HoraPartida || ticket.horaPartida || schedule?.horaPartida || schedule?.departureTime || '',
-
-  // ✅ garante sentido por bilhete
-  const sentido = resolveSentido(p, schedule, scheduleVolta, idaVoltaDefault);
-  idaVolta:   sentido || (String(idaVolta).toLowerCase() === 'volta' ? 'Volta' : 'Ida')
-});*/
-
-
 bilhetesPayload.push({
   numPassagem: p.NumPassagem || ticket.numPassagem,
   chaveBPe:    p.ChaveBPe || ticket.chaveBPe || null,
@@ -2972,15 +2432,8 @@ bilhetesPayload.push({
 
   idaVolta:    sentido
 });
-
-
-      
-
-          }
-
-
-
-
+   
+}
 
 
   // --- FRAGMENTO a enfileirar no agregador ---
@@ -3048,12 +2501,6 @@ const listaHtml = bilhetes.map((b, i) => {
           </li>`;
 }).join('');
 
-
-// cabeçalho (Data/Hora do schedule pode não representar todos; ok deixar só valor total)
-// const appName   = process.env.APP_NAME || 'Turin Transportes';
-// const fromName  = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-// const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
-
 const html =
   `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
      <p>Olá,</p>
@@ -3074,9 +2521,6 @@ const text = [
 ].join('\n');
 
 // usa os nomes já definidos (displayName)
-//const attachmentsSMTP  = emailAttachments.map(a => ({ filename: a.filename, content: a.buffer }));
-//const attachmentsBrevo = emailAttachments.map(a => ({ name: a.filename, content: a.contentBase64 }));
-
 const attachmentsSMTP  = emailAttachments.map(a => ({
   filename: a.filename,
   content:  a.buffer
@@ -3087,11 +2531,7 @@ const attachmentsBrevo = emailAttachments.map(a => ({
   contentBase64: a.contentBase64
 }));
 
-
-
-
-
-    
+   
     let sent = false;
     try {
       const got = await ensureTransport();
@@ -3114,26 +2554,6 @@ const attachmentsBrevo = emailAttachments.map(a => ({
     console.warn('[Email] comprador sem e-mail. Pulando envio.');
   }
   
-/*
-  // 2) SHEETS – 1 linha por bilhete
-  await sheetsAppendBilhetes({
-    spreadsheetId: process.env.SHEETS_BPE_ID,
-    range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
-    bilhetes: bilhetes.map(b => ({
-      ...b,
-      driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
-             || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
-             || ''
-    })),
-    schedule,
-    payment,
-    userEmail,                          // mesmo e-mail usado no envio
-    userPhone,                           // normalizado
-    idaVoltaDefault: idaVolta
-  });
-  
-  */
-
 
   // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
 try {
@@ -3161,46 +2581,9 @@ await sheetsAppendBilhetes({
   userEmail,
   userPhone,
   idaVoltaDefault: idaVolta
-});
-
-
-  
+});  
   
 });
-
-
-
-/*    
-
-// 7) Retorno para o front
-    return res.json({ ok: true, venda: vendaResult, arquivos });
-
-
-  } catch (e) {
-    console.error('[Praxio][Venda] erro:', e);
-
-    const msg = e && e.message
-      ? e.message
-      : 'Falha ao vender/gerar bilhete.';
-
-    // se for erro conhecido de venda (poltrona indisponível etc.) devolve 400,
-    // senão 500 (erro interno)
-    const isPraxioError = /Erro na venda de uma ou mais poltronas|Venda Praxio sem bilhetes|Falha VendaPassagem/i
-      .test(msg);
-
-    const status = isPraxioError ? 400 : 500;
-
-    return res
-      .status(status)
-      .json({ ok: false, error: msg });   // mantém "error" porque o payment.js usa j.error
-  }
-});
-
-*/
-
-
-
-
 
 
 return res.json({ ok: true, vendaResult, arquivos });
@@ -3232,31 +2615,7 @@ return res.json({ ok: true, vendaResult, arquivos });
     });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-    
+   
 
 /* =================== Fallback para .html =================== */
 app.get('*', (req, res, next) => {
