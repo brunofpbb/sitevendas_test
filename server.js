@@ -428,7 +428,7 @@ const forma =
           '',                                     // Identificador
           payment?.id || '',                      // idPagamento
           b.driveUrl || '',                       // LinkBPE
-          b.poltrona || ''                        // Poltrona
+          b.poltrona || '',                        // Poltrona
           schedule?.idViagem  || '',              // IdViagem  (nova)
           schedule?.idOrigem  || '',              // IdOrigem  (nova)
           schedule?.idDestino || '',              // IdDestino (nova)
