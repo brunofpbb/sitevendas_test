@@ -846,6 +846,46 @@ async function sheetsUpdateStatus(rowIndex, status) {
 */
 
 
+
+
+
+
+
+
+
+
+async function sheetsUpdateStatus(rowIndex, status) {
+  const sheets = getSheets();
+  const { spreadsheetId, tab } = resolveSheetEnv();
+
+  const { data } = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${tab}!1:1`
+  });
+  const header = data.values?.[0] || [];
+  const col = header.findIndex(h => String(h).trim().toLowerCase() === 'status');
+  if (col < 0) throw new Error('Coluna "Status" não encontrada');
+
+  const colA = String.fromCharCode(65 + col); // OK, Status está ali perto do M
+  const a1 = `${tab}!${colA}${rowIndex + 1}`;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: a1,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[status]]
+    }
+  });
+
+  console.log('[Sheets][Cancel] Linha', rowIndex + 1, 'Status <-', status);
+}
+
+
+
+
+
+/*
 // Atualiza a coluna "Status" (e só ela) de uma linha da planilha BPE
 async function sheetsUpdateStatus(rowIndex, novoStatus) {
   const { spreadsheetId, tab } = resolveSheetEnv();   // mesma função que você já usa
@@ -896,7 +936,7 @@ async function sheetsUpdateStatus(rowIndex, novoStatus) {
   console.log('[Sheets][Cancel] Linha', rowNumber, 'Status <-', novoStatus);
 }
 
-
+*/
 
 
 // Atualiza status de pagamento no Sheets usando a Referencia
@@ -985,10 +1025,19 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 
     const newRow = [...row];
 
-    if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
+   /*if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
     // se ainda não foi emitido, mantemos Status como está (Pendente)
     if (colStatus >= 0 && !newRow[colStatus]) newRow[colStatus] = 'Pendente';
-    if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;
+    if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;*/
+
+    if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
+
+// Só mexe em Status se estiver VAZIO (pré-reserva)
+if (colStatus >= 0 && !newRow[colStatus]) {
+  newRow[colStatus] = 'Pendente';
+}
+
+    
     if (colIdPg >= 0 && idPagamento) newRow[colIdPg] = idPagamento;
     if (colTipoPg >= 0 && tipo) newRow[colTipoPg] = tipo;
     if (colFormaPg >= 0 && forma) newRow[colFormaPg] = forma;
