@@ -820,7 +820,7 @@ async function sheetsFindByBilhete(numPassagem) {
 
   return { spreadsheetId, tab, rows, header, rowIndex };
 }
-
+/*
 async function sheetsUpdateStatus(rowIndex, status) {
   const sheets = getSheets();
   const { spreadsheetId, tab } = resolveSheetEnv();
@@ -843,6 +843,59 @@ async function sheetsUpdateStatus(rowIndex, status) {
     requestBody: { values: [[status]] }
   });
 }
+*/
+
+
+// Atualiza a coluna "Status" (e só ela) de uma linha da planilha BPE
+async function sheetsUpdateStatus(rowIndex, novoStatus) {
+  const { spreadsheetId, tab } = resolveSheetEnv();   // mesma função que você já usa
+  const sheets = await getSheets();                   // idem
+
+  // rowIndex vem do array "rows" que inclui o header (linha 1),
+  // então a linha real na planilha é rowIndex + 1
+  const rowNumber = rowIndex + 1;
+
+  // Lê o cabeçalho inteiro (linha 1)
+  const headerRes = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${tab}!1:1`,
+  });
+
+  const header = (headerRes.data.values && headerRes.data.values[0]) || [];
+
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const colStatusIndex = header.findIndex(h => norm(h) === 'status');
+
+  if (colStatusIndex === -1) {
+    throw new Error('Coluna "Status" não encontrada na planilha.');
+  }
+
+  // Converte índice numérico → letra de coluna (0 = A, 1 = B, ..., 26 = AA...)
+  function indexToColumnLetter(index) {
+    let n = index;
+    let letters = '';
+    while (n >= 0) {
+      letters = String.fromCharCode(65 + (n % 26)) + letters;
+      n = Math.floor(n / 26) - 1;
+    }
+    return letters;
+  }
+
+  const colLetter = indexToColumnLetter(colStatusIndex);
+  const range = `${tab}!${colLetter}${rowNumber}:${colLetter}${rowNumber}`;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [[String(novoStatus || '')]],
+    },
+  });
+
+  console.log('[Sheets][Cancel] Linha', rowNumber, 'Status <-', novoStatus);
+}
+
 
 
 
