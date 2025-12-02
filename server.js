@@ -650,9 +650,9 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
         '',                     // idPagamento
         '',                     // LinkBPE
         b.poltrona || b.seatNumber || '',   // Poltrona
-        b.idViagem  || b.id_viagem  || idViagem || '',  // IdViagem  (NOVA COLUNA)
-        b.idOrigem  || b.id_origem  || idOrigem || '',  // IdOrigem  (NOVA COLUNA)
-        b.idDestino || b.id_destino || idDestino ||'',  // IdDestino (NOVA COLUNA) 
+        b.idViagem  || b.id_viagem || '',  // IdViagem  (NOVA COLUNA)
+        b.idOrigem  || b.id_origem || '',  // IdOrigem  (NOVA COLUNA)
+        b.idDestino || b.id_destino ||'',  // IdDestino (NOVA COLUNA) 
         horaPartida             // Hora_Partida (NOVA COLUNA)
         
       ];
