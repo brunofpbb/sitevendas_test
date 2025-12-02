@@ -745,7 +745,7 @@ async function sheetsAppendBilhetes({
 
 
 
-
+/*
 
 // === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
 app.post('/api/sheets/pre-reserva', async (req, res) => {
@@ -850,9 +850,114 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
 });
 
 
+*/
 
 
+// === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
+app.post('/api/sheets/pre-reserva', async (req, res) => {
+  try {
+    const {
+      external_reference,
+      userEmail = '',
+      userPhone = '',
+      bilhetes = []
+    } = req.body || {};
 
+    if (!external_reference || !Array.isArray(bilhetes) || !bilhetes.length) {
+      return res.status(400).json({
+        ok: false,
+        error: 'external_reference e bilhetes são obrigatórios.'
+      });
+    }
+
+    const sheets = await sheetsAuthRW();
+    const spreadsheetId = process.env.SHEETS_BPE_ID;
+    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
+
+    const phoneDigits = String(userPhone || '').replace(/\D/g, '');
+    const phoneSheet = phoneDigits ? `55${phoneDigits}` : '';
+
+    const now = nowSP();
+
+    const values = bilhetes.map((b) => {
+      const dataViagem = b.dataViagem || b.date || '';
+      const horaPartida = (b.horaPartida || '').toString().slice(0, 5);
+      const dataHoraViagem = dataViagem && horaPartida
+        ? `${dataViagem} ${horaPartida}`
+        : (dataViagem || horaPartida);
+
+      const sentido = (String(b.idaVolta || '').toLowerCase() === 'volta')
+        ? 'Volta'
+        : 'Ida';
+
+      const nome = b.nomeCliente || b.nome || '';
+      const doc = String(b.docCliente || b.cpf || b.document || '')
+        .replace(/\D/g, '');
+
+      const valorNumber =
+        Number(String(b.valor || b.price || 0).replace(',', '.')) || 0;
+      const valor = valorNumber.toFixed(2);
+
+      return [
+        now,                    // Data/horaSolicitação
+        nome,                   // Nome
+        phoneSheet,             // Telefone
+        userEmail,              // E-mail
+        doc,                    // CPF
+        valor,                  // Valor
+        '2',                    // ValorConveniencia
+        '',                     // ComissaoMP
+        '',                     // ValorLiquido
+        '',                     // NumPassagem
+        '93',                   // SeriePassagem
+        'Aguardando pagamento', // StatusPagamento
+        'Pendente',             // Status
+        '',                     // ValorDevolucao
+        sentido,                // Sentido
+        '',                     // Data/hora_Pagamento
+        '',                     // NomePagador
+        '',                     // CPF_Pagador
+        '',                     // ID_Transação
+        '',                     // TipoPagamento
+        '',                     // correlationID
+        '',                     // idURL
+        external_reference,     // Referencia
+        '',                     // Forma_Pagamento
+        '',                     // idUser
+        dataViagem,             // Data_Viagem
+        dataHoraViagem,         // Data_Hora
+        b.origemNome  || b.origem  || '',   // Origem
+        b.destinoNome || b.destino || '',   // Destino
+        '',                     // Identificador
+        '',                     // idPagamento
+        '',                     // LinkBPE
+        b.poltrona || b.seatNumber || '',   // Poltrona
+        b.idViagem  || b.id_viagem  || '',  // IdViagem  (NOVA COLUNA)
+        b.idOrigem  || b.id_origem  || '',  // IdOrigem  (NOVA COLUNA)
+        b.idDestino || b.id_destino || '',  // IdDestino (NOVA COLUNA)
+        horaPartida             // Hora_Partida (NOVA COLUNA)
+      ];
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values }
+    });
+
+    console.log('[Sheets][pre-reserva] append ok:', values.length, 'linhas');
+
+    return res.json({ ok: true, appended: values.length });
+  } catch (e) {
+    console.error('[Sheets][pre-reserva] erro:', e);
+    return res.status(500).json({
+      ok: false,
+      error: e?.message || String(e)
+    });
+  }
+});
 
 
 
@@ -1498,9 +1603,77 @@ app.get('/api/mp/wait-flush', async (req, res) => {
 
 
 
+app.post('/api/mp/webhook', async (req, res) => {
+  try {
+    console.log('[MP][Webhook] body:', JSON.stringify(req.body));
+
+    const topic  = req.body?.type || req.query?.type;
+    const action = req.body?.action || req.query?.action;
+    const dataId =
+      req.body?.data?.id ||
+      req.query?.['data.id'] ||
+      req.query?.id ||
+      null;
+
+    // Só tratamos notificações de pagamento com id válido
+    if (topic !== 'payment' || !dataId) {
+      console.log('[MP][Webhook] ignorado. topic=', topic, 'id=', dataId);
+      return res.status(200).json({ ok: true, ignored: true });
+    }
+
+    const paymentId = String(dataId);
+    console.log('[MP][Webhook] consultando pagamento', paymentId);
+
+    const payment = await mpGetPayment(paymentId);
+    console.log(
+      '[MP][Webhook] status:',
+      payment?.status,
+      'external_reference:',
+      payment?.external_reference
+    );
+
+    const extRef = payment?.external_reference || null;
+    if (extRef) {
+      // 1) Atualiza status de pagamento na pré-reserva
+      await sheetsUpdatePaymentStatusByRef(extRef, payment);
+    } else {
+      console.warn('[MP][Webhook] pagamento sem external_reference, não atualiza Sheets');
+    }
+
+    // 2) Se estiver efetivamente pago (approved/accredited), dispara emissão
+    const status = String(payment?.status || '').toLowerCase();
+    const pago =
+      status === 'approved' ||
+      status === 'accredited';
+
+    if (pago) {
+      try {
+        console.log('[MP][Webhook] pagamento pago, emitindo bilhetes via webhook...');
+        await emitirBilhetesViaWebhook(payment);
+      } catch (err) {
+        console.error('[MP][Webhook] erro ao emitir bilhetes via webhook:', err?.message || err);
+      }
+    } else {
+      console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
+    }
+
+    return res.status(200).json({ ok: true, processed: true });
+  } catch (e) {
+    console.error('[MP][Webhook] erro geral:', e?.response?.data || e);
+    return res.status(500).json({
+      ok: false,
+      error: e?.message || String(e)
+    });
+  }
+});
 
 
 
+
+
+
+
+/*
 // Webhook do Mercado Pago (pagamento aprovado / etc.)
 app.post('/api/mp/webhook', async (req, res) => {
   try {
@@ -1549,7 +1722,7 @@ app.post('/api/mp/webhook', async (req, res) => {
   }
 });
 
-
+*/
 
 
 /*
