@@ -1924,12 +1924,7 @@ const AGGR = new Map();
 const AGGR_DEBOUNCE_MS = 11000;   // ⬅️ 8s para juntar múltiplas chamadas
 const AGGR_MAX_WAIT_MS = 60000;  // ⬅️ segurança 30s
 
-/*function queueUnifiedSend(groupId, fragment, doFlushCb) {
-  let e = AGGR.get(groupId);
-  if (!e) {
-    e = { timer:null, startedAt:Date.now(), base:{}, bilhetes:[], arquivos:[], emailAttachments:[], expected:0, flushed:false, waiters:[] };
-    AGGR.set(groupId, e);
-  }*/
+
 function queueUnifiedSend(groupId, fragment, doFlushCb) {
   let e = AGGR.get(groupId);
   if (!e) {
@@ -2216,21 +2211,6 @@ app.post('/api/praxio/vender', async (req, res) => {
     if (totalAmount && Number(totalAmount) > mpAmount + 0.01) {
       return res.status(400).json({ ok: false, error: 'Valor do item maior que o total pago.' });
     }
-
-    /*
-    // tipo/forma de pagamento
-    const mpType = String(payment?.payment_type_id || '').toLowerCase(); // 'credit_card'|'debit_card'|'pix'|...
-    const tipoPagamento = (mpType === 'pix') ? '8' : '3';                // 8=PIX | 3=Cartão
-    const tipoCartao    = (mpType === 'credit_card') ? '1'
-                        : (mpType === 'debit_card')  ? '2'
-                        : '0';                                           // 0=PIX
-    const formaPagamento = (mpType === 'pix') ? 'PIX'
-                        : (mpType === 'debit_card') ? 'Cartão de Débito'
-                        : 'Cartão de Crédito';
-
-*/
-
-
 
     const mpType = String(payment?.payment_type_id || '').toLowerCase();
     const mpMethod = String(
