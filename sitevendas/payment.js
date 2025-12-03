@@ -292,7 +292,10 @@ function inferLegType(it, idx, order) {
             horaPartida: s.horaPartida,
             origemNome,
             destinoNome,
-            idaVolta
+            idaVolta,
+            idViagem: s.idViagem,
+            idOrigem: s.idOrigem,
+            idDestino: s.idDestino
           });
         });
       });
