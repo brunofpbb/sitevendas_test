@@ -102,28 +102,6 @@ destInput.addEventListener('keydown', (e) => {
     return wrap;
   }
   
- /* 
- function attachAutocomplete(input, panel, source){
-    function close(){ panel.innerHTML = ''; panel.hidden = true; }
-    function openWith(list){
-      panel.innerHTML = '';
-      panel.appendChild(buildList(list, (it)=>{ input.value = it.descricao; close(); }));
-      panel.hidden = false;
-    }
-    function filterNow(){
-      const s = input.value.trim().toLowerCase();
-      const list = s
-        ? source.filter(l => l.descricao.toLowerCase().includes(s)).slice(0,8)
-        : source.slice(0,8);
-      list.length ? openWith(list) : close();
-    }
-    input.addEventListener('input', filterNow);
-    input.addEventListener('focus', filterNow);
-    input.addEventListener('blur', ()=> setTimeout(close, 100));
-  }
-  */
-
-
 function attachAutocomplete(input, panel, source){
   const norm = s => (s || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -158,30 +136,12 @@ function attachAutocomplete(input, panel, source){
   // fecha depois do blur (mantém seu comportamento)
   input.addEventListener('blur', ()=> setTimeout(close, 100));
 }
-
-
-
-
-
   
   
   attachAutocomplete(originInput, acOrigin, localities);
   attachAutocomplete(destInput,   acDest,   localities);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
+ 
   // ===== Datas mínimas
   [dateInput, retInput].forEach(inp=>{
     const d=new Date(), yyyy=d.getFullYear(), mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
@@ -259,18 +219,10 @@ function attachAutocomplete(input, panel, source){
       status.textContent = '';
       list.innerHTML = '';
 
-
-
-
-    if (window.innerWidth <= 1024) {
-  content.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-
-
-
-
-      
+      if (window.innerWidth <= 1024) {
+      content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    
 
       let linhas = [];
       if (data && Array.isArray(data.ListaPartidas)) {
@@ -424,40 +376,6 @@ function attachAutocomplete(input, panel, source){
     }
   }
 
-
-  /*
-  function finalizeToPayment(){
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-
-    // compõe legs para salvar (ida e possivelmente volta)
-    const toSave = state.selected.map(s => ({
-      id: Date.now() + Math.floor(Math.random()*1000),
-      schedule: s.schedule,
-      seats: s.seats,
-      passengers: s.passengers,
-      price: (Number(String(s.schedule.price).replace(',', '.'))||0) * (s.seats?.length||0),
-      date: s.schedule.date,
-      paid: false
-    }));
-
-    if (!user){
-      localStorage.setItem('pendingPurchase', JSON.stringify({ legs: toSave }));
-      localStorage.setItem('postLoginRedirect', 'payment.html');
-      location.href = 'login.html';
-      return;
-    }
-
-    // limpa não pagas antigas e salva apenas as novas + pagas existentes
-    const old = JSON.parse(localStorage.getItem('bookings') || '[]');
-    const onlyPaid = old.filter(b => b.paid === true);
-    localStorage.setItem('bookings', JSON.stringify([...onlyPaid, ...toSave]));
-    localStorage.removeItem('pendingPurchase');
-    location.href = 'payment.html';
-  }
-
-*/
-
-
     function finalizeToPayment(){
     // pega o usuário do localStorage, mas só considera logado se tiver e-mail
     let rawUser = null;
@@ -494,10 +412,8 @@ function attachAutocomplete(input, panel, source){
     localStorage.removeItem('pendingPurchase');
     location.href = 'payment.html';
   }
-
   
 });
-
 
 // NAV do usuário (Entrar quando deslogado; Nome -> Profile + Sair quando logado)
 function updateUserNav() {
@@ -506,15 +422,6 @@ function updateUserNav() {
     if (!nav) return;
 
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-/*
-    // DESLOGADO
-    if (!user || !user.email) {
-      nav.innerHTML = `
-        <a class="pill cta-enter" href="login.html">Entrar</a>
-      `;
-      return;
-    }
-*/
 
     // DESLOGADO
   if (!user || !user.email) {
@@ -534,8 +441,6 @@ function updateUserNav() {
     }
     return;
   }
-
-
 
     
     // LOGADO
@@ -576,30 +481,3 @@ function updateUserNav() {
 document.addEventListener('DOMContentLoaded', () => {
   updateUserNav();
 });
-
-
-/* ===== Nav usuário (como você já tinha) ===== *//*
-function updateUserNav(){
-  const nav = document.getElementById('user-nav');
-  if (!nav) return;
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
-  nav.innerHTML = '';
-  if (user){
-    const a = document.createElement('a'); a.href='profile.html';
-    a.textContent = `Minhas viagens (${user.name || user.email})`;
-    nav.appendChild(a);
-
-    const s = document.createElement('a'); s.href='#'; s.style.marginLeft='12px'; s.textContent='Sair';
-    s.addEventListener('click', ()=>{ localStorage.removeItem('user'); updateUserNav(); location.href='index.html'; });
-    nav.appendChild(s);
-  } else {
-    const a = document.createElement('a'); a.href='login.html'; a.textContent='Entrar';
-    a.addEventListener('click', ()=>{
-      const href = location.href;
-      const path = href.substring(href.lastIndexOf('/') + 1);
-      localStorage.setItem('postLoginRedirect', path);
-    });
-    nav.appendChild(a);
-  }
-}
-*/
