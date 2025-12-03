@@ -259,6 +259,19 @@ function attachAutocomplete(input, panel, source){
       status.textContent = '';
       list.innerHTML = '';
 
+
+
+
+    if (window.innerWidth <= 1024) {
+  content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
+
+
+
+      
+
       let linhas = [];
       if (data && Array.isArray(data.ListaPartidas)) {
         linhas = data.ListaPartidas;
