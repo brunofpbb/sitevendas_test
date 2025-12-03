@@ -19,7 +19,7 @@ function fetchWithTimeout(url, opts = {}, ms = 10000) {
 
 
 // === Log e alerta de falhas de emissão ===
-const ERROR_LOG_DIR  = path.join(__dirname, 'logs');
+const ERROR_LOG_DIR = path.join(__dirname, 'logs');
 const ERROR_LOG_FILE = path.join(ERROR_LOG_DIR, 'vendas-falhas.log');
 const ADMIN_ALERT_EMAIL =
   process.env.ADMIN_ALERT_EMAIL || 'informaticamaciel2010@gmail.com';
@@ -99,7 +99,7 @@ const { generateTicketPdf } = require('./services/ticket/pdf');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
-const PUBLIC_DIR  = path.join(__dirname, 'sitevendas');
+const PUBLIC_DIR = path.join(__dirname, 'sitevendas');
 const TICKETS_DIR = path.join(__dirname, 'tickets');
 const PORT = process.env.PORT || 8080;
 
@@ -164,7 +164,7 @@ function getLoginPhone(req, payment, vendaResult) {
 
 
 // === ID de grupo (idempotência por compra)
-function computeGroupId(req, payment, schedule){
+function computeGroupId(req, payment, schedule) {
   return (
     req?.body?.grupoId ||
     req?.body?.referencia ||
@@ -203,7 +203,7 @@ function dedupArquivos(arr = []) {
   });
 }
 
- 
+
 
 /* ============================================================================
    Google Sheets (consulta por email) – leitura (mantido)
@@ -235,10 +235,10 @@ const nowSP = () => {
   const z = new Date();
   const fmt = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Sao_Paulo',
-    year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', second:'2-digit',
-    hour12:false
-  }).formatToParts(z).reduce((a,p)=> (a[p.type]=p.value,a),{});
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  }).formatToParts(z).reduce((a, p) => (a[p.type] = p.value, a), {});
   return `${fmt.day}/${fmt.month}/${fmt.year} ${fmt.hour}:${fmt.minute}:${fmt.second}`;
 };
 
@@ -306,20 +306,20 @@ async function sheetsAppendBilhetes({
     const fee = mpFee;
     const net = mpAmount - fee;
 
-const mpType   = String(payment?.payment_type_id || '').toLowerCase(); // credit_card, debit_card, ...
-const mpMethod = String(
-  payment?.payment_method_id || payment?.payment_method?.id || ''
-).toLowerCase(); // ex.: 'pix'
+    const mpType = String(payment?.payment_type_id || '').toLowerCase(); // credit_card, debit_card, ...
+    const mpMethod = String(
+      payment?.payment_method_id || payment?.payment_method?.id || ''
+    ).toLowerCase(); // ex.: 'pix'
 
-const isPix = mpMethod === 'pix';
+    const isPix = mpMethod === 'pix';
 
-const tipoPagamento = isPix ? '8' : '3'; // 8=PIX, 3=Cartão (crédito/débito)
-const forma =
-  isPix
-    ? 'PIX'
-    : mpType === 'debit_card'
-      ? 'Cartão de Débito'
-      : 'Cartão de Crédito';
+    const tipoPagamento = isPix ? '8' : '3'; // 8=PIX, 3=Cartão (crédito/débito)
+    const forma =
+      isPix
+        ? 'PIX'
+        : mpType === 'debit_card'
+          ? 'Cartão de Débito'
+          : 'Cartão de Crédito';
 
 
     const chId = String(payment?.id || '');
@@ -392,8 +392,8 @@ const forma =
             ? 'Volta'
             : 'Ida'
           : (String(idaVoltaDefault).toLowerCase() === 'volta'
-              ? 'Volta'
-              : 'Ida');
+            ? 'Volta'
+            : 'Ida');
 
         return [
           nowSP(),                                // Data/horaSolicitação
@@ -429,8 +429,8 @@ const forma =
           payment?.id || '',                      // idPagamento
           b.driveUrl || '',                       // LinkBPE
           b.poltrona || '',                        // Poltrona
-          schedule?.idViagem  || '',              // IdViagem  (nova)
-          schedule?.idOrigem  || '',              // IdOrigem  (nova)
+          schedule?.idViagem || '',              // IdViagem  (nova)
+          schedule?.idOrigem || '',              // IdOrigem  (nova)
           schedule?.idDestino || '',              // IdDestino (nova)
           scheduleHora                               // Hora_Partida (nova)
         ];
@@ -453,31 +453,31 @@ const forma =
     // ================================================================
     // 3) Há pré-reserva → atualiza linhas existentes (upsert por Referencia+Poltrona)
     // ================================================================
-    const idxRef         = getIdx('referencia');
+    const idxRef = getIdx('referencia');
     const idxNumPassagem = getIdx('numpassagem', 'bilhete');
-    const idxStatus      = getIdx('status');
-    const idxStatusPay   = getIdx('statuspagamento');
-    const idxValorLiq    = getIdx('valorliquido');
-    const idxComissao    = getIdx('comissaomp');
-    const idxDataPgto    = getIdx('datahorapagamento', 'datahora_pagamento');
-    const idxIdTrans     = getIdx('id_transacao', 'idtransacao');
-    const idxTipoPay     = getIdx('tipopagamento');
-    const idxFormaPay    = getIdx('forma_pagamento', 'formapagamento');
-    const idxIdPag       = getIdx('idpagamento');
-    const idxLinkBPE     = getIdx('linkbpe');
-    const idxPoltrona    = getIdx('poltrona');
-    const idxNome        = getIdx('nome');
-    const idxCpf         = getIdx('cpf');
-    const idxEmail       = getIdx('email', 'e-mail');
-    const idxTelefone    = getIdx('telefone', 'celular');
-    const idxDataViagem  = getIdx('data_viagem', 'dataviagem');
-    const idxDataHora    = getIdx('data_hora', 'datahora');
-    const idxOrigem      = getIdx('origem');
-    const idxDestino     = getIdx('destino');
-    const idxSentido     = getIdx('sentido');
-    const idxIdViagem    = getIdx('idviagem');
-    const idxIdOrigem    = getIdx('idorigem');
-    const idxIdDestino   = getIdx('iddestino');
+    const idxStatus = getIdx('status');
+    const idxStatusPay = getIdx('statuspagamento');
+    const idxValorLiq = getIdx('valorliquido');
+    const idxComissao = getIdx('comissaomp');
+    const idxDataPgto = getIdx('datahorapagamento', 'datahora_pagamento');
+    const idxIdTrans = getIdx('id_transacao', 'idtransacao');
+    const idxTipoPay = getIdx('tipopagamento');
+    const idxFormaPay = getIdx('forma_pagamento', 'formapagamento');
+    const idxIdPag = getIdx('idpagamento');
+    const idxLinkBPE = getIdx('linkbpe');
+    const idxPoltrona = getIdx('poltrona');
+    const idxNome = getIdx('nome');
+    const idxCpf = getIdx('cpf');
+    const idxEmail = getIdx('email', 'e-mail');
+    const idxTelefone = getIdx('telefone', 'celular');
+    const idxDataViagem = getIdx('data_viagem', 'dataviagem');
+    const idxDataHora = getIdx('data_hora', 'datahora');
+    const idxOrigem = getIdx('origem');
+    const idxDestino = getIdx('destino');
+    const idxSentido = getIdx('sentido');
+    const idxIdViagem = getIdx('idviagem');
+    const idxIdOrigem = getIdx('idorigem');
+    const idxIdDestino = getIdx('iddestino');
     const idxHoraPartida = getIdx('hora_partida', 'horapartida');
 
     const usedRows = new Set();
@@ -519,24 +519,24 @@ const forma =
           ? 'Volta'
           : 'Ida'
         : (String(idaVoltaDefault).toLowerCase() === 'volta'
-            ? 'Volta'
-            : 'Ida');
+          ? 'Volta'
+          : 'Ida');
 
       if (idxNumPassagem >= 0) newRow[idxNumPassagem] = b.numPassagem || newRow[idxNumPassagem] || '';
-      if (idxStatus >= 0)      newRow[idxStatus]      = 'Emitido';
-      if (idxStatusPay >= 0)   newRow[idxStatusPay]   = String(payment?.status || '');
-      if (idxValorLiq >= 0)    newRow[idxValorLiq]    = String(net).toString().replace('.', ',');
-      if (idxComissao >= 0)    newRow[idxComissao]    = String(fee).toString().replace('.', ',');
-      if (idxDataPgto >= 0)    newRow[idxDataPgto]    = pagoSP;
-      if (idxIdTrans >= 0)     newRow[idxIdTrans]     = chId;
-      if (idxTipoPay >= 0)     newRow[idxTipoPay]     = tipoPagamento;
-      if (idxFormaPay >= 0)    newRow[idxFormaPay]    = forma;
-      if (idxIdPag >= 0)       newRow[idxIdPag]       = payment?.id || newRow[idxIdPag] || '';
-      if (idxLinkBPE >= 0)     newRow[idxLinkBPE]     = b.driveUrl || newRow[idxLinkBPE] || '';
+      if (idxStatus >= 0) newRow[idxStatus] = 'Emitido';
+      if (idxStatusPay >= 0) newRow[idxStatusPay] = String(payment?.status || '');
+      if (idxValorLiq >= 0) newRow[idxValorLiq] = String(net).toString().replace('.', ',');
+      if (idxComissao >= 0) newRow[idxComissao] = String(fee).toString().replace('.', ',');
+      if (idxDataPgto >= 0) newRow[idxDataPgto] = pagoSP;
+      if (idxIdTrans >= 0) newRow[idxIdTrans] = chId;
+      if (idxTipoPay >= 0) newRow[idxTipoPay] = tipoPagamento;
+      if (idxFormaPay >= 0) newRow[idxFormaPay] = forma;
+      if (idxIdPag >= 0) newRow[idxIdPag] = payment?.id || newRow[idxIdPag] || '';
+      if (idxLinkBPE >= 0) newRow[idxLinkBPE] = b.driveUrl || newRow[idxLinkBPE] || '';
 
       if (idxNome >= 0 && b.nomeCliente) newRow[idxNome] = b.nomeCliente;
-      if (idxCpf >= 0 && b.docCliente)   newRow[idxCpf]  = b.docCliente;
-      if (idxEmail >= 0 && userEmail)    newRow[idxEmail] = userEmail;
+      if (idxCpf >= 0 && b.docCliente) newRow[idxCpf] = b.docCliente;
+      if (idxEmail >= 0 && userEmail) newRow[idxEmail] = userEmail;
       if (idxTelefone >= 0 && telefoneSheet) newRow[idxTelefone] = telefoneSheet;
 
       if (idxDataViagem >= 0 && dataViagem) newRow[idxDataViagem] = dataViagem;
@@ -655,17 +655,17 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
         '',                     // idUser
         dataViagem,             // Data_Viagem
         dataHoraViagem,         // Data_Hora
-        b.origemNome  || b.origem  || '',   // Origem
+        b.origemNome || b.origem || '',   // Origem
         b.destinoNome || b.destino || '',   // Destino
         '',                     // Identificador
         '',                     // idPagamento
         '',                     // LinkBPE
         b.poltrona || b.seatNumber || '',   // Poltrona
-        b.idViagem  || b.id_viagem || '',  // IdViagem  (NOVA COLUNA)
-        b.idOrigem  || b.id_origem || '',  // IdOrigem  (NOVA COLUNA)
-        b.idDestino || b.id_destino ||'',  // IdDestino (NOVA COLUNA) 
+        b.idViagem || b.id_viagem || '',  // IdViagem  (NOVA COLUNA)
+        b.idOrigem || b.id_origem || '',  // IdOrigem  (NOVA COLUNA)
+        b.idDestino || b.id_destino || '',  // IdDestino (NOVA COLUNA) 
         horaPartida             // Hora_Partida (NOVA COLUNA)
-        
+
       ];
     });
 
@@ -698,7 +698,7 @@ const norm = s => String(s || '')
 app.get('/api/sheets/bpe-by-email', async (req, res) => {
   try {
     const email = String(req.query.email || '').trim().toLowerCase();
-    if (!email) return res.status(400).json({ ok:false, error:'email é obrigatório' });
+    if (!email) return res.status(400).json({ ok: false, error: 'email é obrigatório' });
 
     const sheets = await sheetsAuth();
     const spreadsheetId = process.env.SHEETS_BPE_ID;
@@ -706,7 +706,7 @@ app.get('/api/sheets/bpe-by-email', async (req, res) => {
 
     const r = await sheets.spreadsheets.values.get({ spreadsheetId, range });
     const rows = r.data.values || [];
-    if (!rows.length) return res.json({ ok:true, items:[] });
+    if (!rows.length) return res.json({ ok: true, items: [] });
 
     const headerRaw = rows[0].map(h => (h || '').toString().trim());
     const header = headerRaw.map(norm);
@@ -718,31 +718,31 @@ app.get('/api/sheets/bpe-by-email', async (req, res) => {
     const get = (row, idx) => (idx >= 0 && row[idx] != null) ? String(row[idx]).trim() : '';
 
     // índices necessárias
-    const idxEmail      = idxOf('email', 'e-mail');
-    const idxNum        = idxOf('numpassagem', 'bilhete');
-    const idxSerie      = idxOf('seriepassagem');
-    const idxStatusPay  = idxOf('statuspagamento');
-    const idxStatus     = idxOf('status');
-    const idxValor      = idxOf('valor');
-    const idxValorConv  = idxOf('valorconveniencia');
-    const idxValorDev   = idxOf('valordevolucao');
-    const idxDataPgto   = idxOf('datahorapagamento', 'datahora_pagamento');
+    const idxEmail = idxOf('email', 'e-mail');
+    const idxNum = idxOf('numpassagem', 'bilhete');
+    const idxSerie = idxOf('seriepassagem');
+    const idxStatusPay = idxOf('statuspagamento');
+    const idxStatus = idxOf('status');
+    const idxValor = idxOf('valor');
+    const idxValorConv = idxOf('valorconveniencia');
+    const idxValorDev = idxOf('valordevolucao');
+    const idxDataPgto = idxOf('datahorapagamento', 'datahora_pagamento');
     const idxDataViagem = idxOf('dataviagem', 'data_viagem');
-    const idxDataHora   = idxOf('datahora', 'data_hora');
-    const idxOrigem     = idxOf('origem');
-    const idxDestino    = idxOf('destino');
-    const idxSentido    = idxOf('sentido');
-    const idxCpf        = idxOf('cpf');
-    const idxNumTrans   = idxOf('idtransacao', 'id_transacao', 'idtransação', 'id_transação');
-    const idxTipoPgto   = idxOf('tipopagamento');
-    const idxRef        = idxOf('referencia');
-    const idxIdUser     = idxOf('iduser');
-    const idxLinkBPE    = idxOf('linkbpe');
-    const idxIdUrl      = idxOf('idurl');
-    const idxpoltrona   = idxOf('poltrona');
-    const idxNome       = idxOf('nome');
+    const idxDataHora = idxOf('datahora', 'data_hora');
+    const idxOrigem = idxOf('origem');
+    const idxDestino = idxOf('destino');
+    const idxSentido = idxOf('sentido');
+    const idxCpf = idxOf('cpf');
+    const idxNumTrans = idxOf('idtransacao', 'id_transacao', 'idtransação', 'id_transação');
+    const idxTipoPgto = idxOf('tipopagamento');
+    const idxRef = idxOf('referencia');
+    const idxIdUser = idxOf('iduser');
+    const idxLinkBPE = idxOf('linkbpe');
+    const idxIdUrl = idxOf('idurl');
+    const idxpoltrona = idxOf('poltrona');
+    const idxNome = idxOf('nome');
 
-    if (idxEmail < 0) return res.json({ ok:true, items:[] });
+    if (idxEmail < 0) return res.json({ ok: true, items: [] });
 
     const items = rows.slice(1)
       .filter(r => get(r, idxEmail).toLowerCase() === email)
@@ -754,36 +754,36 @@ app.get('/api/sheets/bpe-by-email', async (req, res) => {
         const price = get(r, idxValor).replace(',', '.');
 
         return {
-          name:              get(r, idxNome),
+          name: get(r, idxNome),
           email,
-          ticketNumber:      get(r, idxNum),
-          serie:             get(r, idxSerie),
-          statusPagamento:   get(r, idxStatusPay),
-          status:            get(r, idxStatus),
-          price:             price ? Number(price) : 0,
+          ticketNumber: get(r, idxNum),
+          serie: get(r, idxSerie),
+          statusPagamento: get(r, idxStatusPay),
+          status: get(r, idxStatus),
+          price: price ? Number(price) : 0,
           valorConveniencia: get(r, idxValorConv),
-          valorDevolucao:    get(r, idxValorDev),
-          paidAt:            get(r, idxDataPgto),
-          origin:            get(r, idxOrigem),
-          destination:       get(r, idxDestino),
-          date:              get(r, idxDataViagem),
-          dateTime:          dataHora,
+          valorDevolucao: get(r, idxValorDev),
+          paidAt: get(r, idxDataPgto),
+          origin: get(r, idxOrigem),
+          destination: get(r, idxDestino),
+          date: get(r, idxDataViagem),
+          dateTime: dataHora,
           departureTime,
-          sentido:           get(r, idxSentido),
-          cpf:               get(r, idxCpf),
-          transactionId:     get(r, idxNumTrans),
-          paymentType:       get(r, idxTipoPgto),
-          referencia:        get(r, idxRef),
-          idUser:            get(r, idxIdUser),
-          driveUrl:          get(r, idxLinkBPE) || get(r, idxIdUrl),
-          poltrona:          get(r, idxpoltrona)
+          sentido: get(r, idxSentido),
+          cpf: get(r, idxCpf),
+          transactionId: get(r, idxNumTrans),
+          paymentType: get(r, idxTipoPgto),
+          referencia: get(r, idxRef),
+          idUser: get(r, idxIdUser),
+          driveUrl: get(r, idxLinkBPE) || get(r, idxIdUrl),
+          poltrona: get(r, idxpoltrona)
         };
       });
 
-    res.json({ ok:true, items });
+    res.json({ ok: true, items });
   } catch (e) {
     console.error('[sheets] read error', e);
-    res.status(500).json({ ok:false, error:'sheets_read_failed' });
+    res.status(500).json({ ok: false, error: 'sheets_read_failed' });
   }
 });
 
@@ -974,14 +974,14 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
   const findCol = (name) =>
     header.findIndex(h => h.toLowerCase() === name.toLowerCase());
 
-  const colRef          = findCol('Referencia');
-  const colStatus       = findCol('Status');
-  const colStatusPg     = findCol('StatusPagamento');
-  const colDataPg       = findCol('Data/hora_Pagamento');
-  const colIdPg         = findCol('idPagamento');
-  const colTipoPg       = findCol('TipoPagamento');
-  const colFormaPg      = findCol('Forma_Pagamento');
-  const colIdTransacao  = findCol('ID_Transação');
+  const colRef = findCol('Referencia');
+  const colStatus = findCol('Status');
+  const colStatusPg = findCol('StatusPagamento');
+  const colDataPg = findCol('Data/hora_Pagamento');
+  const colIdPg = findCol('idPagamento');
+  const colTipoPg = findCol('TipoPagamento');
+  const colFormaPg = findCol('Forma_Pagamento');
+  const colIdTransacao = findCol('ID_Transação');
 
   if (colRef < 0) {
     console.warn('[Sheets][Pgto] Coluna "Referencia" não encontrada no header');
@@ -993,10 +993,10 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     const d = new Date(dt);
     const pad = (n) => String(n).padStart(2, '0');
     const yyyy = d.getFullYear();
-    const mm   = pad(d.getMonth() + 1);
-    const dd   = pad(d.getDate());
-    const hh   = pad(d.getHours());
-    const mi   = pad(d.getMinutes());
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
     return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
   };
 
@@ -1005,20 +1005,20 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     (statusMP === 'approved' || statusMP === 'accredited')
       ? 'approved'
       : (statusMP === 'pending'
-          ? 'Pendente'
-          : (statusMP === 'rejected' ? 'Rejeitado' : payment?.status || ''));
+        ? 'Pendente'
+        : (statusMP === 'rejected' ? 'Rejeitado' : payment?.status || ''));
 
   const mpType = String(payment?.payment_type_id || payment?.payment_method_id || '').toLowerCase();
   const forma =
-    mpType === 'pix'         ? 'PIX'
-      : mpType === 'debit_card'  ? 'Cartão de Débito'
-      : mpType === 'credit_card' ? 'Cartão de Crédito'
-      : (payment?.payment_method_id || '').toString().toUpperCase();
+    mpType === 'pix' ? 'PIX'
+      : mpType === 'debit_card' ? 'Cartão de Débito'
+        : mpType === 'credit_card' ? 'Cartão de Crédito'
+          : (payment?.payment_method_id || '').toString().toUpperCase();
 
   const tipo =
     mpType === 'pix' ? '8'
       : (mpType === 'debit_card' || mpType === 'credit_card') ? '3'
-      : '';
+        : '';
 
   const idPagamento = payment?.id ? String(payment.id) : '';
   const idTransacao = payment?.transaction_details?.external_resource_url
@@ -1036,19 +1036,19 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 
     const newRow = [...row];
 
-   /*if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
-    // se ainda não foi emitido, mantemos Status como está (Pendente)
-    if (colStatus >= 0 && !newRow[colStatus]) newRow[colStatus] = 'Pendente';
-    if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;*/
+    /*if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
+     // se ainda não foi emitido, mantemos Status como está (Pendente)
+     if (colStatus >= 0 && !newRow[colStatus]) newRow[colStatus] = 'Pendente';
+     if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;*/
 
     if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
 
-// Só mexe em Status se estiver VAZIO (pré-reserva)
-if (colStatus >= 0 && !newRow[colStatus]) {
-  newRow[colStatus] = 'Pendente';
-}
+    // Só mexe em Status se estiver VAZIO (pré-reserva)
+    if (colStatus >= 0 && !newRow[colStatus]) {
+      newRow[colStatus] = 'Pendente';
+    }
 
-    
+
     if (colIdPg >= 0 && idPagamento) newRow[colIdPg] = idPagamento;
     if (colTipoPg >= 0 && tipo) newRow[colTipoPg] = tipo;
     if (colFormaPg >= 0 && forma) newRow[colFormaPg] = forma;
@@ -1097,30 +1097,30 @@ async function sheetsFindByRef(externalRef) {
   const idx = (name) => header.indexOf(name);
 
   const col = {
-    dataSolic:      idx('Data/horaSolicitação'),
-    nome:           idx('Nome'),
-    telefone:       idx('Telefone'),
-    email:          idx('E-mail'),
-    cpf:            idx('CPF'),
-    valor:          idx('Valor'),
-    statusPag:      idx('StatusPagamento'),
-    status:         idx('Status'),
-    sentindo:       idx('Sentido'),
-    dtPag:          idx('Data/hora_Pagamento'),
-    idTransacao:    idx('ID_Transação'),
-    tipoPagamento:  idx('TipoPagamento'),
-    formaPag:       idx('Forma_Pagamento'),
-    ref:            idx('Referencia'),
-    numPassagem:    idx('NumPassagem'),
-    seriePassagem:  idx('SeriePassagem'),
-    origem:         idx('Origem'),
-    destino:        idx('Destino'),
-    dataViagem:     idx('Data_Viagem'),
-    horaPartida:    idx('Hora_Partida'),
-    poltrona:       idx('poltrona'),
-    idViagem:       idx('IdViagem'),
-    idOrigem:       idx('IdOrigem'),
-    idDestino:      idx('IdDestino'),
+    dataSolic: idx('Data/horaSolicitação'),
+    nome: idx('Nome'),
+    telefone: idx('Telefone'),
+    email: idx('E-mail'),
+    cpf: idx('CPF'),
+    valor: idx('Valor'),
+    statusPag: idx('StatusPagamento'),
+    status: idx('Status'),
+    sentindo: idx('Sentido'),
+    dtPag: idx('Data/hora_Pagamento'),
+    idTransacao: idx('ID_Transação'),
+    tipoPagamento: idx('TipoPagamento'),
+    formaPag: idx('Forma_Pagamento'),
+    ref: idx('Referencia'),
+    numPassagem: idx('NumPassagem'),
+    seriePassagem: idx('SeriePassagem'),
+    origem: idx('Origem'),
+    destino: idx('Destino'),
+    dataViagem: idx('Data_Viagem'),
+    horaPartida: idx('Hora_Partida'),
+    poltrona: idx('poltrona'),
+    idViagem: idx('IdViagem'),
+    idOrigem: idx('IdOrigem'),
+    idDestino: idx('IdDestino'),
   };
 
   const norm = (v) => (v || '').toString().trim();
@@ -1135,23 +1135,23 @@ async function sheetsFindByRef(externalRef) {
     entries.push({
       rowIndex: i + 1,         // linha real na planilha (1-based)
       raw: row,
-      status:    col.status    >= 0 ? norm(row[col.status])    : '',
+      status: col.status >= 0 ? norm(row[col.status]) : '',
       statusPag: col.statusPag >= 0 ? norm(row[col.statusPag]) : '',
       numPassagem: col.numPassagem >= 0 ? norm(row[col.numPassagem]) : '',
-      nome:      col.nome      >= 0 ? norm(row[col.nome])      : '',
-      cpf:       col.cpf       >= 0 ? norm(row[col.cpf])       : '',
-      telefone:  col.telefone  >= 0 ? norm(row[col.telefone])  : '',
-      email:     col.email     >= 0 ? norm(row[col.email])     : '',
-      valor:     col.valor     >= 0 ? norm(row[col.valor])     : '',
-      sentido:   col.sentindo  >= 0 ? norm(row[col.sentindo])  : '',
-      origem:    col.origem    >= 0 ? norm(row[col.origem])    : '',
-      destino:   col.destino   >= 0 ? norm(row[col.destino])   : '',
-      dataViagem:   col.dataViagem   >= 0 ? norm(row[col.dataViagem])   : '',
-      horaPartida:  col.horaPartida  >= 0 ? norm(row[col.horaPartida])  : '',
-      poltrona:     col.poltrona     >= 0 ? norm(row[col.poltrona])     : '',
-      idViagem:     col.idViagem     >= 0 ? norm(row[col.idViagem])     : '',
-      idOrigem:     col.idOrigem     >= 0 ? norm(row[col.idOrigem])     : '',
-      idDestino:    col.idDestino    >= 0 ? norm(row[col.idDestino])    : '',
+      nome: col.nome >= 0 ? norm(row[col.nome]) : '',
+      cpf: col.cpf >= 0 ? norm(row[col.cpf]) : '',
+      telefone: col.telefone >= 0 ? norm(row[col.telefone]) : '',
+      email: col.email >= 0 ? norm(row[col.email]) : '',
+      valor: col.valor >= 0 ? norm(row[col.valor]) : '',
+      sentido: col.sentindo >= 0 ? norm(row[col.sentindo]) : '',
+      origem: col.origem >= 0 ? norm(row[col.origem]) : '',
+      destino: col.destino >= 0 ? norm(row[col.destino]) : '',
+      dataViagem: col.dataViagem >= 0 ? norm(row[col.dataViagem]) : '',
+      horaPartida: col.horaPartida >= 0 ? norm(row[col.horaPartida]) : '',
+      poltrona: col.poltrona >= 0 ? norm(row[col.poltrona]) : '',
+      idViagem: col.idViagem >= 0 ? norm(row[col.idViagem]) : '',
+      idOrigem: col.idOrigem >= 0 ? norm(row[col.idOrigem]) : '',
+      idDestino: col.idDestino >= 0 ? norm(row[col.idDestino]) : '',
     });
   }
 
@@ -1267,14 +1267,14 @@ async function emitirBilhetesViaWebhook(payment) {
       const idaVolta = (e.sentido || '').toLowerCase().startsWith('volta') ? 'volta' : 'ida';
       g = {
         schedule: {
-          idViagem:  e.idViagem,
-          idOrigem:  e.idOrigem,
+          idViagem: e.idViagem,
+          idOrigem: e.idOrigem,
           idDestino: e.idDestino,
           dataViagem: e.dataViagem,
-          date:       e.dataViagem,
+          date: e.dataViagem,
           horaPartida: e.horaPartida,
-          origem:     e.origem,
-          destino:    e.destino,
+          origem: e.origem,
+          destino: e.destino,
           originName: e.origem,
           destinationName: e.destino,
         },
@@ -1286,10 +1286,10 @@ async function emitirBilhetesViaWebhook(payment) {
 
     g.passageiros.push({
       seatNumber: e.poltrona,
-      name:       e.nome,
-      document:   e.cpf,
-      price:      e.valor ? Number(e.valor.replace(',', '.')) : undefined,
-      phone:      e.telefone,
+      name: e.nome,
+      document: e.cpf,
+      price: e.valor ? Number(e.valor.replace(',', '.')) : undefined,
+      phone: e.telefone,
     });
   }
 
@@ -1401,11 +1401,11 @@ app.use('/api/mp', mpRoutes);
 app.get('/api/mp/wait-flush', async (req, res) => {
   try {
     const paymentId = String(req.query.paymentId || '').trim();
-    if (!paymentId) return res.status(400).json({ ok:false, error:'paymentId é obrigatório' });
+    if (!paymentId) return res.status(400).json({ ok: false, error: 'paymentId é obrigatório' });
 
     // se não houver entrada no agregador, já flushei (ou não havia o que enviar)
     const e = AGGR.get(paymentId);
-    if (!e || e.flushed) return res.json({ ok:true, flushed:true });
+    if (!e || e.flushed) return res.json({ ok: true, flushed: true });
 
     // ainda pendente → aguarda com timeout
     const TIMEOUT = Math.max(AGGR_MAX_WAIT_MS, AGGR_DEBOUNCE_MS + 5000); // ~40s
@@ -1414,9 +1414,9 @@ app.get('/api/mp/wait-flush', async (req, res) => {
       e.waiters.push(() => { clearTimeout(t); resolve(); });
     });
 
-    return res.json({ ok:true, flushed:true });
+    return res.json({ ok: true, flushed: true });
   } catch (err) {
-    return res.status(200).json({ ok:true, flushed:false, note:'fallback' }); // não bloqueia UX
+    return res.status(200).json({ ok: true, flushed: false, note: 'fallback' }); // não bloqueia UX
   }
 });
 
@@ -1426,7 +1426,7 @@ app.post('/api/mp/webhook', async (req, res) => {
   try {
     console.log('[MP][Webhook] body:', JSON.stringify(req.body));
 
-    const topic  = req.body?.type || req.query?.type;
+    const topic = req.body?.type || req.query?.type;
     const action = req.body?.action || req.query?.action;
     const dataId =
       req.body?.data?.id ||
@@ -1510,8 +1510,8 @@ async function mpRefund({ paymentId, amount, idempotencyKey }) {
     },
     body: JSON.stringify({ amount: Number(amount) })
   });
-  const j = await r.json().catch(()=>({}));
-  if (!r.ok) { const e = new Error(j?.message || 'Falha no estorno do Mercado Pago'); e.details=j; throw e; }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j?.message || 'Falha no estorno do Mercado Pago'); e.details = j; throw e; }
   return j;
 }
 
@@ -1657,9 +1657,9 @@ app.post('/api/cancel-ticket', async (req, res) => {
       return -1;
     };
 
-    const idxValor = findCol(['Valor','ValorPago','ValorTotal','ValorTotalPago','Valor Total Pago']);
-    const idxIdPg  = findCol(['idPagamento','paymentId','idpagamento','idpagamentomp','id pagamento']);
-    const idxCorr  = findCol(['correlationID','x-idempotency-key','idempotency','idempotencykey']);
+    const idxValor = findCol(['Valor', 'ValorPago', 'ValorTotal', 'ValorTotalPago', 'Valor Total Pago']);
+    const idxIdPg = findCol(['idPagamento', 'paymentId', 'idpagamento', 'idpagamentomp', 'id pagamento']);
+    const idxCorr = findCol(['correlationID', 'x-idempotency-key', 'idempotency', 'idempotencykey']);
 
     if (idxValor === -1 || idxIdPg === -1) {
       console.error('[cancel-ticket] Header lido:', header);
@@ -1715,8 +1715,8 @@ app.post('/api/cancel-ticket', async (req, res) => {
     const grava = await praxioGravaDevolucao({ idSessao: IdSessaoOp, xmlPassagem });
     console.log('[PRAXIO] RES GravaDevolucao =>', JSON.stringify(grava).slice(0, 800));
 
-   
-        // 3) MP — calcula disponível e estorna (LOGs)
+
+    // 3) MP — calcula disponível e estorna (LOGs)
     const pay = await mpGetPayment(paymentId);
     const total = +Number(pay.transaction_amount || 0).toFixed(2);
     const refundedSoFar = Array.isArray(pay.refunds)
@@ -1733,7 +1733,7 @@ app.post('/api/cancel-ticket', async (req, res) => {
 
     if (valorRefund > 0) {
       console.log(
-        '[MP] POST refund url= https://api.mercadopago.com/v1/payments/'+paymentId+'/refunds',
+        '[MP] POST refund url= https://api.mercadopago.com/v1/payments/' + paymentId + '/refunds',
         'body=', { amount: +Number(valorRefund).toFixed(2) },
         'headers:', { 'X-Idempotency-Key': correlationID || '(auto)' }
       );
@@ -1803,10 +1803,10 @@ app.post('/api/cancel-ticket', async (req, res) => {
       mp: refund
         ? refund
         : (refundErroInterno
-            ? { note: 'Cancelado na Praxio. Estorno não concluído no Mercado Pago (internal_error). Suporte será notificado.' }
-            : { note: 'Sem estorno (indisponível).' }),
+          ? { note: 'Cancelado na Praxio. Estorno não concluído no Mercado Pago (internal_error). Suporte será notificado.' }
+          : { note: 'Sem estorno (indisponível).' }),
       planilha,
-      
+
     });
 
   } catch (e) {
@@ -1874,26 +1874,26 @@ async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, a
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error('BREVO_API_KEY ausente');
 
-const slug = s => String(s || '')
-  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-  .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'')
-  .toLowerCase();
+  const slug = s => String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    .toLowerCase();
 
-/*
-  
-const brevoAttachments = (attachments || []).map(a => ({
-  name: a.filename && String(a.filename).trim() ? a.filename : 'anexo.pdf',
-  content: a.contentBase64 || a.content || ''
-}));*/
+  /*
+    
+  const brevoAttachments = (attachments || []).map(a => ({
+    name: a.filename && String(a.filename).trim() ? a.filename : 'anexo.pdf',
+    content: a.contentBase64 || a.content || ''
+  }));*/
 
 
 
   const brevoAttachments = (attachments || []).map(a => ({
-  // aceita filename OU name (por segurança)
-  name: (a.filename || a.name || 'anexo.pdf'),
-  // aceita contentBase64 OU content (por segurança)
-  content: (a.contentBase64 || a.content || '')
-}));
+    // aceita filename OU name (por segurança)
+    name: (a.filename || a.name || 'anexo.pdf'),
+    // aceita contentBase64 OU content (por segurança)
+    content: (a.contentBase64 || a.content || '')
+  }));
 
 
 
@@ -1942,10 +1942,10 @@ app.post('/api/auth/request-code', async (req, res) => {
     const expiresAt = Date.now() + CODE_TTL_MIN * 60 * 1000;
     codes.set(email, { code, expiresAt, attempts: 0 });
 
-    const appName   = process.env.APP_NAME || 'Turin Transportes';
-    const fromName  = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
+    const appName = process.env.APP_NAME || 'Turin Transportes';
+    const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
     const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
-    const from      = `"${fromName}" <${fromEmail}>`;
+    const from = `"${fromName}" <${fromEmail}>`;
 
     const html = `
       <div style="font-family:Arial,sans-serif;font-size:16px;color:#222">
@@ -2022,13 +2022,15 @@ const AGGR_MAX_WAIT_MS = 60000;  // ⬅️ segurança 30s
 function queueUnifiedSend(groupId, fragment, doFlushCb) {
   let e = AGGR.get(groupId);
   if (!e) {
-    e = { timer:null, startedAt:Date.now(), base:{}, bilhetes:[], arquivos:[], emailAttachments:[],
-          expected:0, flushed:false, waiters:[] };
+    e = {
+      timer: null, startedAt: Date.now(), base: {}, bilhetes: [], arquivos: [], emailAttachments: [],
+      expected: 0, flushed: false, waiters: []
+    };
     AGGR.set(groupId, e);
   }
 
   // merge base (último vence)
-  e.base = { ...e.base, ...(fragment.base||{}) };
+  e.base = { ...e.base, ...(fragment.base || {}) };
 
   // ❌ antes: if (fragment.expected > e.expected) e.expected = fragment.expected;
   // ✅ agora: somar o total esperado deste fragmento (ida + volta, etc.)
@@ -2037,34 +2039,34 @@ function queueUnifiedSend(groupId, fragment, doFlushCb) {
   if (addExpected > 0) e.expected += addExpected;
 
   // acumula
-  if (Array.isArray(fragment?.bilhetes))        e.bilhetes.push(...fragment.bilhetes);
-  if (Array.isArray(fragment?.arquivos))        e.arquivos.push(...fragment.arquivos);
+  if (Array.isArray(fragment?.bilhetes)) e.bilhetes.push(...fragment.bilhetes);
+  if (Array.isArray(fragment?.arquivos)) e.arquivos.push(...fragment.arquivos);
   if (Array.isArray(fragment?.emailAttachments)) e.emailAttachments.push(...fragment.emailAttachments);
 
   // de-dups
   const seenB = new Set();
   e.bilhetes = e.bilhetes.filter(b => {
-    const k = `${b?.numPassagem||''}|${b?.chaveBPe||''}`;
+    const k = `${b?.numPassagem || ''}|${b?.chaveBPe || ''}`;
     if (!k.trim() || seenB.has(k)) return false;
     seenB.add(k);
     return true;
   });
   const seenA = new Set();
   e.arquivos = e.arquivos.filter(a => {
-    const k = `${a?.driveFileId||''}|${a?.numPassagem||''}|${a?.pdfLocal||''}`;
+    const k = `${a?.driveFileId || ''}|${a?.numPassagem || ''}|${a?.pdfLocal || ''}`;
     if (seenA.has(k)) return false;
     seenA.add(k);
     return true;
   });
 
-const tryFlush = async () => {
+  const tryFlush = async () => {
     if (e.flushed) return;
 
     const waited = (Date.now() - e.startedAt) >= AGGR_MAX_WAIT_MS;
 
     // ✅ agora só flusha quando TEMOS TODOS os anexos também
     const haveAllBilhetes = e.expected > 0 && e.bilhetes.length >= e.expected;
-    const haveAllAnexos   = e.expected > 0 && e.emailAttachments.length >= e.expected;
+    const haveAllAnexos = e.expected > 0 && e.emailAttachments.length >= e.expected;
 
     if (!waited && !(haveAllBilhetes && haveAllAnexos)) return;
 
@@ -2074,7 +2076,7 @@ const tryFlush = async () => {
     console.log(`[AGGR] flushing: expected=${e.expected} bilhetes=${e.bilhetes.length} anexos=${e.emailAttachments.length} waited=${waited}`);
     try { await doFlushCb({ ...e }); }
     finally {
-      (e.waiters || []).forEach(fn => { try { fn(); } catch{} });
+      (e.waiters || []).forEach(fn => { try { fn(); } catch { } });
       AGGR.delete(groupId);
     }
   };
@@ -2148,10 +2150,10 @@ async function praxioVerificaDevolucao({ idSessao, numPassagem, motivo }) {
     NumPassagem: String(numPassagem),
     MotivoCancelamento: String(motivo || 'Cancelamento solicitado pelo cliente')
   };
-  const r = await fetchWithTimeout(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }, 10000);
+  const r = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 10000);
   const j = await r.json();
   if (!r.ok) throw new Error('VerificaDevolucao falhou');
-  if (j?.IdErro) { const err = new Error(j?.Mensagem || 'Não é possível cancelar'); err.code='PRAXIO_BLOQUEADO'; throw err; }
+  if (j?.IdErro) { const err = new Error(j?.Mensagem || 'Não é possível cancelar'); err.code = 'PRAXIO_BLOQUEADO'; throw err; }
   return j;
 }
 
@@ -2170,7 +2172,7 @@ async function praxioGravaDevolucao({ idSessao, xmlPassagem }) {
       IdCaixa: 0
     }
   };
-  const r = await fetchWithTimeout(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }, 10000);
+  const r = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 10000);
   const j = await r.json();
   if (!r.ok) throw new Error('GravaDevolucao falhou');
   return j;
@@ -2253,17 +2255,19 @@ app.post('/api/ticket/render', async (req, res) => {
   try {
     const vendaRoot = req.body;
     const ticket = mapVendaToTicket(vendaRoot);
-    const subDir = new Date().toISOString().slice(0,10);
+    const subDir = new Date().toISOString().slice(0, 10);
     const outDir = path.join(TICKETS_DIR, subDir);
     const pdf = await generateTicketPdf(ticket, outDir);
     const pdfUrl = `/tickets/${subDir}/${pdf.filename}`;
-    res.json({ ok: true, files: { pdf: pdfUrl }, ticket: {
-      nome: ticket.nomeCliente, numPassagem: ticket.numPassagem, poltrona: ticket.poltrona,
-      data: ticket.dataViagem, hora: ticket.horaPartida, origem: ticket.origem, destino: ticket.destino
-    }});
+    res.json({
+      ok: true, files: { pdf: pdfUrl }, ticket: {
+        nome: ticket.nomeCliente, numPassagem: ticket.numPassagem, poltrona: ticket.poltrona,
+        data: ticket.dataViagem, hora: ticket.horaPartida, origem: ticket.origem, destino: ticket.destino
+      }
+    });
   } catch (e) {
     console.error('ticket/render error:', e);
-    res.status(400).json({ ok:false, error: e.message || 'Falha ao gerar bilhete' });
+    res.status(400).json({ ok: false, error: e.message || 'Falha ao gerar bilhete' });
   }
 });
 
@@ -2285,21 +2289,21 @@ app.post('/api/praxio/vender', async (req, res) => {
     } = req.body || {};
 
 
-  
-    
+
+
 
     // 1) Revalida o pagamento
     const r = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
       headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` }
     });
     const payment = await r.json();
-    if (!r.ok || !['approved','accredited'].includes(payment?.status)) {
-      return res.status(400).json({ ok:false, error:'Pagamento não está aprovado.' });
+    if (!r.ok || !['approved', 'accredited'].includes(payment?.status)) {
+      return res.status(400).json({ ok: false, error: 'Pagamento não está aprovado.' });
     }
 
     const mpAmount = Number(payment.transaction_amount || 0);
     if (totalAmount && Number(totalAmount) > mpAmount + 0.01) {
-      return res.status(400).json({ ok:false, error:'Valor do item maior que o total pago.' });
+      return res.status(400).json({ ok: false, error: 'Valor do item maior que o total pago.' });
     }
 
     /*
@@ -2317,37 +2321,37 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
 
-const mpType   = String(payment?.payment_type_id || '').toLowerCase();
-const mpMethod = String(
-  payment?.payment_method_id || payment?.payment_method?.id || ''
-).toLowerCase();
+    const mpType = String(payment?.payment_type_id || '').toLowerCase();
+    const mpMethod = String(
+      payment?.payment_method_id || payment?.payment_method?.id || ''
+    ).toLowerCase();
 
-const isPix = mpMethod === 'pix';
+    const isPix = mpMethod === 'pix';
 
-const tipoPagamento = isPix ? '8' : '3'; // 8=PIX | 3=Cartão
-const tipoCartao    = isPix
-  ? '0'                                  // 0 = PIX na Praxio
-  : mpType === 'credit_card'
-    ? '1'                                // crédito
-    : mpType === 'debit_card'
-      ? '2'                              // débito
-      : '1';
+    const tipoPagamento = isPix ? '8' : '3'; // 8=PIX | 3=Cartão
+    const tipoCartao = isPix
+      ? '0'                                  // 0 = PIX na Praxio
+      : mpType === 'credit_card'
+        ? '1'                                // crédito
+        : mpType === 'debit_card'
+          ? '2'                              // débito
+          : '1';
 
-const formaPagamento = isPix
-  ? 'PIX'
-  : mpType === 'debit_card'
-    ? 'Cartão de Débito'
-    : 'Cartão de Crédito';
-
-
+    const formaPagamento = isPix
+      ? 'PIX'
+      : mpType === 'debit_card'
+        ? 'Cartão de Débito'
+        : 'Cartão de Crédito';
 
 
 
 
 
 
-    
-    
+
+
+
+
     const parcelas = Number(payment?.installments || 1);
 
     // helpers datas
@@ -2355,15 +2359,15 @@ const formaPagamento = isPix
       if (!dateStr) return '';
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
       if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-        const [d,m,y] = dateStr.split('/');
-        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+        const [d, m, y] = dateStr.split('/');
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
       }
       const t = Date.parse(dateStr);
       if (Number.isFinite(t)) {
         const z = new Date(t);
         const yyyy = z.getFullYear();
-        const mm = String(z.getMonth()+1).padStart(2,'0');
-        const dd = String(z.getDate()).padStart(2,'0');
+        const mm = String(z.getMonth() + 1).padStart(2, '0');
+        const dd = String(z.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
       }
       return '';
@@ -2371,7 +2375,7 @@ const formaPagamento = isPix
     function joinDateTime(ymd, hhmm) {
       const hh = (hhmm || '').split(':')[0] || '00';
       const mi = (hhmm || '').split(':')[1] || '00';
-      return `${ymd} ${String(hh).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
+      return `${ymd} ${String(hh).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
     }
 
     // 2) Login Praxio
@@ -2384,13 +2388,13 @@ const formaPagamento = isPix
       IdViagem: String(schedule?.idViagem || ''),
       Poltrona: String(p.seatNumber || ''),
       NomeCli: String(p.name || ''),
-      IdentidadeCli: String((p.document || '').replace(/\D/g,'')),
-      TelefoneCli: String((p.phone || userPhone || '')).replace(/\D/g,''),
+      IdentidadeCli: String((p.document || '').replace(/\D/g, '')),
+      TelefoneCli: String((p.phone || userPhone || '')).replace(/\D/g, ''),
     }));
 
     const horaPad = normalizeHoraPartida(schedule?.horaPartida);
     if (!schedule?.idViagem || !horaPad || !schedule?.idOrigem || !schedule?.idDestino || !passagemXml.length) {
-      return res.status(400).json({ ok:false, error:'Dados mínimos ausentes para venda.' });
+      return res.status(400).json({ ok: false, error: 'Dados mínimos ausentes para venda.' });
     }
 
     const bodyVenda = {
@@ -2421,13 +2425,13 @@ const formaPagamento = isPix
     console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
 
 
-        // 4) Chama Praxio
+    // 4) Chama Praxio
     const vendaResult = await praxioVendaPassagem(bodyVenda);
     console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
 
 
 
-        // --- Se a Praxio não devolver bilhete, registra erro e avisa suporte
+    // --- Se a Praxio não devolver bilhete, registra erro e avisa suporte
     const semBilhetes =
       !vendaResult ||
       vendaResult.Sucesso === false ||
@@ -2464,7 +2468,7 @@ const formaPagamento = isPix
       });
     }
 
- 
+
 
     // 🔎 Validação extra: garantir que existem bilhetes válidos
     const lista = Array.isArray(vendaResult.ListaPassagem)
@@ -2476,34 +2480,34 @@ const formaPagamento = isPix
       throw new Error(`Venda Praxio sem bilhetes: ${msg}`);
     }
 
-   
+
     // 🔎 Verificar erro por poltrona
-const errosPoltronas = lista.filter(p => {
-  const msg = (p.Mensagem || p.MensagemDetalhada || '').toLowerCase();
+    const errosPoltronas = lista.filter(p => {
+      const msg = (p.Mensagem || p.MensagemDetalhada || '').toLowerCase();
 
-  // Considera erro se:
-  // - a própria Praxio marcou Sucesso === false
-  // - OU a mensagem tiver palavras típicas de erro
-  const temTextoErro = /erro|indispon[ií]vel|falha/.test(msg);
+      // Considera erro se:
+      // - a própria Praxio marcou Sucesso === false
+      // - OU a mensagem tiver palavras típicas de erro
+      const temTextoErro = /erro|indispon[ií]vel|falha/.test(msg);
 
-  return p.Sucesso === false || temTextoErro;
-});
+      return p.Sucesso === false || temTextoErro;
+    });
 
-if (errosPoltronas.length) {
-  const msgs = errosPoltronas
-    .map(p => p.Mensagem || p.MensagemDetalhada)
-    .filter(Boolean)
-    .join(' | ');
+    if (errosPoltronas.length) {
+      const msgs = errosPoltronas
+        .map(p => p.Mensagem || p.MensagemDetalhada)
+        .filter(Boolean)
+        .join(' | ');
 
-  throw new Error(
-    `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
-  );
-}
+      throw new Error(
+        `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
+      );
+    }
 
-    
+
 
     // 5) Gerar PDFs (local) e subir no Drive
-    const subDir = new Date().toISOString().slice(0,10);
+    const subDir = new Date().toISOString().slice(0, 10);
     const outDir = path.join(TICKETS_DIR, subDir);
     await fs.promises.mkdir(outDir, { recursive: true });
 
@@ -2527,25 +2531,25 @@ if (errosPoltronas.length) {
       // 5.1 gerar PDF local
       const pdf = await generateTicketPdf(ticket, outDir);
       const localPath = path.join(outDir, pdf.filename);
-      const localUrl  = `/tickets/${subDir}/${pdf.filename}`;
+      const localUrl = `/tickets/${subDir}/${pdf.filename}`;
 
       // 5.2 subir no Drive (opcional)
       let drive = null;
       try {
-      const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
-      const buf = await fs.promises.readFile(localPath);
-const nome = `${slug(ticket.nomeCliente || 'passageiro')}_${ticket.numPassagem}_${sentido}.pdf`;
-drive = await uploadPdfToDrive({
-  buffer: buf,
-  filename: nome,
-  folderId: process.env.GDRIVE_FOLDER_ID,
-});
-emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), buffer: buf });
-        
+        const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase();
+        const buf = await fs.promises.readFile(localPath);
+        const nome = `${slug(ticket.nomeCliente || 'passageiro')}_${ticket.numPassagem}_${sentido}.pdf`;
+        drive = await uploadPdfToDrive({
+          buffer: buf,
+          filename: nome,
+          folderId: process.env.GDRIVE_FOLDER_ID,
+        });
+        emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), buffer: buf });
+
       } catch (e) {
         console.error('[Drive] upload falhou:', e?.message || e);
         try {
-          const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
+          const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase();
           const sentido = resolveSentido(p, schedule, scheduleVolta, idaVoltaDefault);
           //const sentido = (String(idaVolta).toLowerCase()==='volta') ? 'volta' : 'ida';
           const buf = await fs.promises.readFile(localPath);
@@ -2555,7 +2559,7 @@ emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), b
             contentBase64: buf.toString('base64'),
             buffer: buf,
           });
-        } catch(_) {}
+        } catch (_) { }
       }
 
       arquivos.push({
@@ -2565,94 +2569,94 @@ emailAttachments.push({ filename: nome, contentBase64: buf.toString('base64'), b
         driveFileId: drive?.id || null
       });
 
-bilhetesPayload.push({
-  numPassagem: p.NumPassagem || ticket.numPassagem,
-  chaveBPe:    p.ChaveBPe || ticket.chaveBPe || null,
-  origem:      p.Origem || ticket.origem || schedule?.originName || schedule?.origem || null,
-  destino:     p.Destino || ticket.destino || schedule?.destinationName || schedule?.destino || null,
-  origemNome:  ticket.origem || schedule?.originName || schedule?.origem || null,
-  destinoNome: ticket.destino || schedule?.destinationName || schedule?.destino || null,
-  poltrona:    p.Poltrona || ticket.poltrona || null,
-  nomeCliente: p.NomeCliente || ticket.nomeCliente || null,
-  docCliente:  p.DocCliente || ticket.docCliente || null,
-  valor:       p.ValorPgto ?? ticket.valor ?? null,
+      bilhetesPayload.push({
+        numPassagem: p.NumPassagem || ticket.numPassagem,
+        chaveBPe: p.ChaveBPe || ticket.chaveBPe || null,
+        origem: p.Origem || ticket.origem || schedule?.originName || schedule?.origem || null,
+        destino: p.Destino || ticket.destino || schedule?.destinationName || schedule?.destino || null,
+        origemNome: ticket.origem || schedule?.originName || schedule?.origem || null,
+        destinoNome: ticket.destino || schedule?.destinationName || schedule?.destino || null,
+        poltrona: p.Poltrona || ticket.poltrona || null,
+        nomeCliente: p.NomeCliente || ticket.nomeCliente || null,
+        docCliente: p.DocCliente || ticket.docCliente || null,
+        valor: p.ValorPgto ?? ticket.valor ?? null,
 
-  dataViagem:  p.DataViagem || ticket.dataViagem || schedule?.date || schedule?.dataViagem || '',
-  horaPartida: p.HoraPartida || ticket.horaPartida || schedule?.horaPartida || schedule?.departureTime || '',
+        dataViagem: p.DataViagem || ticket.dataViagem || schedule?.date || schedule?.dataViagem || '',
+        horaPartida: p.HoraPartida || ticket.horaPartida || schedule?.horaPartida || schedule?.departureTime || '',
 
-  idaVolta:    sentido
-});
-   
-}
+        idaVolta: sentido
+      });
+
+    }
 
 
-  // --- FRAGMENTO a enfileirar no agregador ---
-const loginEmail = getLoginEmail(req, payment, vendaResult);
-const loginPhone = getLoginPhone(req, payment, vendaResult);
+    // --- FRAGMENTO a enfileirar no agregador ---
+    const loginEmail = getLoginEmail(req, payment, vendaResult);
+    const loginPhone = getLoginPhone(req, payment, vendaResult);
 
-// contagem esperada (qtd de bilhetes desta venda)
-const expectedCount =
-  (vendaResult?.ListaPassagem?.length || 0) ||
-  (passengers?.length || 0);
+    // contagem esperada (qtd de bilhetes desta venda)
+    const expectedCount =
+      (vendaResult?.ListaPassagem?.length || 0) ||
+      (passengers?.length || 0);
 
-// monta fragmento
-const fragment = {
-  base: { payment, schedule, userEmail: loginEmail||'', userPhone: loginPhone||'', idaVolta },
-  bilhetes: bilhetesPayload,
-  arquivos,
-  emailAttachments,
-  expected: expectedCount
-};
+    // monta fragmento
+    const fragment = {
+      base: { payment, schedule, userEmail: loginEmail || '', userPhone: loginPhone || '', idaVolta },
+      bilhetes: bilhetesPayload,
+      arquivos,
+      emailAttachments,
+      expected: expectedCount
+    };
 
-// chave por compra
-const groupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
+    // chave por compra
+    const groupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
 
-// enfileira; quando o AGGR perceber que chegou tudo (ou estourar timeout), ele dispara 1x
-queueUnifiedSend(groupId, fragment, async (bundle) => {
-  const { base, bilhetes, arquivos, emailAttachments } = bundle;
-  const { payment, schedule, userEmail, userPhone, idaVolta } = base;
+    // enfileira; quando o AGGR perceber que chegou tudo (ou estourar timeout), ele dispara 1x
+    queueUnifiedSend(groupId, fragment, async (bundle) => {
+      const { base, bilhetes, arquivos, emailAttachments } = bundle;
+      const { payment, schedule, userEmail, userPhone, idaVolta } = base;
 
-  // trava para evitar e-mail/Sheets duplicados por pagamento
-  if (!guardOnce(String(payment?.id || groupId))) {
-    console.warn('[Idem] envio já realizado para', payment?.id || groupId);
-    return;
-  }
+      // trava para evitar e-mail/Sheets duplicados por pagamento
+      if (!guardOnce(String(payment?.id || groupId))) {
+        console.warn('[Idem] envio já realizado para', payment?.id || groupId);
+        return;
+      }
 
-  // 1) E-MAIL único com todos os anexos
-  const to = userEmail || pickBuyerEmail({ req, payment, vendaResult, fallback: null });
-  if (to) {
-    const appName   = process.env.APP_NAME || 'Turin Transportes';
-    const fromName  = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-    const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+      // 1) E-MAIL único com todos os anexos
+      const to = userEmail || pickBuyerEmail({ req, payment, vendaResult, fallback: null });
+      if (to) {
+        const appName = process.env.APP_NAME || 'Turin Transportes';
+        const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
+        const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
 
-    // Descobre se há múltiplas rotas
-const pairs = new Set(bilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
-const headerRoute = (pairs.size === 1 && bilhetes.length)
-  ? [...pairs][0]
-  : 'Múltiplas rotas (veja por bilhete)';
+        // Descobre se há múltiplas rotas
+        const pairs = new Set(bilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
+        const headerRoute = (pairs.size === 1 && bilhetes.length)
+          ? [...pairs][0]
+          : 'Múltiplas rotas (veja por bilhete)';
 
-const valorTotalBRL = (Number(payment?.transaction_amount || 0)).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+        const valorTotalBRL = (Number(payment?.transaction_amount || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// lista <li> com rota/data/hora por bilhete e link
-const listaHtml = bilhetes.map((b, i) => {
-  const sentido = b?.idaVolta || (String(idaVolta).toLowerCase() === 'volta' ? 'Volta' : 'Ida');
-  const rotaStr = `${b.origemNome || b.origem || '—'} → ${b.destinoNome || b.destino || '—'}`;
-  const nome     = (b?.nomeCliente || '').toString().trim() || '(passageiro não informado)';
-  const link = (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
+        // lista <li> com rota/data/hora por bilhete e link
+        const listaHtml = bilhetes.map((b, i) => {
+          const sentido = b?.idaVolta || (String(idaVolta).toLowerCase() === 'volta' ? 'Volta' : 'Ida');
+          const rotaStr = `${b.origemNome || b.origem || '—'} → ${b.destinoNome || b.destino || '—'}`;
+          const nome = (b?.nomeCliente || '').toString().trim() || '(passageiro não informado)';
+          const link = (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
             || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
             || '';
-  const linkHtml = link ? `<div style="margin:2px 0"><a href="${link}" target="_blank" rel="noopener">Abrir bilhete ${i+1}</a></div>` : '';
-  return `<li style="margin:10px 0">
+          const linkHtml = link ? `<div style="margin:2px 0"><a href="${link}" target="_blank" rel="noopener">Abrir bilhete ${i + 1}</a></div>` : '';
+          return `<li style="margin:10px 0">
             <div><b>Bilhete nº ${b.numPassagem}</b> (${sentido})</div>
             <div><b>Passageiro:</b> ${nome}</div>
             <div><b>Rota:</b> ${rotaStr}</div>
             <div><b>Data/Hora:</b> ${b.dataViagem || ''} ${b.horaPartida || ''}</div>
             ${linkHtml}
           </li>`;
-}).join('');
+        }).join('');
 
-const html =
-  `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
+        const html =
+          `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
      <p>Olá,</p>
      <p>Recebemos o seu pagamento em <b>${appName}</b>. Seguem os bilhetes em anexo.</p>
      <p><b>Rota:</b> ${headerRoute}<br/>
@@ -2663,80 +2667,80 @@ const html =
      <p style="color:#666;font-size:12px;margin-top:16px">Este é um e-mail automático. Em caso de dúvidas, responda a esta mensagem.</p>
    </div>`;
 
-const text = [
-  'Olá,', `Recebemos seu pagamento em ${appName}. Bilhetes anexos.`,
-  `Rota(s): ${headerRoute}`, `Valor total: ${valorTotalBRL}`,
-  '', 'Bilhetes:',
-  ...bilhetes.map((b,i) => ` - ${b.numPassagem} (${(b.idaVolta||'ida')}) ${b.origemNome||b.origem||''} -> ${b.destinoNome||b.destino||''} ${b.dataViagem||''} ${b.horaPartida||''}`)
-].join('\n');
+        const text = [
+          'Olá,', `Recebemos seu pagamento em ${appName}. Bilhetes anexos.`,
+          `Rota(s): ${headerRoute}`, `Valor total: ${valorTotalBRL}`,
+          '', 'Bilhetes:',
+          ...bilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`)
+        ].join('\n');
 
-// usa os nomes já definidos (displayName)
-const attachmentsSMTP  = emailAttachments.map(a => ({
-  filename: a.filename,
-  content:  a.buffer
-}));
+        // usa os nomes já definidos (displayName)
+        const attachmentsSMTP = emailAttachments.map(a => ({
+          filename: a.filename,
+          content: a.buffer
+        }));
 
-const attachmentsBrevo = emailAttachments.map(a => ({
-  filename: a.filename,       // <— usa filename (não “name”)
-  contentBase64: a.contentBase64
-}));
+        const attachmentsBrevo = emailAttachments.map(a => ({
+          filename: a.filename,       // <— usa filename (não “name”)
+          contentBase64: a.contentBase64
+        }));
 
-   
-    let sent = false;
-    try {
-      const got = await ensureTransport();
-      if (got.transporter) {
-        await got.transporter.sendMail({
-          from: `"${fromName}" <${fromEmail}>`,
-          to, subject: `Seus bilhetes – ${appName}`, html, text,
-          attachments: attachmentsSMTP,
-        });
-        sent = true;
-        console.log(`[Email] enviados ${attachmentsSMTP.length} anexos para ${to} via ${got.mode}`);
+
+        let sent = false;
+        try {
+          const got = await ensureTransport();
+          if (got.transporter) {
+            await got.transporter.sendMail({
+              from: `"${fromName}" <${fromEmail}>`,
+              to, subject: `Seus bilhetes – ${appName}`, html, text,
+              attachments: attachmentsSMTP,
+            });
+            sent = true;
+            console.log(`[Email] enviados ${attachmentsSMTP.length} anexos para ${to} via ${got.mode}`);
+          }
+        } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
+
+        if (!sent) {
+          await sendViaBrevoApi({ to, subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo });
+          console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
+        }
+      } else {
+        console.warn('[Email] comprador sem e-mail. Pulando envio.');
       }
-    } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
-
-    if (!sent) {
-      await sendViaBrevoApi({ to, subject:`Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo });
-      console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
-    }
-  } else {
-    console.warn('[Email] comprador sem e-mail. Pulando envio.');
-  }
-  
-
-  // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
-try {
-  const ref = payment?.external_reference || null;
-  if (ref) {
-    console.log('[Sheets] limpando pré-reservas da referência', ref);
-    await sheetsDeleteRowsByRef(ref);
-  }
-} catch (err) {
-  console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
-}
-
-// 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
-await sheetsAppendBilhetes({
-  spreadsheetId: process.env.SHEETS_BPE_ID,
-  range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
-  bilhetes: bilhetes.map(b => ({
-    ...b,
-    driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
-           || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
-           || ''
-  })),
-  schedule,
-  payment,
-  userEmail,
-  userPhone,
-  idaVoltaDefault: idaVolta
-});  
-  
-});
 
 
-return res.json({ ok: true, vendaResult, arquivos });
+      // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
+      try {
+        const ref = payment?.external_reference || null;
+        if (ref) {
+          console.log('[Sheets] limpando pré-reservas da referência', ref);
+          await sheetsDeleteRowsByRef(ref);
+        }
+      } catch (err) {
+        console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
+      }
+
+      // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
+      await sheetsAppendBilhetes({
+        spreadsheetId: process.env.SHEETS_BPE_ID,
+        range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
+        bilhetes: bilhetes.map(b => ({
+          ...b,
+          driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
+            || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
+            || ''
+        })),
+        schedule,
+        payment,
+        userEmail,
+        userPhone,
+        idaVoltaDefault: idaVolta
+      });
+
+    });
+
+
+    return res.json({ ok: true, vendaResult, arquivos });
   } catch (err) {
     console.error('[Praxio][Venda] erro inesperado:', err);
 
@@ -2765,7 +2769,7 @@ return res.json({ ok: true, vendaResult, arquivos });
     });
   }
 });
-   
+
 
 /* =================== Fallback para .html =================== */
 app.get('*', (req, res, next) => {
@@ -2778,3 +2782,4 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
+//teste bruno commit antigravityyyy
