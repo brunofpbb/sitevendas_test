@@ -10,17 +10,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof updateUserNav === 'function') updateUserNav();
 
   // ——— DOM
-  const summaryBodyEl  = document.getElementById('summary-body');
+  const summaryBodyEl = document.getElementById('summary-body');
   const summaryTotalEl = document.getElementById('summary-total');
   const legacySummaryEl = document.getElementById('order-summary');
   const cancelBtn = document.getElementById('btn-cancel') || document.getElementById('cancel-order');
 
   // PIX UI
-  const pixBox   = document.getElementById('pix-box');
-  const pixQR    = document.getElementById('pix-qr');
-  const pixCode  = document.getElementById('pix-code');
-  const pixCopy  = document.getElementById('pix-copy');
-  const pixStatus= document.getElementById('pix-status');
+  const pixBox = document.getElementById('pix-box');
+  const pixQR = document.getElementById('pix-qr');
+  const pixCode = document.getElementById('pix-code');
+  const pixCopy = document.getElementById('pix-copy');
+  const pixStatus = document.getElementById('pix-status');
 
   // ——— utils
   const fmtBRL = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
   };
 
-    // normaliza "DD/MM/YYYY" -> "YYYY-MM-DD" (ou mantém se já vier ISO)
+  // normaliza "DD/MM/YYYY" -> "YYYY-MM-DD" (ou mantém se já vier ISO)
   function toYMD(dateStr) {
     if (!dateStr) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
@@ -41,8 +41,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!Number.isNaN(t)) {
       const z = new Date(t);
       const yyyy = z.getFullYear();
-      const mm = String(z.getMonth()+1).padStart(2,'0');
-      const dd = String(z.getDate()).padStart(2,'0');
+      const mm = String(z.getMonth() + 1).padStart(2, '0');
+      const dd = String(z.getDate()).padStart(2, '0');
       return `${yyyy}-${mm}-${dd}`;
     }
     return '';
@@ -56,8 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function fetchPaymentStatus(paymentId) {
     // tenta /payment-status?id=... e /payment/:id (use o que seu backend expõe)
-    let r = await fetch(`/api/mp/payment-status?id=${paymentId}`).catch(()=>null);
-    if (!r || !r.ok) r = await fetch(`/api/mp/payment/${paymentId}`).catch(()=>null);
+    let r = await fetch(`/api/mp/payment-status?id=${paymentId}`).catch(() => null);
+    if (!r || !r.ok) r = await fetch(`/api/mp/payment/${paymentId}`).catch(() => null);
     if (!r || !r.ok) throw new Error('Falha ao consultar status do pagamento');
     return r.json();
   }
@@ -104,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const first = last.tickets[0] || {};
     last.ticketUrl = first.url || null;
-    last.driveUrl  = first.driveUrl || null;
-    last.pdfLocal  = first.pdfLocal || null;
+    last.driveUrl = first.driveUrl || null;
+    last.pdfLocal = first.pdfLocal || null;
     last.ticketNumber = first.numPassagem || null;
 
     localStorage.setItem('bookings', JSON.stringify(all));
@@ -127,34 +127,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     return p && Array.isArray(p.legs) ? p.legs : [];
   }
 
-// explode um booking em N itens (um por poltrona) e guarda ponteiros do item original
-function expandCartItems(raw) {
-  const out = [];
-  (raw || []).forEach((it, openIdx) => {
-    const seats = Array.isArray(it.seats) ? it.seats : [];
-    const pax   = Array.isArray(it.passengers) ? it.passengers : [];
-    // se já está unitário, só garante ponteiros
-    if (seats.length <= 1) {
-      out.push({ ...it, _srcOpenIdx: openIdx, _seat: seats[0] ?? null });
-      return;
-    }
-    seats.forEach(seat => {
-      const p = pax.find(x => Number(x.seatNumber || x.poltrona) === Number(seat));
-      out.push({
-        ...it,
-        seats: [seat],
-        passengers: p ? [{ ...p, seatNumber: seat }] : [],
-        _srcOpenIdx: openIdx,
-        _seat: seat
+  // explode um booking em N itens (um por poltrona) e guarda ponteiros do item original
+  function expandCartItems(raw) {
+    const out = [];
+    (raw || []).forEach((it, openIdx) => {
+      const seats = Array.isArray(it.seats) ? it.seats : [];
+      const pax = Array.isArray(it.passengers) ? it.passengers : [];
+      // se já está unitário, só garante ponteiros
+      if (seats.length <= 1) {
+        out.push({ ...it, _srcOpenIdx: openIdx, _seat: seats[0] ?? null });
+        return;
+      }
+      seats.forEach(seat => {
+        const p = pax.find(x => Number(x.seatNumber || x.poltrona) === Number(seat));
+        out.push({
+          ...it,
+          seats: [seat],
+          passengers: p ? [{ ...p, seatNumber: seat }] : [],
+          _srcOpenIdx: openIdx,
+          _seat: seat
+        });
       });
     });
-  });
-  return out;
-}
+    return out;
+  }
 
 
-// let order = readCart();
-let order = expandCartItems(readCart());
+  // let order = readCart();
+  let order = expandCartItems(readCart());
 
 
   // tenta inferir ida/volta a partir dos dois primeiros trechos
@@ -181,12 +181,6 @@ let order = expandCartItems(readCart());
     }
     return 'ida';
   }
-
-
-
-
-
-  
 
   // ===== valores
   const itemSubtotal = (it) => {
@@ -229,31 +223,31 @@ let order = expandCartItems(readCart());
   }
 
 
-// helper: classifica ida/volta comparando com a 1ª rota do carrinho
-function inferLegType(it, idx, order) {
-  // 1) explicit flags vencem
-  if (it.isReturn === true || it.tripType === 'volta') return 'volta';
-  if (it.tripType === 'ida') return 'ida';
+  // helper: classifica ida/volta comparando com a 1ª rota do carrinho
+  function inferLegType(it, idx, order) {
+    // 1) explicit flags vencem
+    if (it.isReturn === true || it.tripType === 'volta') return 'volta';
+    if (it.tripType === 'ida') return 'ida';
 
-  // 2) extrai origem/destino do item atual
-  const s = it?.schedule || {};
-  const o = s.originId || s.idOrigem || s.CodigoOrigem;
-  const d = s.destinationId || s.idDestino || s.CodigoDestino;
+    // 2) extrai origem/destino do item atual
+    const s = it?.schedule || {};
+    const o = s.originId || s.idOrigem || s.CodigoOrigem;
+    const d = s.destinationId || s.idDestino || s.CodigoDestino;
 
-  // 3) extrai origem/destino da 1ª rota do carrinho (referência)
-  const f = (order[0] && order[0].schedule) || {};
-  const fO = f.originId || f.idOrigem || f.CodigoOrigem;
-  const fD = f.destinationId || f.idDestino || f.CodigoDestino;
+    // 3) extrai origem/destino da 1ª rota do carrinho (referência)
+    const f = (order[0] && order[0].schedule) || {};
+    const fO = f.originId || f.idOrigem || f.CodigoOrigem;
+    const fD = f.destinationId || f.idDestino || f.CodigoDestino;
 
-  // 4) compara com a referência
-  if (o && d && fO && fD) {
-    if (o === fO && d === fD) return 'ida';
-    if (o === fD && d === fO) return 'volta';
+    // 4) compara com a referência
+    if (o && d && fO && fD) {
+      if (o === fO && d === fD) return 'ida';
+      if (o === fD && d === fO) return 'volta';
+    }
+
+    // 5) fallback seguro
+    return 'ida';
   }
-
-  // 5) fallback seguro
-  return 'ida';
-}
 
 
   // ===== Pré-reserva no Sheets (antes de criar o pagamento) =====
@@ -274,9 +268,9 @@ function inferLegType(it, idx, order) {
         const idaVolta = inferLegType(it, idx, order);
 
         const sch = it.schedule || {};
-        const origemNome  = sch.originName  || sch.origem  || '';
+        const origemNome = sch.originName || sch.origem || '';
         const destinoNome = sch.destinationName || sch.destino || '';
-        const dataViagem  = sch.date || sch.dataViagem || '';
+        const dataViagem = sch.date || sch.dataViagem || '';
 
         const totalItem = itemSubtotal(it);
         const qtdPax = paxList.length || 1;
@@ -318,124 +312,120 @@ function inferLegType(it, idx, order) {
   }
 
 
-  
+  // atualiza UM booking (por índice) com os arquivos gerados
+  function mergeFilesIntoBookingAtIndex(openIdx, arquivos) {
+    if (!Array.isArray(arquivos) || !arquivos.length) return;
+    const all = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const paid = all.filter(b => b.paid === true);
+    const open = all.filter(b => b.paid !== true);
 
+    if (openIdx < 0 || openIdx >= open.length) return;
 
-// atualiza UM booking (por índice) com os arquivos gerados
-function mergeFilesIntoBookingAtIndex(openIdx, arquivos) {
-  if (!Array.isArray(arquivos) || !arquivos.length) return;
-  const all = JSON.parse(localStorage.getItem('bookings') || '[]');
-  const paid = all.filter(b => b.paid === true);
-  const open = all.filter(b => b.paid !== true);
-
-  if (openIdx < 0 || openIdx >= open.length) return;
-
-  const bk = open[openIdx];
-  bk.paid = true;
-  bk.paidAt = new Date().toISOString();
-  bk.tickets = arquivos.map(a => ({
-    numPassagem: a.numPassagem || a.NumPassagem || null,
-    driveUrl: a.driveUrl || null,
-    pdfLocal: a.pdfLocal || null,
-    url: a.driveUrl || a.pdfLocal || null
-  }));
-  const first = bk.tickets[0] || {};
-  bk.ticketUrl = first.url || null;
-  bk.driveUrl  = first.driveUrl || null;
-  bk.pdfLocal  = first.pdfLocal || null;
-  bk.ticketNumber = first.numPassagem || null;
-
-  // regrava mantendo a ordem original: [paid..., open...]
-  localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
-}
-
-// === emite UMA venda por item ===
-async function venderPraxioApósAprovado(paymentId) {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-  const results = [];
-  for (let i = 0; i < order.length; i++) {
-    const it = order[i];
-    const schedule   = getScheduleFromItem(it);
-    const passengers = getPassengersFromItem(it);
-    const totalAmount = itemSubtotal(it);                 // valor só daquele trecho
-    const idaVolta   = inferLegType(it, i, order);        // 'ida' | 'volta'
-    const userEmail  = (user.email || '').toString();
-    const userPhone  = (user.phone || user.telefone || '').toString();
-
-    const r = await fetch('/api/praxio/vender', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        mpPaymentId: paymentId,
-        schedule,
-        passengers,
-        totalAmount,
-        idEstabelecimentoVenda: '1',
-        idEstabelecimentoTicket: schedule.agencia || '93',
-        serieBloco: '93',
-        userEmail,
-        userPhone,
-        idaVolta
-      })
-    });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'Falha ao emitir bilhete (item)');
-
-    const arquivos = j.arquivos || j.Arquivos || [];
-    mergeFilesIntoBookingAtIndex(i, arquivos);            // marca ESTE item como pago
-    results.push(j);
-  }
-
-  // monta um agregado para o restante do fluxo
-  const arquivosAll = results.flatMap(x => x.arquivos || x.Arquivos || []);
-  const vendasAll   = results.map(x => x.venda || x.Venda);
-  localStorage.setItem('lastTickets', JSON.stringify(
-    arquivosAll.map(a => ({
+    const bk = open[openIdx];
+    bk.paid = true;
+    bk.paidAt = new Date().toISOString();
+    bk.tickets = arquivos.map(a => ({
       numPassagem: a.numPassagem || a.NumPassagem || null,
       driveUrl: a.driveUrl || null,
-      pdfLocal: a.pdfLocal || null
-    }))
-  ));
+      pdfLocal: a.pdfLocal || null,
+      url: a.driveUrl || a.pdfLocal || null
+    }));
+    const first = bk.tickets[0] || {};
+    bk.ticketUrl = first.url || null;
+    bk.driveUrl = first.driveUrl || null;
+    bk.pdfLocal = first.pdfLocal || null;
+    bk.ticketNumber = first.numPassagem || null;
 
-  return { ok: true, vendas: vendasAll, arquivos: arquivosAll };
-}
+    // regrava mantendo a ordem original: [paid..., open...]
+    localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
+  }
 
+  // === emite UMA venda por item ===
+  async function venderPraxioApósAprovado(paymentId) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    const results = [];
+    for (let i = 0; i < order.length; i++) {
+      const it = order[i];
+      const schedule = getScheduleFromItem(it);
+      const passengers = getPassengersFromItem(it);
+      const totalAmount = itemSubtotal(it);                 // valor só daquele trecho
+      const idaVolta = inferLegType(it, i, order);        // 'ida' | 'volta'
+      const userEmail = (user.email || '').toString();
+      const userPhone = (user.phone || user.telefone || '').toString();
+
+      const r = await fetch('/api/praxio/vender', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mpPaymentId: paymentId,
+          schedule,
+          passengers,
+          totalAmount,
+          idEstabelecimentoVenda: '1',
+          idEstabelecimentoTicket: schedule.agencia || '93',
+          serieBloco: '93',
+          userEmail,
+          userPhone,
+          idaVolta
+        })
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'Falha ao emitir bilhete (item)');
+
+      const arquivos = j.arquivos || j.Arquivos || [];
+      mergeFilesIntoBookingAtIndex(i, arquivos);            // marca ESTE item como pago
+      results.push(j);
+    }
+
+    // monta um agregado para o restante do fluxo
+    const arquivosAll = results.flatMap(x => x.arquivos || x.Arquivos || []);
+    const vendasAll = results.map(x => x.venda || x.Venda);
+    localStorage.setItem('lastTickets', JSON.stringify(
+      arquivosAll.map(a => ({
+        numPassagem: a.numPassagem || a.NumPassagem || null,
+        driveUrl: a.driveUrl || null,
+        pdfLocal: a.pdfLocal || null
+      }))
+    ));
+
+    return { ok: true, vendas: vendasAll, arquivos: arquivosAll };
+  }
 
 
   // ===== storage remove
-// remove uma poltrona específica do booking "aberto" original
-function removeFromStorageBySeatPointer(srcOpenIdx, seatNumber) {
-  const all  = JSON.parse(localStorage.getItem('bookings') || '[]');
-  const paid = all.filter(b => b.paid === true);
-  const open = all.filter(b => b.paid !== true);
+  // remove uma poltrona específica do booking "aberto" original
+  function removeFromStorageBySeatPointer(srcOpenIdx, seatNumber) {
+    const all = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const paid = all.filter(b => b.paid === true);
+    const open = all.filter(b => b.paid !== true);
 
-  // nada a fazer
-  if (srcOpenIdx < 0 || srcOpenIdx >= open.length) {
+    // nada a fazer
+    if (srcOpenIdx < 0 || srcOpenIdx >= open.length) {
+      localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
+      return;
+    }
+
+    const it = open[srcOpenIdx];
+
+    // tira do array seats
+    if (Array.isArray(it.seats)) {
+      it.seats = it.seats.filter(n => Number(n) !== Number(seatNumber));
+    }
+    // tira do array passengers
+    if (Array.isArray(it.passengers)) {
+      it.passengers = it.passengers.filter(p =>
+        Number(p.seatNumber || p.poltrona) !== Number(seatNumber)
+      );
+    }
+
+    // se esvaziou, remove o booking aberto por completo
+    if (!it.seats?.length) {
+      open.splice(srcOpenIdx, 1);
+    }
+
     localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
-    return;
   }
-
-  const it = open[srcOpenIdx];
-
-  // tira do array seats
-  if (Array.isArray(it.seats)) {
-    it.seats = it.seats.filter(n => Number(n) !== Number(seatNumber));
-  }
-  // tira do array passengers
-  if (Array.isArray(it.passengers)) {
-    it.passengers = it.passengers.filter(p =>
-      Number(p.seatNumber || p.poltrona) !== Number(seatNumber)
-    );
-  }
-
-  // se esvaziou, remove o booking aberto por completo
-  if (!it.seats?.length) {
-    open.splice(srcOpenIdx, 1);
-  }
-
-  localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
-}
 
 
   // ===== resumo
@@ -469,57 +459,44 @@ function removeFromStorageBySeatPointer(srcOpenIdx, seatNumber) {
       `);
     });
 
-   /* const html = lines.join('') + `<div class="summary-total"><span>Total</span><span>${fmtBRL(total)}</span></div>`;
-    if (summaryBodyEl) {
-      summaryBodyEl.innerHTML = html;
-      if (summaryTotalEl) summaryTotalEl.textContent = fmtBRL(total);
-    } else if (legacySummaryEl) {
-      legacySummaryEl.innerHTML = html;
-    }
-    
-    */
 
     const baseHtml = lines.join('');
 
-// Novo layout (payment.html atual)
-if (summaryBodyEl) {
-  summaryBodyEl.innerHTML = baseHtml;
-  if (summaryTotalEl) summaryTotalEl.textContent = fmtBRL(total);
-}
-// Layout antigo (usa somente #order-summary e precisa do total dentro)
-else if (legacySummaryEl) {
-  const html = baseHtml +
-    `<div class="summary-total"><span>Total</span><span>${fmtBRL(total)}</span></div>`;
-  legacySummaryEl.innerHTML = html;
-}
+    // Novo layout (payment.html atual)
+    if (summaryBodyEl) {
+      summaryBodyEl.innerHTML = baseHtml;
+      if (summaryTotalEl) summaryTotalEl.textContent = fmtBRL(total);
+    }
+    // Layout antigo (usa somente #order-summary e precisa do total dentro)
+    else if (legacySummaryEl) {
+      const html = baseHtml +
+        `<div class="summary-total"><span>Total</span><span>${fmtBRL(total)}</span></div>`;
+      legacySummaryEl.innerHTML = html;
+    }
 
 
-
-
-
-    
     const container = summaryBodyEl || legacySummaryEl;
     if (container) {
-container.querySelectorAll('.order-item .item-remove').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const wrap = btn.closest('.order-item');
-    const openIdx = Number(wrap.getAttribute('data-open-index'));
+      container.querySelectorAll('.order-item .item-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const wrap = btn.closest('.order-item');
+          const openIdx = Number(wrap.getAttribute('data-open-index'));
 
-    // pega os ponteiros do item expandido
-    const item = order[openIdx];
-    const srcIdx = Number(item?._srcOpenIdx ?? -1);
-    const seat   = item?._seat;
+          // pega os ponteiros do item expandido
+          const item = order[openIdx];
+          const srcIdx = Number(item?._srcOpenIdx ?? -1);
+          const seat = item?._seat;
 
-    // remove no storage (apenas aquela poltrona do booking original)
-    removeFromStorageBySeatPointer(srcIdx, seat);
+          // remove no storage (apenas aquela poltrona do booking original)
+          removeFromStorageBySeatPointer(srcIdx, seat);
 
-    // remove do array expandido atual e re-renderiza
-    order.splice(openIdx, 1);
-    const newTotal = cartTotal();
-    renderSummary();
-    await awaitMountBricks(newTotal);
-  });
-});
+          // remove do array expandido atual e re-renderiza
+          order.splice(openIdx, 1);
+          const newTotal = cartTotal();
+          renderSummary();
+          await awaitMountBricks(newTotal);
+        });
+      });
 
     }
     return total;
@@ -539,7 +516,7 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
 
   const brickContainerId =
     document.getElementById('payment-bricks') ? 'payment-bricks' :
-    (document.getElementById('payment-brick-container') ? 'payment-brick-container' : null);
+      (document.getElementById('payment-brick-container') ? 'payment-brick-container' : null);
 
   if (!brickContainerId) { console.error('Container do Bricks não encontrado.'); return; }
 
@@ -567,12 +544,12 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
   function genIdem() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
     // fallback simples
-    const a = Array.from({length:32},()=>Math.floor(Math.random()*16).toString(16)).join('');
-    return `${a.slice(0,8)}-${a.slice(8,12)}-${a.slice(12,16)}-${a.slice(16,20)}-${a.slice(20)}`;
+    const a = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    return `${a.slice(0, 8)}-${a.slice(8, 12)}-${a.slice(12, 16)}-${a.slice(16, 20)}-${a.slice(20)}`;
   }
 
   async function mountBricks(amount) {
-    try { await brickController?.unmount?.(); } catch(_) {}
+    try { await brickController?.unmount?.(); } catch (_) { }
     currentTotal = Number((amount || 0).toFixed(2));
     if (currentTotal <= 0) currentTotal = 1.00; // evita rejeição em sandbox
 
@@ -594,7 +571,7 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
           try {
             const method = String(selectedPaymentMethod || '').toLowerCase();
             const isPix = method === 'bank_transfer' ||
-                          String(formData?.payment_method_id || '').toLowerCase() === 'pix';
+              String(formData?.payment_method_id || '').toLowerCase() === 'pix';
 
             const idem = genIdem();
 
@@ -630,7 +607,7 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
             await preRegistrarNoSheets(idem);
 
 
-            
+
             const resp = await fetch('/api/mp/pay', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'X-Idempotency-Key': idem },
@@ -644,18 +621,18 @@ container.querySelectorAll('.order-item .item-remove').forEach(btn => {
               showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
 
               try {
-const paymentId = (data.id || data?.payment?.id);
-const venda = await venderPraxioApósAprovado(paymentId);
-const arquivos = venda?.arquivos || venda?.Arquivos || [];
-if (arquivos.length) {
-  mergeDriveLinksIntoBookings(arquivos);
+                const paymentId = (data.id || data?.payment?.id);
+                const venda = await venderPraxioApósAprovado(paymentId);
+                const arquivos = venda?.arquivos || venda?.Arquivos || [];
+                if (arquivos.length) {
+                  mergeDriveLinksIntoBookings(arquivos);
 
-  // 👇 aguarda Sheets + e-mail concluírem no backend
-  try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) {}
+                  // 👇 aguarda Sheets + e-mail concluírem no backend
+                  try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) { }
 
-  location.href = 'profile.html';
-  return;
-}
+                  location.href = 'profile.html';
+                  return;
+                }
 
                 hideOverlayIfShown();
                 alert('Pagamento aprovado, mas não foi possível gerar o bilhete. Suporte notificado.');
@@ -671,7 +648,7 @@ if (arquivos.length) {
             const pix = data?.point_of_interaction?.transaction_data;
             if (pix?.qr_code || pix?.qr_code_base64) {
               showPixBox({ qr_b64: pix.qr_code_base64, qr_text: pix.qr_code });
-             // alert('Pix gerado! Conclua o pagamento no seu banco.');
+              // alert('Pix gerado! Conclua o pagamento no seu banco.');
               const paymentId = data.id || data?.payment?.id;
               if (paymentId) startPixPolling(paymentId); // <<<<<< POLLING AQUI
               return;
@@ -709,17 +686,17 @@ if (arquivos.length) {
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
 
           try {
-const venda = await venderPraxioApósAprovado(paymentId);
-const arquivos = venda?.arquivos || venda?.Arquivos || [];
-if (arquivos.length) {
-  mergeDriveLinksIntoBookings(arquivos);
+            const venda = await venderPraxioApósAprovado(paymentId);
+            const arquivos = venda?.arquivos || venda?.Arquivos || [];
+            if (arquivos.length) {
+              mergeDriveLinksIntoBookings(arquivos);
 
-  // 👇 espera o flush do agregador (Sheets + e-mail)
-  try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) {}
+              // 👇 espera o flush do agregador (Sheets + e-mail)
+              try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) { }
 
-  location.href = 'profile.html';
-  return;
-}
+              location.href = 'profile.html';
+              return;
+            }
 
 
             hideOverlayIfShown();
@@ -749,7 +726,7 @@ if (arquivos.length) {
 
   async function awaitMountBricks(total) {
     if (!order.length) {
-      try { await brickController?.unmount?.(); } catch(_) {}
+      try { await brickController?.unmount?.(); } catch (_) { }
       const container = document.getElementById(brickContainerId);
       if (container) container.innerHTML = '<p class="mute">Seu carrinho está vazio.</p>';
       return;
@@ -763,15 +740,15 @@ if (arquivos.length) {
 
   // ===== Botões
 
-cancelBtn?.addEventListener('click', () => {
-  const ok = confirm('Cancelar este pedido? Os itens do carrinho serão removidos.');
-  if (!ok) return;
-  const all = JSON.parse(localStorage.getItem('bookings') || '[]');
-  const paid = all.filter(b => b.paid === true);
-  localStorage.setItem('bookings', JSON.stringify(paid));
-  // volta para a tela anterior (ou para a busca, se não houver histórico)
-  history.length > 1 ? history.back() : (location.href = 'index.html');
-});
+  cancelBtn?.addEventListener('click', () => {
+    const ok = confirm('Cancelar este pedido? Os itens do carrinho serão removidos.');
+    if (!ok) return;
+    const all = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const paid = all.filter(b => b.paid === true);
+    localStorage.setItem('bookings', JSON.stringify(paid));
+    // volta para a tela anterior (ou para a busca, se não houver histórico)
+    history.length > 1 ? history.back() : (location.href = 'index.html');
+  });
 
 });
 

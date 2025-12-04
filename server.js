@@ -16,8 +16,6 @@ function fetchWithTimeout(url, opts = {}, ms = 10000) {
 }
 
 
-
-
 // === Log e alerta de falhas de emissão ===
 const ERROR_LOG_DIR = path.join(__dirname, 'logs');
 const ERROR_LOG_FILE = path.join(ERROR_LOG_DIR, 'vendas-falhas.log');
@@ -268,14 +266,8 @@ function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
 }
 
 
-
-
-// === Tempo SP (mantém como está acima)
-// const nowSP = ...
-
 // Converte “2025-11-03 10:48” -> “2025-11-03T10:48-03:00”
 const toISO3 = (s) => s ? (s.replace(' ', 'T') + '-03:00') : '';
-
 
 
 // === Grava / atualiza bilhetes no Sheets (usa Referencia) ===
@@ -947,11 +939,6 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 
     const newRow = [...row];
 
-    /*if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
-     // se ainda não foi emitido, mantemos Status como está (Pendente)
-     if (colStatus >= 0 && !newRow[colStatus]) newRow[colStatus] = 'Pendente';
-     if (colDataPg >= 0) newRow[colDataPg] = dataPagamento;*/
-
     if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
 
     // Só mexe em Status se estiver VAZIO (pré-reserva)
@@ -1534,10 +1521,6 @@ async function mpRefund({ paymentId, amount, idempotencyKey }) {
   return j;
 }
 
-// === Cancelamento completo: Praxio → refund MP (95%) → Status "Cancelado" no Sheets ===
-
-
-
 // utils já definidos no seu arquivo:
 // parseMoneyBR, mpGetPayment, mpRefund, praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao
 
@@ -1789,15 +1772,6 @@ async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, a
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     .toLowerCase();
-
-  /*
-    
-  const brevoAttachments = (attachments || []).map(a => ({
-    name: a.filename && String(a.filename).trim() ? a.filename : 'anexo.pdf',
-    content: a.contentBase64 || a.content || ''
-  }));*/
-
-
 
   const brevoAttachments = (attachments || []).map(a => ({
     // aceita filename OU name (por segurança)
@@ -2310,11 +2284,6 @@ app.post('/api/praxio/vender', async (req, res) => {
     };
 
     console.log('[Praxio][Venda] body:', JSON.stringify(bodyVenda).slice(0, 4000));
-
-    /*/ 4) Chama Praxio
-    const vendaResult = await praxioVendaPassagem(bodyVenda);
-    console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
-
 
     // 4) Chama Praxio
     const vendaResult = await praxioVendaPassagem(bodyVenda);
