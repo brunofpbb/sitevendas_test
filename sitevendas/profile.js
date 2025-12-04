@@ -10,8 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-const listEl = document.getElementById('trips-list'); // opcional; não bloquear se não existir
-const cancelledSet = new Set();
+  const listEl = document.getElementById('trips-list'); // opcional; não bloquear se não existir
+  const cancelledSet = new Set();
 
   // usado para abrir/fechar o preview de cancelamento
   let previewId = null;
@@ -45,33 +45,33 @@ const cancelledSet = new Set();
     return m ? { h: +m[1], m: +m[2] } : { h: 0, m: 0 };
   }
 
-/** Date de partida no fuso −03:00 */
-function getDepartureDate(s) {
-  const d = parseISOorBR(s?.date || s?.dataViagem);
-  const { h, m } = parseTimeHHMM(s?.departureTime || s?.horaPartida);
-  if (!d) return null;
-  const depUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m, 0);
+  /** Date de partida no fuso −03:00 */
+  function getDepartureDate(s) {
+    const d = parseISOorBR(s?.date || s?.dataViagem);
+    const { h, m } = parseTimeHHMM(s?.departureTime || s?.horaPartida);
+    if (!d) return null;
+    const depUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m, 0);
 
-  // CORREÇÃO: somar o offset de −03:00 (180 min) para obter o instante correto
-  return new Date(depUTC + TZ_OFFSET_MIN * 60 * 1000);
-}
+    // CORREÇÃO: somar o offset de −03:00 (180 min) para obter o instante correto
+    return new Date(depUTC + TZ_OFFSET_MIN * 60 * 1000);
+  }
 
 
   // ===== utils extras (usar onde renderiza a lista) =====
-function seatFromTicket(t) {
-  // aceita t.Poltrona / t.poltrona / t.seatNumber
-  return Number(t?.Poltrona ?? t?.poltrona ?? t?.seatNumber ?? 0) || 0;
-}
-function ticketNumberOf(t) {
-  return t?.numPassagem ?? t?.NumPassagem ?? t?.numero ?? null;
-}
-function driveUrlOf(t) {
-  return t?.driveUrl ?? t?.url ?? t?.pdfLocal ?? null;
-}
-function samePlace(a, b) {
-  if (!a || !b) return false;
-  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-}
+  function seatFromTicket(t) {
+    // aceita t.Poltrona / t.poltrona / t.seatNumber
+    return Number(t?.Poltrona ?? t?.poltrona ?? t?.seatNumber ?? 0) || 0;
+  }
+  function ticketNumberOf(t) {
+    return t?.numPassagem ?? t?.NumPassagem ?? t?.numero ?? null;
+  }
+  function driveUrlOf(t) {
+    return t?.driveUrl ?? t?.url ?? t?.pdfLocal ?? null;
+  }
+  function samePlace(a, b) {
+    if (!a || !b) return false;
+    return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  }
 
 
 
@@ -129,7 +129,7 @@ function samePlace(a, b) {
     for (const b of paid) {
       const s = b.schedule || {};
       const seats = Array.isArray(b.seats) ? b.seats : [];
-      const pax   = Array.isArray(b.passengers) ? b.passengers : [];
+      const pax = Array.isArray(b.passengers) ? b.passengers : [];
       const tickets = Array.isArray(b.tickets) ? b.tickets : [];
 
       // 1) Quando já temos tickets (drive/pdf) – usar 1 por card
@@ -139,7 +139,7 @@ function samePlace(a, b) {
 
         tickets.forEach((t, idx) => {
           const seatNumber = (seats[idx] ?? pax[idx]?.seatNumber ?? null);
-          const passenger  = pax[idx] || null;
+          const passenger = pax[idx] || null;
 
           out.push({
             ...b,
@@ -184,132 +184,124 @@ function samePlace(a, b) {
     return out;
   }
 
- 
-
-// ===== Render: 1 card por BILHETE =====
-async function renderReservations() {
-  const container =
-    document.getElementById('reservas-list') ||
-    document.querySelector('#reservas .list') ||
-    document.getElementById('trips-list') ||
-    document.querySelector('#reservas') ||
-    document.querySelector('.reservas');
-
-  if (!container) return;
-
-  const localTickets = []; // agora será preenchido APENAS com o Sheets
-
-  // 1) Buscar no Google Sheets por e-mail logado
-  try {
-    const email = (user?.email || '').trim();
-    if (email) {
-      const r = await fetch(`/api/sheets/bpe-by-email?email=${encodeURIComponent(email)}`);
-      const j = await r.json();
-
-      if (j.ok && Array.isArray(j.items)) {
-        for (const s of j.items) {
-          // hora preferencialmente da coluna Data_Hora (formato "DD/MM/YYYY HH:MM")
-          const horaFromDateTime = (s.dateTime && s.dateTime.includes(' '))
-            ? s.dateTime.split(' ')[1]
-            : '';
-        /*
-          // status “Pago” quando statusPagamento = approved ou status = Emitido
-          const st = (String(s.statusPagamento || '').toLowerCase() === 'approved' ||
-                      String(s.status || '').toLowerCase() === 'emitido')
-                      ? 'Pago' : (s.status || '—');        */
-
-          // Status vem EXCLUSIVAMENTE da coluna O ("Status") do Sheets
-const statusSheetRaw = String(s.status ?? s.Status ?? '').trim();
-const statusSheet = statusSheetRaw.toLowerCase();
-
-const st =
-  statusSheet === 'cancelado' ? 'Cancelado' :
-  statusSheet === 'emitido'   ? 'Emitido'   :
-  (statusSheetRaw || '—');
 
 
-          localTickets.push({
-            origem:       s.origin || s.origem || '',
-            destino:      s.destination || s.destino || '',
-            data:         s.date || s.data || '',                 // "DD/MM/YYYY"
-            hora:         horaFromDateTime || s.departureTime || s.hora || '',
-            seat:         s.seatNumber || s.poltrona || '',       // se não existir no Sheets, deixa vazio
-            passageiro:   s.name || s.nome || '',
-            status:       st,
-            ticketNumber: s.ticketNumber || s.numpassagem || '',
-            url:          s.driveUrl || s.url || '',
-            idaVolta:     (s.sentido || '').toLowerCase() || null, // “ida”/“volta”
-            price:        Number(s.price || 0),
+  // ===== Render: 1 card por BILHETE =====
+  async function renderReservations() {
+    const container =
+      document.getElementById('reservas-list') ||
+      document.querySelector('#reservas .list') ||
+      document.getElementById('trips-list') ||
+      document.querySelector('#reservas') ||
+      document.querySelector('.reservas');
 
-            // extras opcionais
-            serie:        s.serie || '',
-            paymentType:  s.paymentType || '',
-            referencia:   s.referencia || '',
-            poltrona:     s.poltrona || '',
-          });
+    if (!container) return;
+
+    const localTickets = []; // agora será preenchido APENAS com o Sheets
+
+    // 1) Buscar no Google Sheets por e-mail logado
+    try {
+      const email = (user?.email || '').trim();
+      if (email) {
+        const r = await fetch(`/api/sheets/bpe-by-email?email=${encodeURIComponent(email)}`);
+        const j = await r.json();
+
+        if (j.ok && Array.isArray(j.items)) {
+          for (const s of j.items) {
+            // hora preferencialmente da coluna Data_Hora (formato "DD/MM/YYYY HH:MM")
+            const horaFromDateTime = (s.dateTime && s.dateTime.includes(' '))
+              ? s.dateTime.split(' ')[1]
+              : '';
+
+            // Status vem EXCLUSIVAMENTE da coluna O ("Status") do Sheets
+            const statusSheetRaw = String(s.status ?? s.Status ?? '').trim();
+            const statusSheet = statusSheetRaw.toLowerCase();
+
+            const st =
+              statusSheet === 'cancelado' ? 'Cancelado' :
+                statusSheet === 'emitido' ? 'Emitido' :
+                  (statusSheetRaw || '—');
+
+
+            localTickets.push({
+              origem: s.origin || s.origem || '',
+              destino: s.destination || s.destino || '',
+              data: s.date || s.data || '',                 // "DD/MM/YYYY"
+              hora: horaFromDateTime || s.departureTime || s.hora || '',
+              seat: s.seatNumber || s.poltrona || '',       // se não existir no Sheets, deixa vazio
+              passageiro: s.name || s.nome || '',
+              status: st,
+              ticketNumber: s.ticketNumber || s.numpassagem || '',
+              url: s.driveUrl || s.url || '',
+              idaVolta: (s.sentido || '').toLowerCase() || null, // “ida”/“volta”
+              price: Number(s.price || 0),
+
+              // extras opcionais
+              serie: s.serie || '',
+              paymentType: s.paymentType || '',
+              referencia: s.referencia || '',
+              poltrona: s.poltrona || '',
+            });
+          }
         }
       }
+    } catch (e) {
+      console.warn('[profile] Falha ao buscar do Sheets:', e);
     }
-  } catch (e) {
-    console.warn('[profile] Falha ao buscar do Sheets:', e);
-  }
 
-  // 2) Heurística de ida/volta (mantida)
-  localTickets.forEach((tk) => {
-    if (tk.idaVolta) return;
-    const pair = localTickets
-      .filter(o =>
-        o !== tk &&
-        samePlace(o.origem, tk.destino) &&
-        samePlace(o.destino, tk.origem)
-      )
-      .sort((a, b) => (Date.parse(a.data || '') || 0) - (Date.parse(b.data || '') || 0))[0];
+    // 2) Heurística de ida/volta (mantida)
+    localTickets.forEach((tk) => {
+      if (tk.idaVolta) return;
+      const pair = localTickets
+        .filter(o =>
+          o !== tk &&
+          samePlace(o.origem, tk.destino) &&
+          samePlace(o.destino, tk.origem)
+        )
+        .sort((a, b) => (Date.parse(a.data || '') || 0) - (Date.parse(b.data || '') || 0))[0];
 
-    if (!pair) { tk.idaVolta = 'ida'; return; }
+      if (!pair) { tk.idaVolta = 'ida'; return; }
 
-    const tTk   = Date.parse(tk.data || '')   || 0;
-    const tPair = Date.parse(pair.data || '') || 0;
-    tk.idaVolta = tTk > tPair ? 'volta' : 'ida';
-  });
+      const tTk = Date.parse(tk.data || '') || 0;
+      const tPair = Date.parse(pair.data || '') || 0;
+      tk.idaVolta = tTk > tPair ? 'volta' : 'ida';
+    });
 
-  // 3) Ordenação: por data+hora desc; em empate, nº do bilhete desc
-  const parseTs = (d, h) => Date.parse(`${String(d||'').replaceAll('/', '-')} ${h||''}`) || 0;
-  const toNumTicket = (tk) => parseInt(String(tk.ticketNumber || '').replace(/\D/g, ''), 10) || 0;
+    // 3) Ordenação: por data+hora desc; em empate, nº do bilhete desc
+    const parseTs = (d, h) => Date.parse(`${String(d || '').replaceAll('/', '-')} ${h || ''}`) || 0;
+    const toNumTicket = (tk) => parseInt(String(tk.ticketNumber || '').replace(/\D/g, ''), 10) || 0;
 
-  localTickets.sort((a, b) => {
-    const ta = parseTs(a.data, a.hora);
-    const tb = parseTs(b.data, b.hora);
-    if (tb !== ta) return tb - ta;
-    return toNumTicket(b) - toNumTicket(a);
-  });
+    localTickets.sort((a, b) => {
+      const ta = parseTs(a.data, a.hora);
+      const tb = parseTs(b.data, b.hora);
+      if (tb !== ta) return tb - ta;
+      return toNumTicket(b) - toNumTicket(a);
+    });
 
-  // 4) Render
-  const lines = localTickets.map(tk => {
-    const dataBR = (typeof formatDateBR === 'function') ? formatDateBR(tk.data) : tk.data;
-    const way = tk.idaVolta === 'volta' ? 'Volta' : 'Ida';
-    const idCard = String(tk.ticketNumber || `${tk.origem}-${tk.destino}-${tk.data}-${tk.hora}-${tk.seat}`);
-    const showPreview = (previewId === idCard);
+    // 4) Render
+    const lines = localTickets.map(tk => {
+      const dataBR = (typeof formatDateBR === 'function') ? formatDateBR(tk.data) : tk.data;
+      const way = tk.idaVolta === 'volta' ? 'Volta' : 'Ida';
+      const idCard = String(tk.ticketNumber || `${tk.origem}-${tk.destino}-${tk.data}-${tk.hora}-${tk.seat}`);
+      const showPreview = (previewId === idCard);
 
-    const valor = Number(tk.price || 0);
-    const multa = +(valor * 0.05).toFixed(2);
-    const reembolso = +(valor - multa).toFixed(2);
+      const valor = Number(tk.price || 0);
+      const multa = +(valor * 0.05).toFixed(2);
+      const reembolso = +(valor - multa).toFixed(2);
 
-    // const podeCancelar = mayCancel({ date: tk.data, dataViagem: tk.data, departureTime: tk.hora, horaPartida: tk.hora });
-const isCanceled = cancelledSet.has(tk.ticketNumber) ||
-                   String(tk.status || '').toLowerCase() === 'cancelado';
+      // const podeCancelar = mayCancel({ date: tk.data, dataViagem: tk.data, departureTime: tk.hora, horaPartida: tk.hora });
+      const isCanceled = cancelledSet.has(tk.ticketNumber) ||
+        String(tk.status || '').toLowerCase() === 'cancelado';
 
-const podeCancelar = !isCanceled && mayCancel({
-  date: tk.data, dataViagem: tk.data, departureTime: tk.hora, horaPartida: tk.hora
-});
+      const podeCancelar = !isCanceled && mayCancel({
+        date: tk.data, dataViagem: tk.data, departureTime: tk.hora, horaPartida: tk.hora
+      });
 
+      const btnBilhete = tk.url
+        ? `<button class="btn btn-success" onclick="window.open('${tk.url}','_blank')">Ver Bilhete</button>`
+        : `<button class="btn btn-secondary" disabled>Ver Bilhete</button>`;
 
-
-    
-    const btnBilhete = tk.url
-      ? `<button class="btn btn-success" onclick="window.open('${tk.url}','_blank')">Ver Bilhete</button>`
-      : `<button class="btn btn-secondary" disabled>Ver Bilhete</button>`;
-
-    return `
+      return `
       <div class="reserva" data-id="${idCard}">
         <div><b>${tk.origem}</b> → <b>${tk.destino}</b> <span class="badge">${way}</span></div>
         <div>Data: <b>${dataBR}</b> &nbsp; Saída: <b>${tk.hora || '—'}</b> &nbsp; Valor Total Pago: <b>${fmtBRL(valor)}</b></div>
@@ -347,96 +339,96 @@ const podeCancelar = !isCanceled && mayCancel({
                 data-id="${idCard}"
                 data-bilhete="${tk.ticketNumber || ''}"
                 ${podeCancelar ? '' :
-                `disabled title="${isCanceled
-                ? 'Bilhete já cancelado'
-                : 'Só é permitido até 12h antes da partida'}"`}
+            `disabled title="${isCanceled
+              ? 'Bilhete já cancelado'
+              : 'Só é permitido até 12h antes da partida'}"`}
                 >Cancelar</button>
           ` : ''}
 
         </div>
       </div>
     `;
-  });
-
-  container.innerHTML = lines.join('') || '<p class="mute">Nenhuma reserva encontrada.</p>';
-
-  // 5) Handlers (iguais, só sem flagCancelled)
-  container.querySelectorAll('.btn-cancel').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      previewId = btn.getAttribute('data-id');
-      renderReservations();
     });
-  });
-  container.querySelectorAll('[data-act="close-preview"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      previewId = null;
-      renderReservations();
+
+    container.innerHTML = lines.join('') || '<p class="mute">Nenhuma reserva encontrada.</p>';
+
+    // 5) Handlers (iguais, só sem flagCancelled)
+    container.querySelectorAll('.btn-cancel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        previewId = btn.getAttribute('data-id');
+        renderReservations();
+      });
     });
-  });
-container.querySelectorAll('[data-act="do-cancel"]').forEach(btn=>{
-  btn.addEventListener('click', async ()=>{
-    const num = (btn.getAttribute('data-bilhete') || '').trim();
-    if (!num) { alert('Não foi possível identificar o número do bilhete.'); return; }
-    if (!confirm('Confirmar cancelamento desta viagem?')) return;
+    container.querySelectorAll('[data-act="close-preview"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        previewId = null;
+        renderReservations();
+      });
+    });
+    container.querySelectorAll('[data-act="do-cancel"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const num = (btn.getAttribute('data-bilhete') || '').trim();
+        if (!num) { alert('Não foi possível identificar o número do bilhete.'); return; }
+        if (!confirm('Confirmar cancelamento desta viagem?')) return;
 
-    btn.disabled = true; const old = btn.textContent; btn.textContent = 'Cancelando...';
-   try {
-  const r = await fetch('/api/cancel-ticket', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      numeroPassagem: num,
-      motivo: 'Solicitação do cliente via portal'
-    })
-  });
+        btn.disabled = true; const old = btn.textContent; btn.textContent = 'Cancelando...';
+        try {
+          const r = await fetch('/api/cancel-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              numeroPassagem: num,
+              motivo: 'Solicitação do cliente via portal'
+            })
+          });
 
-  // tenta JSON; se não for JSON, tenta texto só pra diagnóstico
-  let j = null;
-  const ct = r.headers.get('content-type') || '';
-  try {
-    if (ct.includes('application/json')) j = await r.json();
-    else {
-      const txt = await r.text().catch(() => '');
-      j = txt ? { message: txt } : null;
-    }
-  } catch (_) { j = null; }
+          // tenta JSON; se não for JSON, tenta texto só pra diagnóstico
+          let j = null;
+          const ct = r.headers.get('content-type') || '';
+          try {
+            if (ct.includes('application/json')) j = await r.json();
+            else {
+              const txt = await r.text().catch(() => '');
+              j = txt ? { message: txt } : null;
+            }
+          } catch (_) { j = null; }
 
-  if (!r.ok) {
-    const msg = j?.error || j?.message || `HTTP ${r.status}`;
-    throw new Error(msg);
+          if (!r.ok) {
+            const msg = j?.error || j?.message || `HTTP ${r.status}`;
+            throw new Error(msg);
+          }
+          if (!j?.ok) throw new Error(j?.error || 'Falha no cancelamento');
+
+          const valorRefund = Number(j.valorRefund ?? 0);
+          alert(
+            `Bilhete cancelado com sucesso!\nEstorno encaminhado ao Banco no valor de R$ ${valorRefund
+              .toFixed(2)
+              .replace('.', ',')}.`
+          );
+
+          cancelledSet.add(num);
+          previewId = null;
+          renderReservations();
+        } catch (e) {
+          alert('Não foi possível cancelar: ' + (e.message || 'Erro desconhecido'));
+          console.error('[cancel]', e);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = old;
+        }
+
+      });
+    });
+
+
   }
-  if (!j?.ok) throw new Error(j?.error || 'Falha no cancelamento');
-
-  const valorRefund = Number(j.valorRefund ?? 0);
-  alert(
-    `Bilhete cancelado com sucesso!\nEstorno encaminhado ao Banco no valor de R$ ${valorRefund
-      .toFixed(2)
-      .replace('.', ',')}.`
-  );
-     
-  cancelledSet.add(num);
-  previewId = null;
-  renderReservations();
-} catch (e) {
-  alert('Não foi possível cancelar: ' + (e.message || 'Erro desconhecido'));
-  console.error('[cancel]', e);
-} finally {
-  btn.disabled = false;
-  btn.textContent = old;
-}
-
-  });
-});
-
-
-}
 
   // inicializa a tela
-(async () => {
-   try {
-     await renderReservations();
-   } catch (e) {
-     console.error('[profile] renderReservations falhou:', e);
-   }
- })();
+  (async () => {
+    try {
+      await renderReservations();
+    } catch (e) {
+      console.error('[profile] renderReservations falhou:', e);
+    }
+  })();
 });
