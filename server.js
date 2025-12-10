@@ -2169,17 +2169,23 @@ setInterval(() => {
 }, 60000);
 
 app.post('/api/praxio/vender', async (req, res) => {
-  const { mpPaymentId } = req.body || {};
-  const lockKey = String(mpPaymentId || '');
+  const { mpPaymentId, passengers } = req.body || {};
 
-  // 0.1) Verifica Cache de Concluídos (evita o gap do Sheets debounce)
+  // 1) Gera chave GRANULAR: PaymentId + Poltronas
+  // Evita que Item A devolva cache para Item B do mesmo pagamento
+  const seatList = (passengers || []).map(p => String(p.seatNumber || p.poltrona || '')).filter(Boolean).sort();
+  const lockKey = seatList.length
+    ? `${mpPaymentId}::${seatList.join(',')}`
+    : String(mpPaymentId || '');
+
+  // 0.1) Verifica Cache de Concluídos
   if (lockKey && COMPLETED_CACHE.has(lockKey)) {
     console.log(`[Idem] Retornando resultado em cache para ${lockKey}`);
     const cached = COMPLETED_CACHE.get(lockKey);
     return res.status(cached.status).json(cached.body);
   }
 
-  // 0.2) Se já existe um processamento para esse ID, aguarda e retorna o mesmo resultado
+  // 0.2) Se já existe um processamento para essa chave, aguarda
   if (lockKey && ISSUANCE_LOCK.has(lockKey)) {
     console.log(`[Idem] Aguardando processo existente para ${lockKey}...`);
     try {
@@ -2195,9 +2201,9 @@ app.post('/api/praxio/vender', async (req, res) => {
   const processSale = async () => {
     try {
       const {
-        mpPaymentId,                 // MP payment id
+        // mpPaymentId,                 // MP payment id - já está no escopo superior
         schedule,                    // { idViagem, horaPartida, idOrigem, idDestino, ... }
-        passengers,                  // [{ seatNumber, name, document }]
+        // passengers,                  // [{ seatNumber, name, document }] - já está no escopo superior
         totalAmount,                 // valor total
         idEstabelecimentoVenda = '1',
         idEstabelecimentoTicket = '93',
@@ -2207,13 +2213,14 @@ app.post('/api/praxio/vender', async (req, res) => {
         idaVolta = 'ida'
       } = req.body || {};
 
+      const currentSeats = (passengers || []).map(p => String(p.seatNumber)).sort();
+
       // 1) Revalida o pagamento
       const r = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
         headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` }
       });
       const payment = await r.json();
       if (!r.ok || !['approved', 'accredited'].includes(payment?.status)) {
-        // Retorna um objeto que será o JSON final
         return { status: 400, body: { ok: false, error: 'Pagamento não está aprovado.' } };
       }
 
@@ -2223,48 +2230,50 @@ app.post('/api/praxio/vender', async (req, res) => {
       }
 
       // 1.5) Verifica se JÁ EXISTE emissão na planilha (Persistência)
-      // Isso evita erro "Poltrona indisponível" se o webhook e o front chamarem juntos
+      // Agora verifica se AS POLTRONAS ESPECÍFICAS já estão lá
       const extRef = (payment.external_reference || '').trim();
-      if (extRef) {
+
+      const checkSheetsForSeats = async () => {
+        if (!extRef) return null;
         const { entries } = await sheetsFindByRef(extRef);
-        // Filtra linhas que já tenham NumPassagem preenchido
-        const issued = entries.filter(e => e.numPassagem && e.numPassagem.length > 2);
-
-        if (issued.length > 0) {
-          console.log(`[Idem] Bilhetes já emitidos para ref ${extRef} (Sheets). Retornando existentes.`);
-
-          // Reconstrói estrutura de resposta mockada
-          // Precisamos de 'arquivos' e 'vendaResult' (mock)
-          const arquivos = issued.map(e => ({
-            numPassagem: e.numPassagem,
-            pdfLocal: '', // Não temos o path local fácil aqui, mas o front talvez não precise se já foi enviado
-            driveUrl: '', // Se tiver na planilha, poderíamos pegar (e.linkBPE?), mas sheetsFindByRef não retorna linkBPE no 'entries' padrão mapeado acima? 
-            // O código sheetsFindByRef atual NÃO mapeia LinkBPE/IdUrl no objeto final 'entries', 
-            // mas podemos tentar inferir ou deixar vazio. O importante é o ok: true.
-            driveFileId: null
-          }));
-
-          // Mock do vendaResult para o front não quebrar
-          const vendaResult = {
-            Sucesso: true,
-            Mensagem: 'Bilhetes recuperados (já emitidos).',
-            ListaPassagem: issued.map(e => ({
-              NumPassagem: e.numPassagem,
-              Poltrona: e.poltrona,
-              NomeCliente: e.nome,
-              DocCliente: e.cpf,
-              ValorPgto: e.valor,
-              DataViagem: e.dataViagem,
-              HoraPartida: e.horaPartida,
-              Origem: e.origem,
-              Destino: e.destino
-            }))
-          };
-
-          return { status: 200, body: { ok: true, vendaResult, arquivos, recovered: true } };
+        // Filtra linhas que sejam das poltronas pedidas E tenham numPassagem
+        const found = entries.filter(e =>
+          e.numPassagem &&
+          e.numPassagem.length > 2 &&
+          currentSeats.includes(String(e.poltrona))
+        );
+        // Se achou TODAS as poltronas solicitadas, retorna sucesso
+        if (found.length > 0 && found.length === currentSeats.length) {
+          return found;
         }
-      }
+        return null;
+      };
 
+      const existingEntries = await checkSheetsForSeats();
+      if (existingEntries) {
+        console.log(`[Idem] Bilhetes ${currentSeats.join(',')} recuperados do Sheets.`);
+        const vendaResult = {
+          Sucesso: true,
+          Mensagem: 'Bilhetes recuperados (já emitidos).',
+          ListaPassagem: existingEntries.map(e => ({
+            NumPassagem: e.numPassagem,
+            Poltrona: e.poltrona,
+            NomeCliente: e.nome,
+            ValorPgto: e.valor,
+            DataViagem: e.dataViagem,
+            HoraPartida: e.horaPartida,
+            Origem: e.origem,
+            Destino: e.destino
+          })) // ... campos simplificados para o mock
+        };
+        const arquivos = existingEntries.map(e => ({
+          numPassagem: e.numPassagem,
+          pdfLocal: '',
+          driveUrl: '',
+          driveFileId: null
+        }));
+        return { status: 200, body: { ok: true, vendaResult, arquivos, recovered: true } };
+      }
 
       const mpType = String(payment?.payment_type_id || '').toLowerCase();
       const mpMethod = String(
@@ -2274,6 +2283,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       const isPix = mpMethod === 'pix';
 
       const tipoPagamento = isPix ? '8' : '3'; // 8=PIX | 3=Cartão
+
       const tipoCartao = isPix
         ? '0'                                  // 0 = PIX na Praxio
         : mpType === 'credit_card'
@@ -2345,14 +2355,40 @@ app.post('/api/praxio/vender', async (req, res) => {
 
       console.log('[Praxio][Venda] body:', JSON.stringify(bodyVenda).slice(0, 4000));
 
-      /*/ 4) Chama Praxio
-      const vendaResult = await praxioVendaPassagem(bodyVenda);
-      console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
-
-
       // 4) Chama Praxio
-      const vendaResult = await praxioVendaPassagem(bodyVenda);
-      console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
+      let vendaResult;
+      try {
+        vendaResult = await praxioVendaPassagem(bodyVenda);
+        console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
+      } catch (praxioErr) {
+        console.error('[Praxio][Venda] Exception:', praxioErr.message);
+
+        // === RECUPERAÇÃO DE ERRO (Race Condition) ===
+        // Se deu erro (ex: poltrona ocupada), pode ser que o webhook tenha acabado de ganhar a corrida.
+        // Vamos esperar 2s e olhar o Sheets novamente.
+        console.log('[Praxio][Retry] Aguardando 2s para verificar se Webhook já processou...');
+        await new Promise(r => setTimeout(r, 2000));
+
+        const retryEntries = await checkSheetsForSeats();
+        if (retryEntries) {
+          console.log(`[Praxio][Retry] SUCESSO! Bilhetes ${currentSeats} encontrados no Sheets pós-erro.`);
+          const vRes = {
+            Sucesso: true,
+            Mensagem: 'Bilhetes recuperados pós-erro (webhook processou).',
+            ListaPassagem: retryEntries.map(e => ({
+              NumPassagem: e.numPassagem,
+              Poltrona: e.poltrona,
+              NomeCliente: e.nome,
+              DataViagem: e.dataViagem
+            }))
+          };
+          const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+          return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+        }
+
+        // Se continuou sem bilhete, relança o erro original
+        throw praxioErr;
+      }
 
       // --- Se a Praxio não devolver bilhete, registra erro e avisa suporte
       const semBilhetes =
@@ -2362,6 +2398,17 @@ app.post('/api/praxio/vender', async (req, res) => {
         vendaResult.ListaPassagem.length === 0;
 
       if (semBilhetes) {
+        // Tenta recovery aqui também (caso Sucesso=false mas sem exceção HTTP)
+        console.log('[Praxio][Retry] Checando Sheets pois veio Sucesso=false...');
+        await new Promise(r => setTimeout(r, 2000));
+        const retryEntries = await checkSheetsForSeats();
+        if (retryEntries) {
+          const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
+          const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+          return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+        }
+
+        // Lógica de erro original...
         const msgPraxi =
           vendaResult?.Mensagem ||
           vendaResult?.Mensagem2 ||
@@ -2399,8 +2446,7 @@ app.post('/api/praxio/vender', async (req, res) => {
         : [];
 
       if (!lista.length) {
-        const msg = vendaResult.Mensagem || vendaResult.MensagemDetalhada || 'Praxio não retornou nenhum bilhete.';
-        throw new Error(`Venda Praxio sem bilhetes: ${msg}`);
+        throw new Error('Praxio ListaPassagem vazia'); // vai pro catch lá embaixo
       }
 
       // 🔎 Verificar erro por poltrona
@@ -2411,6 +2457,17 @@ app.post('/api/praxio/vender', async (req, res) => {
       });
 
       if (errosPoltronas.length) {
+        // Retry logic para erro parcial (alguma poltrona falhou)?
+        // Se falhou por indisponível, checa Sheets
+        console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
+        await new Promise(r => setTimeout(r, 2000));
+        const retryEntries = await checkSheetsForSeats();
+        if (retryEntries) {
+          const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
+          const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+          return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+        }
+
         const msgs = errosPoltronas
           .map(p => p.Mensagem || p.MensagemDetalhada)
           .filter(Boolean)
@@ -2721,3 +2778,6 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
+
+
+//teste
