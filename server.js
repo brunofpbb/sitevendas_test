@@ -2778,6 +2778,3 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
-
-
-//teste
