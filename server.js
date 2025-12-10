@@ -853,14 +853,25 @@ async function sheetsUpdateStatus(rowIndex, status) {
 }
 
 
-// Atualiza status de pagamento no Sheets usando a Referencia
+// Helper to convert 0-based index to column letter (0->A, 25->Z, 26->AA)
+function toColumnName(num) {
+  let letter = '';
+  while (num >= 0) {
+    const temp = num % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    num = (num - temp) / 26 - 1;
+  }
+  return letter;
+}
+
+// Atualiza status de pagamento no Sheets usando a Referencia (Cirúrgico)
 async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
   if (!externalReference) {
     console.warn('[Sheets][Pgto] externalReference vazio, nada a atualizar');
     return { ok: false, error: 'externalReference vazio' };
   }
   const sheets = getSheets();
-  const { spreadsheetId, range, tab } = resolveSheetEnv();
+  const { spreadsheetId, range, tab } = resolveSheetEnv(); // range ex: BPE!A:AG
 
   const read = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -880,7 +891,6 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
   const colRef = findCol('Referencia');
   const colStatus = findCol('Status');
   const colStatusPg = findCol('StatusPagamento');
-  const colDataPg = findCol('Data/hora_Pagamento');
   const colIdPg = findCol('idPagamento');
   const colTipoPg = findCol('TipoPagamento');
   const colFormaPg = findCol('Forma_Pagamento');
@@ -890,18 +900,6 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     console.warn('[Sheets][Pgto] Coluna "Referencia" não encontrada no header');
     return { ok: false, error: 'coluna Referencia não encontrada' };
   }
-
-  const parseDt = (dt) => {
-    if (!dt) return nowSP();
-    const d = new Date(dt);
-    const pad = (n) => String(n).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const mm = pad(d.getMonth() + 1);
-    const dd = pad(d.getDate());
-    const hh = pad(d.getHours());
-    const mi = pad(d.getMinutes());
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-  };
 
   const statusMP = String(payment?.status || '').toLowerCase();
   const statusPagamento =
@@ -928,39 +926,47 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     || payment?.transaction_amount
     || '';
 
-  const dataPagamento = parseDt(payment?.date_approved || payment?.date_created);
 
-  const data = [];
+  const dataToUpdate = [];
+
   rows.forEach((row, idx) => {
     if (idx === 0) return; // header
-    if (String(row[colRef] || '').trim() !== String(externalReference).trim()) {
+    const currentRef = String(row[colRef] || '').trim();
+
+    if (currentRef !== String(externalReference).trim()) {
       return;
     }
 
-    const newRow = [...row];
+    const rowNumber = idx + 1; // 1-based index
 
-    if (colStatusPg >= 0) newRow[colStatusPg] = statusPagamento;
+    // Helper para adicionar ao batch
+    const addUpdate = (colIdx, val) => {
+      if (colIdx >= 0 && val !== undefined && val !== null) {
+        dataToUpdate.push({
+          range: `${tab}!${toColumnName(colIdx)}${rowNumber}`,
+          values: [[val]]
+        });
+      }
+    };
 
-    // Só mexe em Status se estiver VAZIO (pré-reserva)
-    if (colStatus >= 0 && !newRow[colStatus]) {
-      newRow[colStatus] = 'Pendente';
+    // Atualiza colunas de pagamento (Sempre)
+    addUpdate(colStatusPg, statusPagamento);
+    addUpdate(colIdPg, idPagamento);
+    addUpdate(colTipoPg, tipo);
+    addUpdate(colFormaPg, forma);
+    addUpdate(colIdTransacao, String(idTransacao));
+
+    // Atualiza coluna Status SOMENTE SE estiver vazia (Protege "Cancelado")
+    if (colStatus >= 0) {
+      const currentStatus = String(row[colStatus] || '').trim();
+      if (!currentStatus) {
+        addUpdate(colStatus, 'Pendente');
+      }
     }
-
-
-    if (colIdPg >= 0 && idPagamento) newRow[colIdPg] = idPagamento;
-    if (colTipoPg >= 0 && tipo) newRow[colTipoPg] = tipo;
-    if (colFormaPg >= 0 && forma) newRow[colFormaPg] = forma;
-    if (colIdTransacao >= 0 && idTransacao) newRow[colIdTransacao] = String(idTransacao);
-
-    const rowNumber = idx + 1;
-    data.push({
-      range: `${tab}!A${rowNumber}:AG${rowNumber}`,
-      values: [newRow]
-    });
   });
 
-  if (!data.length) {
-    console.log('[Sheets][Pgto] Nenhuma linha encontrada para referencia =', externalReference);
+  if (!dataToUpdate.length) {
+    console.log('[Sheets][Pgto] Nenhuma linha encontrada (ou nada a atualizar) para ref =', externalReference);
     return { ok: true, updated: 0 };
   }
 
@@ -968,12 +974,12 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     spreadsheetId,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
-      data
+      data: dataToUpdate
     }
   });
 
-  console.log('[Sheets][Pgto] Atualizadas', data.length, 'linhas para referencia', externalReference);
-  return { ok: true, updated: data.length };
+  console.log('[Sheets][Pgto] Atualizadas', dataToUpdate.length, 'células para referencia', externalReference);
+  return { ok: true, updated: dataToUpdate.length };
 }
 
 
