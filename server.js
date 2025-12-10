@@ -2328,6 +2328,11 @@ app.post('/api/praxio/vender', async (req, res) => {
 
       console.log('[Praxio][Venda] body:', JSON.stringify(bodyVenda).slice(0, 4000));
 
+      /*/ 4) Chama Praxio
+      const vendaResult = await praxioVendaPassagem(bodyVenda);
+      console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
+
+
       // 4) Chama Praxio
       const vendaResult = await praxioVendaPassagem(bodyVenda);
       console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));
