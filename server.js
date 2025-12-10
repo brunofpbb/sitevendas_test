@@ -1682,7 +1682,9 @@ app.post('/api/cancel-ticket', async (req, res) => {
     // 4) Sheets — marcar "Cancelado" (não falha a operação se o update quebrar)
     let planilha = { ok: true };
     try {
-      await sheetsUpdateStatus(rowIndex, 'Cancelado');
+      // Re-busca a linha para garantir que não mudou (race condition com delete de pré-reservas)
+      const fresh = await sheetsFindByBilhete(numeroPassagem);
+      await sheetsUpdateStatus(fresh.rowIndex, 'Cancelado');
     } catch (err) {
       console.error('[Sheets] Falha ao atualizar Status:', err?.message || err);
       planilha = { ok: false, error: err?.message || String(err) };
