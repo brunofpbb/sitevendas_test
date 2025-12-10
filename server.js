@@ -2155,21 +2155,36 @@ app.post('/api/ticket/render', async (req, res) => {
 /* =================== Venda Praxio + PDF + e-mail + Webhook agrupado =================== */
 // === Idempotência de Processamento (Lock em memória) ===
 const ISSUANCE_LOCK = new Map(); // mpPaymentId -> Promise
+const COMPLETED_CACHE = new Map(); // mpPaymentId -> { status, body, timestamp }
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
+
+// Limpeza do cache
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of COMPLETED_CACHE.entries()) {
+    if (now - v.timestamp > CACHE_TTL) COMPLETED_CACHE.delete(k);
+  }
+}, 60000);
 
 app.post('/api/praxio/vender', async (req, res) => {
   const { mpPaymentId } = req.body || {};
   const lockKey = String(mpPaymentId || '');
 
-  // 0) Se já existe um processamento para esse ID, aguarda e retorna o mesmo resultado
+  // 0.1) Verifica Cache de Concluídos (evita o gap do Sheets debounce)
+  if (lockKey && COMPLETED_CACHE.has(lockKey)) {
+    console.log(`[Idem] Retornando resultado em cache para ${lockKey}`);
+    const cached = COMPLETED_CACHE.get(lockKey);
+    return res.status(cached.status).json(cached.body);
+  }
+
+  // 0.2) Se já existe um processamento para esse ID, aguarda e retorna o mesmo resultado
   if (lockKey && ISSUANCE_LOCK.has(lockKey)) {
     console.log(`[Idem] Aguardando processo existente para ${lockKey}...`);
     try {
       const result = await ISSUANCE_LOCK.get(lockKey);
-      return res.json(result);
+      return res.status(result.status || 200).json(result.body);
     } catch (err) {
       console.error(`[Idem] Erro no processo aguardado (${lockKey}):`, err);
-      // Se o original falhou, deixamos o novo tentar (ou retornamos erro também)
-      // Por segurança, retornamos erro para evitar retry infinito imediato
       return res.status(500).json({ ok: false, error: 'Falha no processamento anterior.' });
     }
   }
@@ -2327,6 +2342,11 @@ app.post('/api/praxio/vender', async (req, res) => {
       };
 
       console.log('[Praxio][Venda] body:', JSON.stringify(bodyVenda).slice(0, 4000));
+
+      /*/ 4) Chama Praxio
+      const vendaResult = await praxioVendaPassagem(bodyVenda);
+      console.log('[Praxio][Venda][Resp]:', JSON.stringify(vendaResult).slice(0, 4000));*/
+
 
       // 4) Chama Praxio
       const vendaResult = await praxioVendaPassagem(bodyVenda);
@@ -2670,6 +2690,16 @@ app.post('/api/praxio/vender', async (req, res) => {
   try {
     const result = await promise;
     // result = { status: number, body: object }
+
+    // Salva no cache de concluídos se foi sucesso (200)
+    if (lockKey && result.status === 200) {
+      COMPLETED_CACHE.set(lockKey, {
+        status: result.status,
+        body: result.body,
+        timestamp: Date.now()
+      });
+    }
+
     return res.status(result.status || 200).json(result.body);
   } finally {
     // Remove do Map ao terminar
