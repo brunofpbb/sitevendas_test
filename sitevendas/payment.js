@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert(
               'Pagamento aprovado. Se o bilhete ainda não aparecer em "Minhas viagens", ' +
               'aguarde alguns instantes ou fale com o suporte.'
-            );
+            )
           }
 
         
