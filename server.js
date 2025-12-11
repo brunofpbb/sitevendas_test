@@ -1299,7 +1299,7 @@ app.use('/tickets', express.static(TICKETS_DIR, { maxAge: '7d', index: false }))
 /* =================== Rotas Mercado Pago existentes =================== */
 const mpRoutes = require('./mpRoutes');
 app.use('/api/mp', mpRoutes);
-
+/*
 
 // Espera o flush do agregador (Sheets + e-mail) para um paymentId (groupId)
 app.get('/api/mp/wait-flush', async (req, res) => {
@@ -1323,6 +1323,62 @@ app.get('/api/mp/wait-flush', async (req, res) => {
     return res.status(200).json({ ok: true, flushed: false, note: 'fallback' }); // não bloqueia UX
   }
 });
+
+*/
+
+
+
+app.get('/api/mp/wait-flush', async (req, res) => {
+  try {
+    const paymentId = String(req.query.paymentId || '').trim();
+    if (!paymentId) {
+      return res.status(400).json({ ok: false, error: 'paymentId é obrigatório' });
+    }
+
+    // garante que exista uma entrada no AGGR para poder pendurar "waiters"
+    let e = AGGR.get(paymentId);
+    if (!e) {
+      e = {
+        timer: null,
+        startedAt: Date.now(),
+        base: {},
+        bilhetes: [],
+        arquivos: [],
+        emailAttachments: [],
+        expected: 0,
+        flushed: false,
+        waiters: []
+      };
+      AGGR.set(paymentId, e);
+    }
+
+    // se já flushei, não preciso esperar
+    if (e.flushed) {
+      return res.json({ ok: true, flushed: true });
+    }
+
+    // ainda pendente → aguarda o flush do agregador com timeout de segurança
+    const TIMEOUT = Math.max(AGGR_MAX_WAIT_MS, AGGR_DEBOUNCE_MS + 5000); // ~40s
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
+      (e.waiters || (e.waiters = [])).push(() => {
+        try { clearTimeout(t); } catch {}
+        resolve();
+      });
+    });
+
+    return res.json({ ok: true, flushed: true });
+  } catch (err) {
+    console.warn('[AGGR] wait-flush erro:', err);
+    // fallback: não travar a UX, mas indicar que não temos certeza se flushei
+    return res.status(200).json({ ok: true, flushed: false, note: 'fallback' });
+  }
+});
+
+
+
+
+
 
 
 
