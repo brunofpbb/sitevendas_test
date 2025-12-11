@@ -779,7 +779,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
             // Emissão do PIX fica apenas pelo webhook.
             // Aqui só esperamos o flush (Sheets + e-mail) e vamos para Minhas Compras.
-            try {
+         
+            
+            /*  try {
               await fetch(
                 `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
               );
@@ -791,6 +793,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             location.href = 'profile.html';
             return;
+            
+            */
+
+            try {
+  await fetch(
+    `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
+  );
+} catch (_) {
+  console.warn(
+    'wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim'
+  );
+}
+
+// Garante que o overlay apareça pelo menos por ~1,5s
+try {
+  await new Promise(resolve => setTimeout(resolve, 1500));
+} catch (_) { /* ignore */ }
+
+location.href = 'profile.html';
+return;
+
+
+
+            
           } catch (e) {
             console.error('Erro ao aguardar emissão via webhook (Pix):', e);
             hideOverlayIfShown();
