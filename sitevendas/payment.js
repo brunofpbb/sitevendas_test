@@ -670,7 +670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // === Polling do PIX (aprovado -> emitir e salvar links)
-  async function startPixPolling(paymentId) {
+/*  async function startPixPolling(paymentId) {
     clearInterval(pixPollTimer);
     const t0 = Date.now();
     setPixStatus('Aguardando pagamento…');
@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } 
         
         
-/*
+
                 if (st === 'approved') {
           clearInterval(pixPollTimer);
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
@@ -736,7 +736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               'aguarde alguns instantes ou fale com o suporte.'
             )
           }
-*/
+
         
         else if (st === 'rejected' || st === 'cancelled' || st === 'refunded' || detail.includes('expired')) {
           clearInterval(pixPollTimer);
@@ -755,7 +755,90 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }, POLL_MS);
   }
+*/
 
+
+
+
+  // === Polling do PIX (aprovado -> aguardar webhook emitir e redirecionar)
+  async function startPixPolling(paymentId) {
+    clearInterval(pixPollTimer);
+    const t0 = Date.now();
+    setPixStatus('Aguardando pagamento…');
+
+    pixPollTimer = setInterval(async () => {
+      try {
+        const data = await fetchPaymentStatus(paymentId);
+        const st = String(data?.status || '').toLowerCase();
+        const detail = String(data?.status_detail || '').toLowerCase();
+
+        if (st === 'approved') {
+          clearInterval(pixPollTimer);
+          showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
+
+          try {
+            // Emissão do PIX fica apenas pelo webhook.
+            // Aqui só esperamos o flush (Sheets + e-mail) e vamos para Minhas Compras.
+            try {
+              await fetch(
+                `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
+              );
+            } catch (_) {
+              console.warn(
+                'wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim'
+              );
+            }
+
+            location.href = 'profile.html';
+            return;
+          } catch (e) {
+            console.error('Erro ao aguardar emissão via webhook (Pix):', e);
+            hideOverlayIfShown();
+            alert(
+              'Pagamento aprovado. Se o bilhete ainda não aparecer em "Minhas compras", ' +
+              'aguarde alguns instantes ou fale com o suporte.'
+            );
+          }
+        } else if (
+          st === 'rejected' ||
+          st === 'cancelled' ||
+          st === 'refunded' ||
+          st === 'charged_back'
+        ) {
+          clearInterval(pixPollTimer);
+          setPixStatus('Pagamento não aprovado.');
+          alert(`Pagamento não aprovado: ${st} (${detail})`);
+        } else {
+          // pendente / in_process
+          const elapsed = Date.now() - t0;
+          if (elapsed > MAX_POLL_TIME) {
+            clearInterval(pixPollTimer);
+            setPixStatus('Tempo limite excedido. Verifique em Minhas compras.');
+            alert(
+              'Não foi possível confirmar o pagamento do Pix a tempo. ' +
+              'Verifique o status em "Minhas compras".'
+            );
+          } else {
+            setPixStatus('Aguardando pagamento…');
+          }
+        }
+      } catch (e) {
+        console.warn('Falha no polling Pix:', e);
+        // continua tentando até estourar o timeout
+      }
+    }, POLL_MS);
+  }
+
+
+
+
+
+
+
+
+
+
+  
   async function awaitMountBricks(total) {
     if (!order.length) {
       try { await brickController?.unmount?.(); } catch (_) { }
