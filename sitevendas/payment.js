@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const st = String(data?.status || '').toLowerCase();
         const detail = String(data?.status_detail || '').toLowerCase();
 
-        if (st === 'approved') {
+      /*   if (st === 'approved') {
           clearInterval(pixPollTimer);
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
 
@@ -781,7 +781,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Aqui só esperamos o flush (Sheets + e-mail) e vamos para Minhas Compras.
          
             
-            /*  try {
+             try {
               await fetch(
                 `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
               );
@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             location.href = 'profile.html';
             return;
             
-            */
+           
 
             try {
   await fetch(
@@ -810,7 +810,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 try {
   await new Promise(resolve => setTimeout(resolve, 1500));
 } catch (_) { /* ignore */ }
-
+/*
 location.href = 'profile.html';
 return;
 
@@ -825,7 +825,45 @@ return;
               'aguarde alguns instantes ou fale com o suporte.'
             );
           }
-        } else if (
+        }*/ 
+
+
+
+      if (st === 'approved') {
+  clearInterval(pixPollTimer);
+
+  // Exibe o overlay e mantém até o backend concluir tudo
+  showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
+
+  try {
+    // Aguarda o backend terminar: emissão + email + sheets
+    try {
+      await fetch(
+        `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
+      );
+    } catch (err) {
+      console.warn('wait-flush expirou ou falhou, mas seguiremos mesmo assim:', err);
+    }
+
+    // IMPORTANTE: aguarda 100ms para garantir pintura do overlay
+    await new Promise(res => setTimeout(res, 100));
+
+    // Redireciona somente após o processo REAL ter finalizado
+    location.href = 'profile.html';
+    return;
+
+  } catch (e) {
+    console.error('Erro ao aguardar emissão via webhook (Pix):', e);
+    hideOverlayIfShown();
+    alert(
+      'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
+      'Verifique em "Minhas compras" ou fale com o suporte.'
+    );
+  }
+}
+
+                          
+                          else if (
           st === 'rejected' ||
           st === 'cancelled' ||
           st === 'refunded' ||
