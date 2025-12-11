@@ -680,7 +680,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await fetchPaymentStatus(paymentId);
         const st = String(data?.status || '').toLowerCase();
         const detail = String(data?.status_detail || '').toLowerCase();
-/*
+
         if (st === 'approved') {
           clearInterval(pixPollTimer);
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
@@ -708,8 +708,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         } 
         
-        */
-
+        
+/*
                 if (st === 'approved') {
           clearInterval(pixPollTimer);
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
@@ -736,7 +736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               'aguarde alguns instantes ou fale com o suporte.'
             )
           }
-
+*/
         
         else if (st === 'rejected' || st === 'cancelled' || st === 'refunded' || detail.includes('expired')) {
           clearInterval(pixPollTimer);
