@@ -669,8 +669,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // === Polling do PIX (aprovado -> emitir e salvar links)
-/*  async function startPixPolling(paymentId) {
+ 
+
+
+   // === Polling do PIX (aprovado -> aguardar webhook emitir e redirecionar)
+  async function startPixPolling(paymentId) {
     clearInterval(pixPollTimer);
     const t0 = Date.now();
     setPixStatus('Aguardando pagamento…');
@@ -683,187 +686,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (st === 'approved') {
           clearInterval(pixPollTimer);
+
+          // Exibe o overlay e mantém até o backend concluir tudo
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
 
           try {
-            const venda = await venderPraxioApósAprovado(paymentId);
-            const arquivos = venda?.arquivos || venda?.Arquivos || [];
-            if (arquivos.length) {
-              mergeDriveLinksIntoBookings(arquivos);
-
-              // 👇 espera o flush do agregador (Sheets + e-mail)
-              try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) { }
-
-              location.href = 'profile.html';
-              return;
-            }
-
-
-            hideOverlayIfShown();
-            alert('Pagamento aprovado, mas não foi possível gerar o bilhete. Suporte notificado.');
-          } catch (e) {
-            console.error('Erro ao emitir bilhete após aprovação:', e);
-            hideOverlayIfShown();
-            alert('Pagamento aprovado, mas houve erro ao emitir o bilhete. Suporte notificado.');
-          }
-        } 
-        
-        
-
-                if (st === 'approved') {
-          clearInterval(pixPollTimer);
-          showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
-
-          try {
-            // NOVO: emissão de Pix fica exclusivamente a cargo do webhook.
-            // Aqui apenas aguardamos o flush (Sheets + e-mail) e levamos
-            // o usuário para "Minhas viagens".
-
+            // Aguarda o backend terminar: emissão + e-mail + Sheets
             try {
-              await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`);
-            } catch (_) {
-              // Se o wait-flush der timeout/erro, ainda assim seguimos para o profile.
-              console.warn('wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim');
-            }
-
-            location.href = 'profile.html';
-            return;
-          } catch (e) {
-            console.error('Erro ao aguardar emissão via webhook (Pix):', e);
-            hideOverlayIfShown();
-            alert(
-              'Pagamento aprovado. Se o bilhete ainda não aparecer em "Minhas viagens", ' +
-              'aguarde alguns instantes ou fale com o suporte.'
-            )
-          }
-
-        
-        else if (st === 'rejected' || st === 'cancelled' || st === 'refunded' || detail.includes('expired')) {
-          clearInterval(pixPollTimer);
-          setPixStatus('Pagamento não confirmado (expirado/cancelado). Gere um novo Pix.');
-        } else {
-          setPixStatus('Aguardando pagamento…');
-        }
-
-        if (Date.now() - t0 > POLL_TIMEOUT_MS) {
-          clearInterval(pixPollTimer);
-          setPixStatus('Tempo esgotado. Gere um novo Pix se necessário.');
-        }
-      } catch (e) {
-        console.warn('Falha no polling Pix:', e);
-        // continua tentando até timeout
-      }
-    }, POLL_MS);
-  }
-*/
-
-
-
-
-  // === Polling do PIX (aprovado -> aguardar webhook emitir e redirecionar)
-  async function startPixPolling(paymentId) {
-    clearInterval(pixPollTimer);
-    const t0 = Date.now();
-    setPixStatus('Aguardando pagamento…');
-
-    pixPollTimer = setInterval(async () => {
-      try {
-        const data = await fetchPaymentStatus(paymentId);
-        const st = String(data?.status || '').toLowerCase();
-        const detail = String(data?.status_detail || '').toLowerCase();
-
-      /*   if (st === 'approved') {
-          clearInterval(pixPollTimer);
-          showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
-
-          try {
-            // Emissão do PIX fica apenas pelo webhook.
-            // Aqui só esperamos o flush (Sheets + e-mail) e vamos para Minhas Compras.
-         
-            
-             try {
               await fetch(
                 `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
               );
-            } catch (_) {
+            } catch (err) {
               console.warn(
-                'wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim'
+                'wait-flush expirou ou falhou, mas seguiremos mesmo assim:',
+                err
               );
             }
 
+            // Pequena espera só pra garantir que o overlay "pinte" na tela
+            await new Promise(res => setTimeout(res, 100));
+
+            // Redireciona somente após o processo REAL ter finalizado
             location.href = 'profile.html';
             return;
-            
-           
-
-            try {
-  await fetch(
-    `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
-  );
-} catch (_) {
-  console.warn(
-    'wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim'
-  );
-}
-
-// Garante que o overlay apareça pelo menos por ~1,5s
-try {
-  await new Promise(resolve => setTimeout(resolve, 1500));
-} catch (_) { /* ignore */ }
-/*
-location.href = 'profile.html';
-return;
-
-
-
-            
           } catch (e) {
-            console.error('Erro ao aguardar emissão via webhook (Pix):', e);
+            console.error(
+              'Erro ao aguardar emissão via webhook (Pix):',
+              e
+            );
             hideOverlayIfShown();
             alert(
-              'Pagamento aprovado. Se o bilhete ainda não aparecer em "Minhas compras", ' +
-              'aguarde alguns instantes ou fale com o suporte.'
+              'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
+              'Verifique em "Minhas compras" ou fale com o suporte.'
             );
           }
-        }*/ 
 
-
-
-      if (st === 'approved') {
-  clearInterval(pixPollTimer);
-
-  // Exibe o overlay e mantém até o backend concluir tudo
-  showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
-
-  try {
-    // Aguarda o backend terminar: emissão + email + sheets
-    try {
-      await fetch(
-        `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
-      );
-    } catch (err) {
-      console.warn('wait-flush expirou ou falhou, mas seguiremos mesmo assim:', err);
-    }
-
-    // IMPORTANTE: aguarda 100ms para garantir pintura do overlay
-    await new Promise(res => setTimeout(res, 100));
-
-    // Redireciona somente após o processo REAL ter finalizado
-    location.href = 'profile.html';
-    return;
-
-  } catch (e) {
-    console.error('Erro ao aguardar emissão via webhook (Pix):', e);
-    hideOverlayIfShown();
-    alert(
-      'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
-      'Verifique em "Minhas compras" ou fale com o suporte.'
-    );
-  }
-}
-
-                          
-                          else if (
+        } else if (
           st === 'rejected' ||
           st === 'cancelled' ||
           st === 'refunded' ||
@@ -872,10 +730,11 @@ return;
           clearInterval(pixPollTimer);
           setPixStatus('Pagamento não aprovado.');
           alert(`Pagamento não aprovado: ${st} (${detail})`);
+
         } else {
           // pendente / in_process
           const elapsed = Date.now() - t0;
-          if (elapsed > MAX_POLL_TIME) {
+          if (elapsed > POLL_TIMEOUT_MS) {
             clearInterval(pixPollTimer);
             setPixStatus('Tempo limite excedido. Verifique em Minhas compras.');
             alert(
