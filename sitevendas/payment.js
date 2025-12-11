@@ -680,7 +680,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await fetchPaymentStatus(paymentId);
         const st = String(data?.status || '').toLowerCase();
         const detail = String(data?.status_detail || '').toLowerCase();
-
+/*
         if (st === 'approved') {
           clearInterval(pixPollTimer);
           showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
@@ -706,7 +706,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             hideOverlayIfShown();
             alert('Pagamento aprovado, mas houve erro ao emitir o bilhete. Suporte notificado.');
           }
-        } else if (st === 'rejected' || st === 'cancelled' || st === 'refunded' || detail.includes('expired')) {
+        } 
+        
+        */
+
+                if (st === 'approved') {
+          clearInterval(pixPollTimer);
+          showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
+
+          try {
+            // NOVO: emissão de Pix fica exclusivamente a cargo do webhook.
+            // Aqui apenas aguardamos o flush (Sheets + e-mail) e levamos
+            // o usuário para "Minhas viagens".
+
+            try {
+              await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`);
+            } catch (_) {
+              // Se o wait-flush der timeout/erro, ainda assim seguimos para o profile.
+              console.warn('wait-flush para Pix falhou ou expirou; seguindo para profile.html mesmo assim');
+            }
+
+            location.href = 'profile.html';
+            return;
+          } catch (e) {
+            console.error('Erro ao aguardar emissão via webhook (Pix):', e);
+            hideOverlayIfShown();
+            alert(
+              'Pagamento aprovado. Se o bilhete ainda não aparecer em "Minhas viagens", ' +
+              'aguarde alguns instantes ou fale com o suporte.'
+            );
+          }
+
+        
+        else if (st === 'rejected' || st === 'cancelled' || st === 'refunded' || detail.includes('expired')) {
           clearInterval(pixPollTimer);
           setPixStatus('Pagamento não confirmado (expirado/cancelado). Gere um novo Pix.');
         } else {
