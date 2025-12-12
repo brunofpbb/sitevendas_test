@@ -1299,33 +1299,6 @@ app.use('/tickets', express.static(TICKETS_DIR, { maxAge: '7d', index: false }))
 /* =================== Rotas Mercado Pago existentes =================== */
 const mpRoutes = require('./mpRoutes');
 app.use('/api/mp', mpRoutes);
-/*
-
-// Espera o flush do agregador (Sheets + e-mail) para um paymentId (groupId)
-app.get('/api/mp/wait-flush', async (req, res) => {
-  try {
-    const paymentId = String(req.query.paymentId || '').trim();
-    if (!paymentId) return res.status(400).json({ ok: false, error: 'paymentId é obrigatório' });
-
-    // se não houver entrada no agregador, já flushei (ou não havia o que enviar)
-    const e = AGGR.get(paymentId);
-    if (!e || e.flushed) return res.json({ ok: true, flushed: true });
-
-    // ainda pendente → aguarda com timeout
-    const TIMEOUT = Math.max(AGGR_MAX_WAIT_MS, AGGR_DEBOUNCE_MS + 5000); // ~40s
-    await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
-      e.waiters.push(() => { clearTimeout(t); resolve(); });
-    });
-
-    return res.json({ ok: true, flushed: true });
-  } catch (err) {
-    return res.status(200).json({ ok: true, flushed: false, note: 'fallback' }); // não bloqueia UX
-  }
-});
-
-*/
-
 
 
 app.get('/api/mp/wait-flush', async (req, res) => {
