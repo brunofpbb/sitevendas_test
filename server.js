@@ -1411,6 +1411,15 @@ app.post('/api/mp/webhook', async (req, res) => {
       payment?.external_reference
     );
 
+        // Descobre método de pagamento
+    const mpType = String(payment?.payment_type_id || '').toLowerCase();
+    const mpMethod = String(
+      payment?.payment_method_id || payment?.payment_method?.id || ''
+    ).toLowerCase();
+
+    const isPix = mpMethod === 'pix';
+
+
     const extRef = payment?.external_reference || null;
     if (extRef) {
       // 1) Atualiza status de pagamento na pré-reserva
@@ -1420,7 +1429,7 @@ app.post('/api/mp/webhook', async (req, res) => {
     }
 
     // 2) Se estiver efetivamente pago (approved/accredited), dispara emissão
-    const status = String(payment?.status || '').toLowerCase();
+ /*   const status = String(payment?.status || '').toLowerCase();
     const pago =
       status === 'approved' ||
       status === 'accredited';
@@ -1435,6 +1444,35 @@ app.post('/api/mp/webhook', async (req, res) => {
     } else {
       console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
     }
+
+    */
+
+
+        const status = String(payment?.status || '').toLowerCase();
+    const pago =
+      status === 'approved' ||
+      status === 'accredited';
+
+    // A PARTIR DE AGORA:
+    // - PIX: emissão automática via webhook
+    // - Cartão (credit/debit): emissão feita no front (payment.js), webhook só atualiza Sheets
+    if (pago && isPix) {
+      try {
+        console.log('[MP][Webhook] pagamento PIX pago, emitindo bilhetes via webhook...');
+        await emitirBilhetesViaWebhook(payment);
+      } catch (err) {
+        console.error('[MP][Webhook] erro ao emitir bilhetes via webhook:', err?.message || err);
+      }
+    } else if (pago) {
+      console.log(
+        '[MP][Webhook] pagamento não-PIX pago (cartão). Emissão feita no front; webhook não chama Praxio.',
+        'payment_type_id=', mpType,
+        'method=', mpMethod
+      );
+    } else {
+      console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
+    }
+
 
     return res.status(200).json({ ok: true, processed: true });
   } catch (e) {
