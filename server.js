@@ -1224,11 +1224,21 @@ async function emitirBilhetesViaWebhook(payment) {
 
     try {
       console.log('[Webhook][Emit] chamando /api/praxio/vender via webhook', body.schedule);
+      console.log('[Webhook][Emit] preparing sell', {
+  paymentId: payment?.id,
+  extRef: payment?.external_reference,
+  passageiros: body.passengers?.length,
+  poltronas: body.passengers?.map(p => p.seat),
+  email: body.userEmail,
+  phone: body.userPhone
+});
+
       const r = await fetch(`${serverBase}/api/praxio/vender`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
         body: JSON.stringify(body),
       });
+console.log('[Webhook][Emit] /api/praxio/vender response', { status: r.status, ok: r.ok, bodyOk: j?.ok });
 
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) {
@@ -1359,6 +1369,18 @@ app.post('/api/mp/webhook', async (req, res) => {
   try {
     console.log('[MP][Webhook] body:', JSON.stringify(req.body));
 
+
+
+
+  console.log('[MP][Webhook] <<< START >>>', {
+  topic: req.query?.topic || req.body?.type || req.body?.topic,
+  id: req.query?.id || req.body?.data?.id || req.body?.id,
+  at: new Date().toISOString(),
+});
+
+
+
+    
     const topic = req.body?.type || req.query?.type;
     const action = req.body?.action || req.query?.action;
     const dataId =
@@ -1377,6 +1399,17 @@ app.post('/api/mp/webhook', async (req, res) => {
     console.log('[MP][Webhook] consultando pagamento', paymentId);
 
     const payment = await mpGetPayment(paymentId);
+
+    console.log('[MP][Webhook] payment', {
+  id: payment?.id,
+  status: payment?.status,
+  method: payment?.payment_method_id || payment?.payment_method?.id,
+  type: payment?.payment_type_id,
+  external_reference: payment?.external_reference,
+});
+
+
+    
     console.log(
       '[MP][Webhook] status:',
       payment?.status,
@@ -1446,6 +1479,7 @@ app.post('/api/mp/webhook', async (req, res) => {
       console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
     }
 
+    console.log('[MP][Webhook] <<< END (early) >>> motivo=...', { paymentId, extRef: payment?.external_reference });
 
     return res.status(200).json({ ok: true, processed: true });
   } catch (e) {
@@ -1762,6 +1796,8 @@ app.post('/api/cancel-ticket', async (req, res) => {
       console.error('[Sheets] Falha ao atualizar Status:', err?.message || err);
       planilha = { ok: false, error: err?.message || String(err) };
     }
+
+    console.log('[MP][Webhook] <<< END (early) >>> motivo=...', { paymentId, extRef: payment?.external_reference });
 
     return res.json({
       ok: true,
