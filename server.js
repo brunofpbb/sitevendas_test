@@ -1409,7 +1409,7 @@ app.get('/api/mp/wait-flush', async (req, res) => {
     // 2) tenta achar a entrada; se não existir, espera um pouco para caso o webhook esteja começando agora
     let e = AGGR.get(paymentId);
     if (!e) {
-      const GIVE_TIME_MS = 3000;
+      const GIVE_TIME_MS = 15000; // Aumentado para 15s para garantir captura do webhook
       const step = 150;
       const t0 = Date.now();
       while (!e && (Date.now() - t0) < GIVE_TIME_MS) {
@@ -2162,11 +2162,10 @@ function queueUnifiedSend(groupId, fragment, doFlushCb) {
   // merge base (último vence)
   e.base = { ...e.base, ...(fragment.base || {}) };
 
-  // ❌ antes: if (fragment.expected > e.expected) e.expected = fragment.expected;
-  // ✅ agora: somar o total esperado deste fragmento (ida + volta, etc.)
-  // soma o esperado desta resposta (qtd de bilhetes)
-  const addExpected = Number(fragment?.expected || 0);
-  if (addExpected > 0) e.expected += addExpected;
+  // ✅ agora: considera o MAIOR valor reportado como total
+  // (se o back manda "2" na ida e "2" na volta, o esperado é 2, não 4)
+  const inc = Number(fragment?.expected || 0);
+  if (inc > e.expected) e.expected = inc;
 
   // acumula
   if (Array.isArray(fragment?.bilhetes)) e.bilhetes.push(...fragment.bilhetes);
