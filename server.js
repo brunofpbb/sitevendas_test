@@ -1016,7 +1016,16 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
 // === Helpers para trabalhar com a planilha BPE por "Referencia" ===
 async function sheetsFindByRef(externalRef) {
   const spreadsheetId = process.env.SHEETS_BPE_ID;
-  const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
+
+  // [FIX] Força leitura até coluna BZ, pois env var pode estar desatualizado (ex: A:AK) e perdemos colunas novas
+  // Se o usuário tiver um nome de aba diferente em env, tentamos preservar a aba
+  let baseTab = 'BPE';
+  if (process.env.SHEETS_BPE_RANGE && process.env.SHEETS_BPE_RANGE.includes('!')) {
+    baseTab = process.env.SHEETS_BPE_RANGE.split('!')[0];
+  }
+  const range = `${baseTab}!A:BZ`;
+
+  console.log('[Sheets][Find] Usando range forçado:', range, '(ignorando env var limitado se houver)');
 
   const sheets = await sheetsAuthRW();
   const resp = await sheets.spreadsheets.values.get({
