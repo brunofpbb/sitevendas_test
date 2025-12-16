@@ -1274,6 +1274,12 @@ async function emitirBilhetesViaWebhook(payment) {
     '';
 
 
+  // 1) Calcula o TOTAL de bilhetes esperados (soma de todos os passageiros de todos os grupos)
+  let totalTickets = 0;
+  for (const g of grupos.values()) {
+    totalTickets += (g.passageiros || []).length;
+  }
+
   for (const g of grupos.values()) {
     const totalAmount = g.passageiros.reduce((sum, p) => sum + (p.price || 0), 0)
       || Number(payment.transaction_amount || 0);
@@ -1289,6 +1295,7 @@ async function emitirBilhetesViaWebhook(payment) {
       userEmail,
       userPhone,
       idaVolta: g.idaVolta,
+      totalExpected: totalTickets // <--- Envia o total GLOBAL para o agregador
     };
 
     try {
