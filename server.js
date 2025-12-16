@@ -343,7 +343,7 @@ async function sheetsAppendBilhetes({
         : (scheduleDate || scheduleHora || '');
 
     const userPhoneDigits = String(userPhone || '').replace(/\D/g, '');
-    const telefoneSheet = userPhoneDigits ? `/*55*/${userPhoneDigits}` : '';
+    const telefoneSheet = userPhoneDigits ? `${userPhoneDigits}` : '';
 
     // ================================================================
     // 1) Lê o Sheets para tentar achar linhas da pré-reserva por Referencia
