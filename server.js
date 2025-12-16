@@ -37,6 +37,23 @@ async function logVendaFalha(entry) {
 }
 
 
+const SUCCESS_LOG_FILE = path.join(ERROR_LOG_DIR, 'vendas-sucesso.log');
+
+async function logVendaSucesso(entry) {
+  try {
+    await fs.promises.mkdir(ERROR_LOG_DIR, { recursive: true });
+    const linha = JSON.stringify({
+      ts: new Date().toISOString(),
+      ...entry,
+    }) + '\n';
+    await fs.promises.appendFile(SUCCESS_LOG_FILE, linha, 'utf8');
+    console.log('[Venda][OK] registrado em log:', SUCCESS_LOG_FILE);
+  } catch (e) {
+    console.error('[Venda][OK] falha ao gravar log:', e?.message || e);
+  }
+}
+
+
 async function notifyAdminVendaFalha(entry) {
   try {
     const appName = process.env.APP_NAME || 'Turin Transportes';
@@ -1201,9 +1218,24 @@ async function emitirBilhetesViaWebhook(payment) {
   const serverBase = `http://127.0.0.1:${PORT}`;
 
   const allEntries = entries;
-  const firstEntry = allEntries[0] || {};
+ /* const firstEntry = allEntries[0] || {};
   const userEmail = firstEntry.email || '';
-  const userPhone = firstEntry.telefone || '';
+  const userPhone = firstEntry.telefone || '';*/
+  const firstEntry = allEntries[0] || {};
+
+// ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
+const userEmail =
+  firstEntry.email ||
+  payment?.payer?.email ||
+  payment?.additional_info?.payer?.email ||
+  '';
+
+const userPhone =
+  firstEntry.telefone ||
+  payment?.payer?.phone?.number ||
+  payment?.additional_info?.payer?.phone?.number ||
+  '';
+
 
   for (const g of grupos.values()) {
     const totalAmount = g.passageiros.reduce((sum, p) => sum + (p.price || 0), 0)
@@ -1224,26 +1256,44 @@ async function emitirBilhetesViaWebhook(payment) {
 
     try {
       console.log('[Webhook][Emit] chamando /api/praxio/vender via webhook', body.schedule);
-      console.log('[Webhook][Emit] preparing sell', {
-  paymentId: payment?.id,
-  extRef: payment?.external_reference,
-  passageiros: body.passengers?.length,
-  poltronas: body.passengers?.map(p => p.seat),
-  email: body.userEmail,
-  phone: body.userPhone
-});
-
-      const r = await fetch(`${serverBase}/api/praxio/vender`, {
+     /*
+     
+     const r = await fetch(`${serverBase}/api/praxio/vender`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
         body: JSON.stringify(body),
       });
-console.log('[Webhook][Emit] /api/praxio/vender response', { status: r.status, ok: r.ok, bodyOk: j?.ok });
 
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) {
         console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, j);
       }
+
+      */
+
+      const r = await fetch(`${serverBase}/api/praxio/vender`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
+  body: JSON.stringify(body),
+});
+
+// lê como texto primeiro (assim você sempre consegue logar algo)
+const raw = await r.text().catch(() => '');
+let j = {};
+try { j = raw ? JSON.parse(raw) : {}; } catch { j = {}; }
+
+console.log('[Webhook][Emit] /api/praxio/vender response', {
+  status: r.status,
+  ok: r.ok,
+  bodyOk: j?.ok,
+  bodySnippet: raw ? raw.slice(0, 250) : ''
+});
+
+if (!r.ok || !j.ok) {
+  console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, j);
+}
+
+      
     } catch (err) {
       console.error('[Webhook][Emit] Erro HTTP ao chamar /api/praxio/vender:', err);
     }
@@ -1311,6 +1361,61 @@ const mpRoutes = require('./mpRoutes');
 app.use('/api/mp', mpRoutes);
 
 
+
+app.get('/api/mp/wait-flush', async (req, res) => {
+  try {
+    const paymentId = String(req.query.paymentId || '').trim();
+    if (!paymentId) return res.status(400).json({ ok: false, error: 'paymentId é obrigatório' });
+
+    // 1) se já flushou recentemente (AGGR deletado), responde ok imediatamente
+    if (AGGR_FLUSHED_RECENT.has(paymentId)) {
+      return res.json({ ok: true, flushed: true, note: 'recently_flushed' });
+    }
+
+    // 2) tenta achar a entrada; se não existir, espera um pouco para caso o webhook esteja começando agora
+    let e = AGGR.get(paymentId);
+    if (!e) {
+      const GIVE_TIME_MS = 3000;
+      const step = 150;
+      const t0 = Date.now();
+      while (!e && (Date.now() - t0) < GIVE_TIME_MS) {
+        await new Promise(r => setTimeout(r, step));
+        e = AGGR.get(paymentId);
+      }
+    }
+
+    // 3) se ainda não existe, não cria entrada vazia (isso gera timeout no PIX).
+    //    Aqui significa: ou já terminou e foi deletado, ou não temos nada pra esperar.
+    if (!e) {
+      return res.json({ ok: true, flushed: true, note: 'no_aggr_entry' });
+    }
+
+    // 4) se já flushei, devolve
+    if (e.flushed) return res.json({ ok: true, flushed: true });
+
+    // 5) aguarda flush real
+    const TIMEOUT = Math.max(AGGR_MAX_WAIT_MS, AGGR_DEBOUNCE_MS + 5000);
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
+      (e.waiters || (e.waiters = [])).push(() => {
+        try { clearTimeout(t); } catch {}
+        resolve();
+      });
+    });
+
+    return res.json({ ok: true, flushed: true });
+  } catch (err) {
+    console.warn('[AGGR] wait-flush erro:', err);
+    return res.status(200).json({ ok: true, flushed: false, note: 'fallback' });
+  }
+});
+
+
+
+
+
+
+/*
 app.get('/api/mp/wait-flush', async (req, res) => {
   try {
     const paymentId = String(req.query.paymentId || '').trim();
@@ -1358,7 +1463,7 @@ app.get('/api/mp/wait-flush', async (req, res) => {
   }
 });
 
-
+*/
 
 
 
@@ -1370,17 +1475,16 @@ app.post('/api/mp/webhook', async (req, res) => {
     console.log('[MP][Webhook] body:', JSON.stringify(req.body));
 
 
-
-
-  console.log('[MP][Webhook] <<< START >>>', {
-  topic: req.query?.topic || req.body?.type || req.body?.topic,
-  id: req.query?.id || req.body?.data?.id || req.body?.id,
+    console.log('[MP][Webhook] HIT', {
+  host: req.headers.host,
+  xf_host: req.headers['x-forwarded-host'],
+  xf_proto: req.headers['x-forwarded-proto'],
+  url: req.originalUrl,
   at: new Date().toISOString(),
 });
 
-
-
     
+
     const topic = req.body?.type || req.query?.type;
     const action = req.body?.action || req.query?.action;
     const dataId =
@@ -1399,17 +1503,6 @@ app.post('/api/mp/webhook', async (req, res) => {
     console.log('[MP][Webhook] consultando pagamento', paymentId);
 
     const payment = await mpGetPayment(paymentId);
-
-    console.log('[MP][Webhook] payment', {
-  id: payment?.id,
-  status: payment?.status,
-  method: payment?.payment_method_id || payment?.payment_method?.id,
-  type: payment?.payment_type_id,
-  external_reference: payment?.external_reference,
-});
-
-
-    
     console.log(
       '[MP][Webhook] status:',
       payment?.status,
@@ -1479,7 +1572,6 @@ app.post('/api/mp/webhook', async (req, res) => {
       console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
     }
 
-    console.log('[MP][Webhook] <<< END (early) >>> motivo=...', { paymentId, extRef: payment?.external_reference });
 
     return res.status(200).json({ ok: true, processed: true });
   } catch (e) {
@@ -1797,8 +1889,6 @@ app.post('/api/cancel-ticket', async (req, res) => {
       planilha = { ok: false, error: err?.message || String(err) };
     }
 
-    console.log('[MP][Webhook] <<< END (early) >>> motivo=...', { paymentId, extRef: payment?.external_reference });
-
     return res.json({
       ok: true,
       numeroPassagem,
@@ -2006,8 +2096,23 @@ function normalizeHoraPartida(h) {
 // ==== Agregador por compra (webhook/e-mail/Sheets) ====
 // groupId -> { timer, startedAt, base, bilhetes:[], arquivos:[], emailAttachments:[], expected, flushed }
 const AGGR = new Map();
-const AGGR_DEBOUNCE_MS = 11000;   // ⬅️ 8s para juntar múltiplas chamadas
-const AGGR_MAX_WAIT_MS = 60000;  // ⬅️ segurança 30s
+
+// guarda "flush recente" para o wait-flush não dar timeout quando o AGGR já foi deletado
+const AGGR_FLUSHED_RECENT = new Map(); // paymentId -> timestamp(ms)
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, ts] of AGGR_FLUSHED_RECENT.entries()) {
+    if (now - ts > 10 * 60 * 1000) AGGR_FLUSHED_RECENT.delete(k); // 10 min
+  }
+}, 60 * 1000);
+
+
+
+const AGGR_DEBOUNCE_MS = 1500;   // ⬅️ 8s para juntar múltiplas chamadas
+const AGGR_MAX_WAIT_MS = 120000;  // ⬅️ segurança 30s
+
+
 
 
 function queueUnifiedSend(groupId, fragment, doFlushCb) {
@@ -2067,6 +2172,7 @@ function queueUnifiedSend(groupId, fragment, doFlushCb) {
     console.log(`[AGGR] flushing: expected=${e.expected} bilhetes=${e.bilhetes.length} anexos=${e.emailAttachments.length} waited=${waited}`);
     try { await doFlushCb({ ...e }); }
     finally {
+      AGGR_FLUSHED_RECENT.set(String(groupId), Date.now());
       (e.waiters || []).forEach(fn => { try { fn(); } catch { } });
       AGGR.delete(groupId);
     }
@@ -2279,6 +2385,19 @@ setInterval(() => {
 
 app.post('/api/praxio/vender', async (req, res) => {
   const { mpPaymentId, passengers } = req.body || {};
+
+
+  console.log('[Praxio][Venda] START', {
+  source: req.get('X-Source') || 'front',
+  mpPaymentId: req.body?.mpPaymentId,
+  extRef: req.body?.external_reference || req.body?.reference || null,
+  passageiros: Array.isArray(req.body?.passengers) ? req.body.passengers.length : 0,
+  poltronas: (req.body?.passengers || []).map(p => p.seatNumber || p.seat || p.poltrona).filter(Boolean),
+  userEmail: req.body?.userEmail || '',
+  userPhone: req.body?.userPhone || ''
+});
+
+  
 
   // 1) Gera chave GRANULAR: PaymentId + Poltronas
   // Evita que Item A devolva cache para Item B do mesmo pagamento
@@ -2565,6 +2684,52 @@ app.post('/api/praxio/vender', async (req, res) => {
         return p.Sucesso === false || temTextoErro;
       });
 
+
+      if (errosPoltronas.length) {
+  // ✅ NOVO: permitir venda parcial (não derrubar tudo se pelo menos 1 bilhete saiu)
+  const okPoltronas = lista.filter(p => p?.Sucesso === true && Number(p?.NumPassagem || 0) > 0);
+  const badPoltronas = errosPoltronas;
+
+  if (okPoltronas.length > 0) {
+    console.warn('[Praxio][Venda] Venda parcial: algumas poltronas falharam:', badPoltronas.map(x => ({
+      poltrona: x?.Poltrona,
+      idErro: x?.IdErro,
+      msg: x?.Mensagem || x?.MensagemDetalhada
+    })));
+
+    // ⚠️ importantíssimo: continuar o fluxo (PDF/email/Sheets) APENAS com as poltronas OK
+    lista.length = 0;
+    lista.push(...okPoltronas);
+  } else {
+    // Se não saiu nenhum bilhete, mantém o comportamento atual (retry + falha)
+    console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
+    await new Promise(r => setTimeout(r, 2000));
+    const retryEntries = await checkSheetsForSeats();
+    if (retryEntries) {
+      const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
+      const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+      return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+    }
+
+    const msgs = badPoltronas
+      .map(p => p.Mensagem || p.MensagemDetalhada)
+      .filter(Boolean)
+      .join(' | ');
+
+    throw new Error(
+      `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
+    );
+  }
+}
+
+
+
+
+
+
+
+      
+/*
       if (errosPoltronas.length) {
         // Retry logic para erro parcial (alguma poltrona falhou)?
         // Se falhou por indisponível, checa Sheets
@@ -2586,7 +2751,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
         );
       }
-
+*/
       // 5) Gerar PDFs (local) e subir no Drive
       const subDir = new Date().toISOString().slice(0, 10);
       const outDir = path.join(TICKETS_DIR, subDir);
@@ -2702,6 +2867,8 @@ app.post('/api/praxio/vender', async (req, res) => {
 
         // 1) E-MAIL único com todos os anexos
         const to = userEmail || pickBuyerEmail({ req, payment, vendaResult, fallback: null });
+        const emailForSheets = to || userEmail || '';
+
         if (to) {
           const appName = process.env.APP_NAME || 'Turin Transportes';
           const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
@@ -2810,10 +2977,34 @@ app.post('/api/praxio/vender', async (req, res) => {
           })),
           schedule,
           payment,
-          userEmail,
+          userEmail: emailForSheets,
           userPhone,
           idaVoltaDefault: idaVolta
         });
+
+        await logVendaSucesso({
+  mpPaymentId: String(payment?.id || ''),
+  external_reference: String(payment?.external_reference || ''),
+  status: String(payment?.status || ''),
+  payment_type_id: String(payment?.payment_type_id || ''),
+  payment_method_id: String(payment?.payment_method_id || payment?.payment_method?.id || ''),
+  userEmail: String(emailForSheets || userEmail || ''),
+  userPhone: String(userPhone || ''),
+  bilhetes: (bilhetes || []).map(b => ({
+    numPassagem: b.numPassagem,
+    poltrona: b.poltrona,
+    idViagem: b.idViagem,
+    dataViagem: b.dataViagem,
+    origem: b.origem,
+    destino: b.destino
+  })),
+  anexos: (arquivos || []).map(a => ({
+    numPassagem: a.numPassagem,
+    driveUrl: a.driveUrl || '',
+    pdfLocal: a.pdfLocal || ''
+  })),
+});
+
 
       });
 
