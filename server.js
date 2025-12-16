@@ -2878,7 +2878,9 @@ app.post('/api/praxio/vender', async (req, res) => {
       const loginPhone = getLoginPhone(req, payment, vendaResult);
 
       // contagem esperada (qtd de bilhetes desta venda)
+      // Se vier totalExpected no body (webhook), usa ele pois é o GLOBAL (ida+volta)
       const expectedCount =
+        req.body?.totalExpected ||
         (vendaResult?.ListaPassagem?.length || 0) ||
         (passengers?.length || 0);
 
