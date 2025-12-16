@@ -1028,7 +1028,10 @@ async function sheetsFindByRef(externalRef) {
   if (!values.length) return { header: [], entries: [] };
 
   const header = values[0];
-  const idx = (name) => header.indexOf(name);
+  // Helper robusto para achar coluna: ignora case e espaços
+  const idx = (name) => header.findIndex(h =>
+    String(h || '').trim().toLowerCase() === String(name).toLowerCase()
+  );
 
   const col = {
     dataSolic: idx('Data/horaSolicitação'),
@@ -1056,6 +1059,18 @@ async function sheetsFindByRef(externalRef) {
     idOrigem: idx('IdOrigem'),
     idDestino: idx('IdDestino'),
   };
+
+  // DEBUG: Verifica se colunas cruciais foram encontradas
+  const missing = [];
+  if (col.idViagem < 0) missing.push('IdViagem');
+  if (col.idOrigem < 0) missing.push('IdOrigem');
+  if (col.idDestino < 0) missing.push('IdDestino');
+  if (col.ref < 0) missing.push('Referencia');
+
+  if (missing.length > 0) {
+    console.warn('[Sheets][Find] ALERTA: Colunas não encontradas no header:', missing.join(', '),
+      '| Header lido:', JSON.stringify(header));
+  }
 
   const norm = (v) => (v || '').toString().trim();
 
