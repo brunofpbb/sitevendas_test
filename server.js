@@ -909,6 +909,7 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
   const colStatus = findCol('Status');
   const colStatusPg = findCol('StatusPagamento');
   const colIdPg = findCol('idPagamento');
+  const colDtPag = findCol('Data/hora_Pagamento'); // [NEW] Coluna de data de pagamento
   const colTipoPg = findCol('TipoPagamento');
   const colFormaPg = findCol('Forma_Pagamento');
   const colIdTransacao = findCol('ID_Transação');
@@ -943,6 +944,17 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     || payment?.transaction_amount
     || '';
 
+  // Helper de data
+  const formatDateBR = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const pad = n => n < 10 ? '0' + n : n;
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
+  const dtPagamento = formatDateBR(payment?.date_approved || payment?.date_created);
+
 
   const dataToUpdate = [];
 
@@ -969,6 +981,7 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
     // Atualiza colunas de pagamento (Sempre)
     addUpdate(colStatusPg, statusPagamento);
     addUpdate(colIdPg, idPagamento);
+    addUpdate(colDtPag, dtPagamento); // [NEW] Grava data
     addUpdate(colTipoPg, tipo);
     addUpdate(colFormaPg, forma);
     addUpdate(colIdTransacao, String(idTransacao));
@@ -1218,23 +1231,23 @@ async function emitirBilhetesViaWebhook(payment) {
   const serverBase = `http://127.0.0.1:${PORT}`;
 
   const allEntries = entries;
- /* const firstEntry = allEntries[0] || {};
-  const userEmail = firstEntry.email || '';
-  const userPhone = firstEntry.telefone || '';*/
+  /* const firstEntry = allEntries[0] || {};
+   const userEmail = firstEntry.email || '';
+   const userPhone = firstEntry.telefone || '';*/
   const firstEntry = allEntries[0] || {};
 
-// ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-const userEmail =
-  firstEntry.email ||
-  payment?.payer?.email ||
-  payment?.additional_info?.payer?.email ||
-  '';
+  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
+  const userEmail =
+    firstEntry.email ||
+    payment?.payer?.email ||
+    payment?.additional_info?.payer?.email ||
+    '';
 
-const userPhone =
-  firstEntry.telefone ||
-  payment?.payer?.phone?.number ||
-  payment?.additional_info?.payer?.phone?.number ||
-  '';
+  const userPhone =
+    firstEntry.telefone ||
+    payment?.payer?.phone?.number ||
+    payment?.additional_info?.payer?.phone?.number ||
+    '';
 
 
   for (const g of grupos.values()) {
@@ -1256,44 +1269,34 @@ const userPhone =
 
     try {
       console.log('[Webhook][Emit] chamando /api/praxio/vender via webhook', body.schedule);
-     /*
-     
-     const r = await fetch(`${serverBase}/api/praxio/vender`, {
+
+      const r = await fetch(`${serverBase}/api/praxio/vender`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
         body: JSON.stringify(body),
       });
 
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) {
-        console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, j);
+      // lê como texto primeiro
+      const raw = await r.text().catch(() => '');
+      let responseJson = {};
+      try {
+        responseJson = raw ? JSON.parse(raw) : {};
+      } catch {
+        responseJson = {};
       }
 
-      */
+      console.log('[Webhook][Emit] /api/praxio/vender response', {
+        status: r.status,
+        ok: r.ok,
+        bodyOk: responseJson?.ok,
+        bodySnippet: raw ? raw.slice(0, 250) : ''
+      });
 
-      const r = await fetch(`${serverBase}/api/praxio/vender`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'X-Source': 'mp-webhook' },
-  body: JSON.stringify(body),
-});
+      if (!r.ok || !responseJson.ok) {
+        console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, responseJson);
+      }
 
-// lê como texto primeiro (assim você sempre consegue logar algo)
-const raw = await r.text().catch(() => '');
-let j = {};
-try { j = raw ? JSON.parse(raw) : {}; } catch { j = {}; }
 
-console.log('[Webhook][Emit] /api/praxio/vender response', {
-  status: r.status,
-  ok: r.ok,
-  bodyOk: j?.ok,
-  bodySnippet: raw ? raw.slice(0, 250) : ''
-});
-
-if (!r.ok || !j.ok) {
-  console.error('[Webhook][Emit] Falha ao vender via webhook:', r.status, j);
-}
-
-      
     } catch (err) {
       console.error('[Webhook][Emit] Erro HTTP ao chamar /api/praxio/vender:', err);
     }
@@ -1398,7 +1401,7 @@ app.get('/api/mp/wait-flush', async (req, res) => {
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
       (e.waiters || (e.waiters = [])).push(() => {
-        try { clearTimeout(t); } catch {}
+        try { clearTimeout(t); } catch { }
         resolve();
       });
     });
@@ -1476,14 +1479,14 @@ app.post('/api/mp/webhook', async (req, res) => {
 
 
     console.log('[MP][Webhook] HIT', {
-  host: req.headers.host,
-  xf_host: req.headers['x-forwarded-host'],
-  xf_proto: req.headers['x-forwarded-proto'],
-  url: req.originalUrl,
-  at: new Date().toISOString(),
-});
+      host: req.headers.host,
+      xf_host: req.headers['x-forwarded-host'],
+      xf_proto: req.headers['x-forwarded-proto'],
+      url: req.originalUrl,
+      at: new Date().toISOString(),
+    });
 
-    
+
 
     const topic = req.body?.type || req.query?.type;
     const action = req.body?.action || req.query?.action;
@@ -1510,7 +1513,7 @@ app.post('/api/mp/webhook', async (req, res) => {
       payment?.external_reference
     );
 
-        // Descobre método de pagamento
+    // Descobre método de pagamento
     const mpType = String(payment?.payment_type_id || '').toLowerCase();
     const mpMethod = String(
       payment?.payment_method_id || payment?.payment_method?.id || ''
@@ -1528,26 +1531,26 @@ app.post('/api/mp/webhook', async (req, res) => {
     }
 
     // 2) Se estiver efetivamente pago (approved/accredited), dispara emissão
- /*   const status = String(payment?.status || '').toLowerCase();
-    const pago =
-      status === 'approved' ||
-      status === 'accredited';
+    /*   const status = String(payment?.status || '').toLowerCase();
+       const pago =
+         status === 'approved' ||
+         status === 'accredited';
+   
+       if (pago) {
+         try {
+           console.log('[MP][Webhook] pagamento pago, emitindo bilhetes via webhook...');
+           await emitirBilhetesViaWebhook(payment);
+         } catch (err) {
+           console.error('[MP][Webhook] erro ao emitir bilhetes via webhook:', err?.message || err);
+         }
+       } else {
+         console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
+       }
+   
+       */
 
-    if (pago) {
-      try {
-        console.log('[MP][Webhook] pagamento pago, emitindo bilhetes via webhook...');
-        await emitirBilhetesViaWebhook(payment);
-      } catch (err) {
-        console.error('[MP][Webhook] erro ao emitir bilhetes via webhook:', err?.message || err);
-      }
-    } else {
-      console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
-    }
 
-    */
-
-
-        const status = String(payment?.status || '').toLowerCase();
+    const status = String(payment?.status || '').toLowerCase();
     const pago =
       status === 'approved' ||
       status === 'accredited';
@@ -2388,16 +2391,16 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
   console.log('[Praxio][Venda] START', {
-  source: req.get('X-Source') || 'front',
-  mpPaymentId: req.body?.mpPaymentId,
-  extRef: req.body?.external_reference || req.body?.reference || null,
-  passageiros: Array.isArray(req.body?.passengers) ? req.body.passengers.length : 0,
-  poltronas: (req.body?.passengers || []).map(p => p.seatNumber || p.seat || p.poltrona).filter(Boolean),
-  userEmail: req.body?.userEmail || '',
-  userPhone: req.body?.userPhone || ''
-});
+    source: req.get('X-Source') || 'front',
+    mpPaymentId: req.body?.mpPaymentId,
+    extRef: req.body?.external_reference || req.body?.reference || null,
+    passageiros: Array.isArray(req.body?.passengers) ? req.body.passengers.length : 0,
+    poltronas: (req.body?.passengers || []).map(p => p.seatNumber || p.seat || p.poltrona).filter(Boolean),
+    userEmail: req.body?.userEmail || '',
+    userPhone: req.body?.userPhone || ''
+  });
 
-  
+
 
   // 1) Gera chave GRANULAR: PaymentId + Poltronas
   // Evita que Item A devolva cache para Item B do mesmo pagamento
@@ -2686,72 +2689,72 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
       if (errosPoltronas.length) {
-  // ✅ NOVO: permitir venda parcial (não derrubar tudo se pelo menos 1 bilhete saiu)
-  const okPoltronas = lista.filter(p => p?.Sucesso === true && Number(p?.NumPassagem || 0) > 0);
-  const badPoltronas = errosPoltronas;
+        // ✅ NOVO: permitir venda parcial (não derrubar tudo se pelo menos 1 bilhete saiu)
+        const okPoltronas = lista.filter(p => p?.Sucesso === true && Number(p?.NumPassagem || 0) > 0);
+        const badPoltronas = errosPoltronas;
 
-  if (okPoltronas.length > 0) {
-    console.warn('[Praxio][Venda] Venda parcial: algumas poltronas falharam:', badPoltronas.map(x => ({
-      poltrona: x?.Poltrona,
-      idErro: x?.IdErro,
-      msg: x?.Mensagem || x?.MensagemDetalhada
-    })));
+        if (okPoltronas.length > 0) {
+          console.warn('[Praxio][Venda] Venda parcial: algumas poltronas falharam:', badPoltronas.map(x => ({
+            poltrona: x?.Poltrona,
+            idErro: x?.IdErro,
+            msg: x?.Mensagem || x?.MensagemDetalhada
+          })));
 
-    // ⚠️ importantíssimo: continuar o fluxo (PDF/email/Sheets) APENAS com as poltronas OK
-    lista.length = 0;
-    lista.push(...okPoltronas);
-  } else {
-    // Se não saiu nenhum bilhete, mantém o comportamento atual (retry + falha)
-    console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
-    await new Promise(r => setTimeout(r, 2000));
-    const retryEntries = await checkSheetsForSeats();
-    if (retryEntries) {
-      const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
-      const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
-      return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
-    }
+          // ⚠️ importantíssimo: continuar o fluxo (PDF/email/Sheets) APENAS com as poltronas OK
+          lista.length = 0;
+          lista.push(...okPoltronas);
+        } else {
+          // Se não saiu nenhum bilhete, mantém o comportamento atual (retry + falha)
+          console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
+          await new Promise(r => setTimeout(r, 2000));
+          const retryEntries = await checkSheetsForSeats();
+          if (retryEntries) {
+            const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
+            const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+            return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+          }
 
-    const msgs = badPoltronas
-      .map(p => p.Mensagem || p.MensagemDetalhada)
-      .filter(Boolean)
-      .join(' | ');
+          const msgs = badPoltronas
+            .map(p => p.Mensagem || p.MensagemDetalhada)
+            .filter(Boolean)
+            .join(' | ');
 
-    throw new Error(
-      `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
-    );
-  }
-}
-
-
-
-
-
-
-
-      
-/*
-      if (errosPoltronas.length) {
-        // Retry logic para erro parcial (alguma poltrona falhou)?
-        // Se falhou por indisponível, checa Sheets
-        console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
-        await new Promise(r => setTimeout(r, 2000));
-        const retryEntries = await checkSheetsForSeats();
-        if (retryEntries) {
-          const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
-          const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
-          return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+          throw new Error(
+            `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
+          );
         }
-
-        const msgs = errosPoltronas
-          .map(p => p.Mensagem || p.MensagemDetalhada)
-          .filter(Boolean)
-          .join(' | ');
-
-        throw new Error(
-          `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
-        );
       }
-*/
+
+
+
+
+
+
+
+
+      /*
+            if (errosPoltronas.length) {
+              // Retry logic para erro parcial (alguma poltrona falhou)?
+              // Se falhou por indisponível, checa Sheets
+              console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
+              await new Promise(r => setTimeout(r, 2000));
+              const retryEntries = await checkSheetsForSeats();
+              if (retryEntries) {
+                const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
+                const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
+                return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
+              }
+      
+              const msgs = errosPoltronas
+                .map(p => p.Mensagem || p.MensagemDetalhada)
+                .filter(Boolean)
+                .join(' | ');
+      
+              throw new Error(
+                `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
+              );
+            }
+      */
       // 5) Gerar PDFs (local) e subir no Drive
       const subDir = new Date().toISOString().slice(0, 10);
       const outDir = path.join(TICKETS_DIR, subDir);
@@ -2983,27 +2986,27 @@ app.post('/api/praxio/vender', async (req, res) => {
         });
 
         await logVendaSucesso({
-  mpPaymentId: String(payment?.id || ''),
-  external_reference: String(payment?.external_reference || ''),
-  status: String(payment?.status || ''),
-  payment_type_id: String(payment?.payment_type_id || ''),
-  payment_method_id: String(payment?.payment_method_id || payment?.payment_method?.id || ''),
-  userEmail: String(emailForSheets || userEmail || ''),
-  userPhone: String(userPhone || ''),
-  bilhetes: (bilhetes || []).map(b => ({
-    numPassagem: b.numPassagem,
-    poltrona: b.poltrona,
-    idViagem: b.idViagem,
-    dataViagem: b.dataViagem,
-    origem: b.origem,
-    destino: b.destino
-  })),
-  anexos: (arquivos || []).map(a => ({
-    numPassagem: a.numPassagem,
-    driveUrl: a.driveUrl || '',
-    pdfLocal: a.pdfLocal || ''
-  })),
-});
+          mpPaymentId: String(payment?.id || ''),
+          external_reference: String(payment?.external_reference || ''),
+          status: String(payment?.status || ''),
+          payment_type_id: String(payment?.payment_type_id || ''),
+          payment_method_id: String(payment?.payment_method_id || payment?.payment_method?.id || ''),
+          userEmail: String(emailForSheets || userEmail || ''),
+          userPhone: String(userPhone || ''),
+          bilhetes: (bilhetes || []).map(b => ({
+            numPassagem: b.numPassagem,
+            poltrona: b.poltrona,
+            idViagem: b.idViagem,
+            dataViagem: b.dataViagem,
+            origem: b.origem,
+            destino: b.destino
+          })),
+          anexos: (arquivos || []).map(a => ({
+            numPassagem: a.numPassagem,
+            driveUrl: a.driveUrl || '',
+            pdfLocal: a.pdfLocal || ''
+          })),
+        });
 
 
       });
@@ -3078,3 +3081,7 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
+
+
+
+//teste
