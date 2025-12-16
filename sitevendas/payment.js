@@ -2,7 +2,9 @@
 document.addEventListener('DOMContentLoaded', async () => {
   // ——— login obrigatório
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!user) {
+  if (!user || !user.email) {
+    console.warn('[Payment] User sem email ou não logado. Redirecionando.');
+    localStorage.removeItem('user'); // Força limpeza de estado inválido
     localStorage.setItem('postLoginRedirect', 'payment.html');
     location.href = 'login.html';
     return;
@@ -211,7 +213,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         pax.push({
           seatNumber: p.seatNumber || p.poltrona || seats[0],
           name: p.name || p.nome || '',
-          document: (p.document || p.cpf || '').toString()
+          document: (p.document || p.cpf || '').toString(),
+          phone: p.phone || p.telefone || ''
         });
       }
     } else {
@@ -258,7 +261,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const userLS = JSON.parse(localStorage.getItem('user') || 'null') || {};
       const userEmail = (userLS.email || '').toString();
-      const userPhone = (userLS.phone || userLS.telefone || '').toString();
+      let userPhone = (userLS.phone || userLS.telefone || '').toString();
+
+      // Fallback: se userPhone vazio, tenta pegar do 1º passageiro
+      if (!userPhone && order[0]) {
+        const paxFirst = getPassengersFromItem(order[0]);
+        if (paxFirst[0]?.phone) userPhone = paxFirst[0].phone;
+      }
 
       const bilhetes = [];
 

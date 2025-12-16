@@ -1273,6 +1273,22 @@ async function emitirBilhetesViaWebhook(payment) {
     payment?.additional_info?.payer?.phone?.number ||
     '';
 
+  // Fallback: se userPhone vazio e temos passageiros no grupo, tenta pegar de lá
+  let finalUserPhone = userPhone;
+  if (!finalUserPhone && grupos.size > 0) {
+    for (const g of grupos.values()) {
+      const p = g.passageiros.find(x => x.phone);
+      if (p) {
+        finalUserPhone = p.phone;
+        break;
+      }
+    }
+  }
+
+  if (!userEmail) {
+    console.error('[CRITICAL] Comprador sem EMAIL. Venda pode ficar orfã de visualização no Profile.', { paymentId: payment.id });
+  }
+
 
   // 1) Calcula o TOTAL de bilhetes esperados (soma de todos os passageiros de todos os grupos)
   let totalTickets = 0;
@@ -1293,7 +1309,7 @@ async function emitirBilhetesViaWebhook(payment) {
       idEstabelecimentoTicket: g.schedule.agencia || '93',
       serieBloco: '93',
       userEmail,
-      userPhone,
+      userPhone: finalUserPhone || userPhone,
       idaVolta: g.idaVolta,
       totalExpected: totalTickets // <--- Envia o total GLOBAL para o agregador
     };
