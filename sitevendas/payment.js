@@ -345,6 +345,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     const results = [];
+
+    // 1) Calcula total de bilhetes esperados (soma de todos passageiros em todos trechos)
+    let totalExpected = 0;
+    for (const it of order) {
+      const pax = getPassengersFromItem(it);
+      totalExpected += (pax.length || 0);
+    }
+
     for (let i = 0; i < order.length; i++) {
       const it = order[i];
       const schedule = getScheduleFromItem(it);
@@ -367,7 +375,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           serieBloco: '93',
           userEmail,
           userPhone,
-          idaVolta
+          idaVolta,
+          totalExpected // <--- Envia o total GLOBAL para o agregador
         })
       });
       const j = await r.json();
@@ -669,10 +678,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
- 
 
 
-   // === Polling do PIX (aprovado -> aguardar webhook emitir e redirecionar)
+
+  // === Polling do PIX (aprovado -> aguardar webhook emitir e redirecionar)
   async function startPixPolling(paymentId) {
     clearInterval(pixPollTimer);
     const t0 = Date.now();
@@ -684,7 +693,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         const st = String(data?.status || '').toLowerCase();
         const detail = String(data?.status_detail || '').toLowerCase();
 
-      /*  if (st === 'approved') {
+        /*  if (st === 'approved') {
+            clearInterval(pixPollTimer);
+  
+            // Exibe o overlay e mantém até o backend concluir tudo
+            showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
+  
+            try {
+              // Aguarda o backend terminar: emissão + e-mail + Sheets
+              try {
+                await fetch(
+                  `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
+                );
+              } catch (err) {
+                console.warn(
+                  'wait-flush expirou ou falhou, mas seguiremos mesmo assim:',
+                  err
+                );
+              }
+  
+              // Pequena espera só pra garantir que o overlay "pinte" na tela
+              await new Promise(res => setTimeout(res, 100));
+  
+              // Redireciona somente após o processo REAL ter finalizado
+              location.href = 'profile.html';
+              return;
+            } catch (e) {
+              console.error(
+                'Erro ao aguardar emissão via webhook (Pix):',
+                e
+              );
+              hideOverlayIfShown();
+              alert(
+                'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
+                'Verifique em "Minhas compras" ou fale com o suporte.'
+              );
+            }
+  
+          } 
+          
+          */
+
+
+
+
+        if (st === 'approved') {
           clearInterval(pixPollTimer);
 
           // Exibe o overlay e mantém até o backend concluir tudo
@@ -703,65 +756,21 @@ document.addEventListener('DOMContentLoaded', async () => {
               );
             }
 
-            // Pequena espera só pra garantir que o overlay "pinte" na tela
+            // pequena espera só pra garantir pintura do overlay
             await new Promise(res => setTimeout(res, 100));
 
             // Redireciona somente após o processo REAL ter finalizado
             location.href = 'profile.html';
             return;
           } catch (e) {
-            console.error(
-              'Erro ao aguardar emissão via webhook (Pix):',
-              e
-            );
+            console.error('Erro ao aguardar emissão via webhook (Pix):', e);
             hideOverlayIfShown();
             alert(
               'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
               'Verifique em "Minhas compras" ou fale com o suporte.'
             );
           }
-
-        } 
-        
-        */
-
-
-
-
-        if (st === 'approved') {
-  clearInterval(pixPollTimer);
-
-  // Exibe o overlay e mantém até o backend concluir tudo
-  showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
-
-  try {
-    // Aguarda o backend terminar: emissão + e-mail + Sheets
-    try {
-      await fetch(
-        `/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`
-      );
-    } catch (err) {
-      console.warn(
-        'wait-flush expirou ou falhou, mas seguiremos mesmo assim:',
-        err
-      );
-    }
-
-    // pequena espera só pra garantir pintura do overlay
-    await new Promise(res => setTimeout(res, 100));
-
-    // Redireciona somente após o processo REAL ter finalizado
-    location.href = 'profile.html';
-    return;
-  } catch (e) {
-    console.error('Erro ao aguardar emissão via webhook (Pix):', e);
-    hideOverlayIfShown();
-    alert(
-      'Pagamento aprovado, mas houve erro ao finalizar o bilhete. ' +
-      'Verifique em "Minhas compras" ou fale com o suporte.'
-    );
-  }
-}
+        }
 
 
 
@@ -770,8 +779,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-        
-        
+
+
         else if (
           st === 'rejected' ||
           st === 'cancelled' ||
@@ -812,7 +821,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-  
+
   async function awaitMountBricks(total) {
     if (!order.length) {
       try { await brickController?.unmount?.(); } catch (_) { }
