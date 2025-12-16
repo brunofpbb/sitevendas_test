@@ -840,4 +840,3 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
 });
-
