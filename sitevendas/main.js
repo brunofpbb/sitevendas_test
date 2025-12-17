@@ -62,18 +62,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ======== Enter para escolher
 
-  originInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const first = document.querySelector('#ac-origin .ac-item');
-      if (first) { first.dispatchEvent(new MouseEvent('mousedown')); e.preventDefault(); }
-    }
-  });
-  destInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const first = document.querySelector('#ac-destination .ac-item');
-      if (first) { first.dispatchEvent(new MouseEvent('mousedown')); e.preventDefault(); }
-    }
-  });
+  if (originInput) {
+    originInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const first = document.querySelector('#ac-origin .ac-item');
+        if (first) { first.dispatchEvent(new MouseEvent('mousedown')); e.preventDefault(); }
+      }
+    });
+  }
+
+  if (destInput) {
+    destInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const first = document.querySelector('#ac-destination .ac-item');
+        if (first) { first.dispatchEvent(new MouseEvent('mousedown')); e.preventDefault(); }
+      }
+    });
+  }
 
 
 
