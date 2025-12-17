@@ -114,6 +114,22 @@ const { generateTicketPdf } = require('./services/ticket/pdf');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+
+// Middleware para CSP (Permitir Mercado Pago)
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://www.google.com https://www.gstatic.com https://http2.mlstatic.com https://secure-fields.mercadopago.com https://api.mercadopago.com; " +
+    "connect-src 'self' https://api.mercadopago.com https://events.mercadopago.com https://secure-fields.mercadopago.com https://*.mercadolibre.com https://http2.mlstatic.com https://*.mercadopago.com; " +
+    "img-src 'self' data: https://*.mercadolibre.com https://http2.mlstatic.com https://*.mercadopago.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://http2.mlstatic.com; " +
+    "font-src 'self' https://fonts.gstatic.com https://http2.mlstatic.com data:; " +
+    "frame-src 'self' https://mpplayer.mercadopago.com https://www.mercadolibre.com.br https://*.mercadopago.com;"
+  );
+  next();
+});
+
 const PUBLIC_DIR = path.join(__dirname, 'sitevendas');
 const TICKETS_DIR = path.join(__dirname, 'tickets');
 const PORT = process.env.PORT || 8080;

@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentTotal <= 0) currentTotal = 1.00; // evita rejeição em sandbox
 
     brickController = await bricks.create('payment', brickContainerId, {
-      initialization: { amount: currentTotal, payer: { email: user.email || '' } },
+      initialization: { amount: currentTotal, payer: { email: user.email || '', entityType: 'individual' } },
       customization: {
         paymentMethods: {
           creditCard: 'all',
