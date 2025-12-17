@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   // ——— login obrigatório
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!user || !user.email) {
+  if (!user || !user.email || !user.email.trim()) {
     console.warn('[Payment] User sem email ou não logado. Redirecionando.');
     localStorage.removeItem('user'); // Força limpeza de estado inválido
     localStorage.setItem('postLoginRedirect', 'payment.html');
