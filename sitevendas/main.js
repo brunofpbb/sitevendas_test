@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ——— Session Timeout (30 min) ———
 function checkSessionTimeout() {
-  const MAX_IDLE_MS = 30 * 60 * 1000; // 30 minutos
+  const MAX_IDLE_MS = 1 * 60 * 1000; // 1 minuto (PARA TESTE)
   const lastActive = parseInt(localStorage.getItem('lastActive') || Date.now());
   const now = Date.now();
 
