@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ——— Session Timeout (30 min) ———
 function checkSessionTimeout() {
-  const MAX_IDLE_MS = 1 * 60 * 1000; // 1 minuto (PARA TESTE)
+  const MAX_IDLE_MS = 30 * 60 * 1000; // 30 minutos
   const tick = () => {
     const lastActive = parseInt(localStorage.getItem('lastActive') || Date.now());
     const now = Date.now();
@@ -505,9 +505,9 @@ function checkSessionTimeout() {
     }
   };
 
-  // Checa imediatamente e depois a cada 1s
+  // Checa imediatamente e depois a cada 60s
   tick();
-  setInterval(tick, 1000);
+  setInterval(tick, 60000);
 
   // Atualiza 'lastActive' agora e em eventos
   localStorage.setItem('lastActive', Date.now());
