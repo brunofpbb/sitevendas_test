@@ -491,23 +491,27 @@ document.addEventListener('DOMContentLoaded', () => {
 // ——— Session Timeout (30 min) ———
 function checkSessionTimeout() {
   const MAX_IDLE_MS = 1 * 60 * 1000; // 1 minuto (PARA TESTE)
-  const lastActive = parseInt(localStorage.getItem('lastActive') || Date.now());
-  const now = Date.now();
+  const tick = () => {
+    const lastActive = parseInt(localStorage.getItem('lastActive') || Date.now());
+    const now = Date.now();
 
-  // Se passou do tempo, desloga
-  if (now - lastActive > MAX_IDLE_MS) {
-    if (localStorage.getItem('user')) {
-      console.warn('Sessão expirada por inatividade.');
-      localStorage.removeItem('user');
-      alert('Sua sessão expirou por inatividade. Por favor, faça login novamente.');
-      window.location.href = 'login.html';
-      return;
+    if (now - lastActive > MAX_IDLE_MS) {
+      if (localStorage.getItem('user')) {
+        console.warn('Sessão expirada por inatividade.');
+        localStorage.removeItem('user');
+        alert('Sua sessão expirou por inatividade. Por favor, faça login novamente.');
+        window.location.href = 'login.html';
+      }
     }
-  }
+  };
+
+  // Checa imediatamente e depois a cada 1s
+  tick();
+  setInterval(tick, 1000);
 
   // Atualiza 'lastActive' agora e em eventos
-  localStorage.setItem('lastActive', now);
-
+  localStorage.setItem('lastActive', Date.now());
   const updateActivity = () => localStorage.setItem('lastActive', Date.now());
   ['mousemove', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, updateActivity));
 }
+
