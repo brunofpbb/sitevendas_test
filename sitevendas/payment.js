@@ -583,7 +583,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         visual: { showInstallmentsSelector: false }
       },
       callbacks: {
-        onReady: () => console.log('[MP] Brick pronto'),
+        onReady: () => {
+          console.log('[MP] Brick pronto');
+          // Hack para injetar CSS no Shadow DOM do Brick (esconder pílula verde)
+          setInterval(() => {
+            const el = document.getElementById(brickContainerId);
+            if (el && el.shadowRoot) {
+              // Verifica se já injetamos
+              if (!el.shadowRoot.querySelector('#my-hide-pill-style')) {
+                const s = document.createElement('style');
+                s.id = 'my-hide-pill-style';
+                s.innerHTML = `
+                  [class*="installments"],
+                  [data-testid*="installments"],
+                  .mp-payment-installments,
+                  .mp-form-control--installments {
+                    display: none !important;
+                    opacity: 0 !important;
+                    visibility: hidden !important;
+                  }
+                `;
+                try { el.shadowRoot.appendChild(s); } catch (e) { console.warn('Falha inject shadow', e); }
+              }
+            }
+          }, 500);
+        },
         onError: (e) => { console.error('[MP] Brick error:', e); alert('Erro ao iniciar o pagamento.'); },
         onSubmit: async ({ selectedPaymentMethod, formData }) => {
           try {
