@@ -1281,11 +1281,15 @@ async function emitirBilhetesViaWebhook(payment) {
   const firstEntry = allEntries[0] || {};
 
   // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-  const userEmail =
-    firstEntry.email ||
-    payment?.payer?.email ||
-    payment?.additional_info?.payer?.email ||
-    '';
+  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
+  // Usa o helper pickBuyerEmail para tentar todas as fontes possíveis
+  const userEmail = pickBuyerEmail({
+    payment,
+    vendaResult: { EmailCliente: firstEntry.email }, // simula objeto de venda p/ aproveitar o helper
+    fallback: ''
+  });
+
+  console.log('[Webhook][Emit] Email resolvido:', userEmail ? userEmail : '(vazio)');
 
   const userPhone =
     firstEntry.telefone ||
