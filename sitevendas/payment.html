@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8" />
   <title>Pagamento</title>
@@ -7,17 +8,20 @@
   <script defer src="main.js"></script>
 
 
-      <!-- Favicons -->
+  <!-- Favicons -->
   <link rel="icon" href="/img/turin-fav.ico?v=2">
   <link rel="icon" type="image/png" href="/img/turin-fav-wide-32.png?v=2" sizes="32x32">
   <link rel="icon" type="image/png" href="/img/turin-fav-wide-192.png?v=2" sizes="192x192">
   <link rel="apple-touch-icon" href="/img/turin-fav-wide-180.png?v=2">
   <link rel="shortcut icon" href="/img/turin-fav-wide-32.png?v=2">
- 
+
 
   <!-- Esconde visualmente o seletor de parcelas do Payment Brick -->
   <style>
     [data-testid="installments"],
+    [data-testid*="installments"],
+    [class*="installments"],
+    [class*="payment-method-tag"],
     .mp-CardPayment-installments,
     .mp-payment-installments,
     .mp-form-control--installments {
@@ -28,7 +32,7 @@
       padding: 0 !important;
       overflow: hidden !important;
     }
-    
+
     /* Caixa do PIX 
     #pix-box{
       margin-top:16px; padding:14px; border:1px solid #e2e2e2; border-radius:10px;
@@ -44,67 +48,109 @@
 
 
     /* Caixa do PIX */
-#pix-box{
-  margin-top:16px;
-  padding:14px;
-  border:1px solid #e2e2e2;
-  border-radius:10px;
-  background:#fff;
-}
-#pix-box h4{ margin:0 0 8px 0 }
+    #pix-box {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #e2e2e2;
+      border-radius: 10px;
+      background: #fff;
+    }
 
-#pix-box .pix-row{
-  display:flex;
-  flex-direction:column;        /* empilha código + botão */
-  align-items:center;           /* centraliza no eixo horizontal */
-  justify-content:center;
-  gap:8px;
-  margin-top:8px;
-}
+    #pix-box h4 {
+      margin: 0 0 8px 0
+    }
 
-#pix-code{
-  width:100%;
-  max-width:360px;
-  padding:.6rem;
-  border:1px solid #ccc;
-  border-radius:6px;
-}
+    #pix-box .pix-row {
+      display: flex;
+      flex-direction: column;
+      /* empilha código + botão */
+      align-items: center;
+      /* centraliza no eixo horizontal */
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
 
-#pix-copy{
-  align-self:center;
-  padding:.6rem .9rem;
-  border:0;
-  border-radius:8px;
-  cursor:pointer;
-}
+    #pix-code {
+      width: 100%;
+      max-width: 360px;
+      padding: .6rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
 
-#pix-status{ margin-top:8px; color:#555 }
-#pix-qr img{ max-width:220px; height:auto; }
+    #pix-copy {
+      align-self: center;
+      padding: .6rem .9rem;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #pix-status {
+      margin-top: 8px;
+      color: #555
+    }
+
+    #pix-qr img {
+      max-width: 220px;
+      height: auto;
+    }
 
 
 
 
 
-    
+
 
     /* ===== Overlay de emissão do bilhete ===== */
-    #issuance-overlay{
-      position:fixed; inset:0; background:rgba(0,0,0,.45);
-      display:none; align-items:center; justify-content:center;
-      z-index:9999; backdrop-filter:saturate(120%) blur(1px);
+    #issuance-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      backdrop-filter: saturate(120%) blur(1px);
     }
-    #issuance-overlay .io-card{
-      background:#fff; border-radius:14px; padding:22px 26px; text-align:center;
-      box-shadow:0 12px 40px rgba(0,0,0,.25); max-width:520px; width:92%;
+
+    #issuance-overlay .io-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 22px 26px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+      max-width: 520px;
+      width: 92%;
     }
-    #issuance-overlay .io-title{ font:600 18px/1.25 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; margin-top:12px; }
-    #issuance-overlay .io-sub{ font:400 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#555; margin-top:6px; }
-    #issuance-overlay .io-spinner{
-      width:48px; height:48px; margin:0 auto;
-      border-radius:50%; border:4px solid #e6e6e6; border-top-color:#2563eb;
-      animation:io-spin 1s linear infinite;
+
+    #issuance-overlay .io-title {
+      font: 600 18px/1.25 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin-top: 12px;
     }
-    @keyframes io-spin{ to{ transform:rotate(360deg); } }
+
+    #issuance-overlay .io-sub {
+      font: 400 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: #555;
+      margin-top: 6px;
+    }
+
+    #issuance-overlay .io-spinner {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto;
+      border-radius: 50%;
+      border: 4px solid #e6e6e6;
+      border-top-color: #2563eb;
+      animation: io-spin 1s linear infinite;
+    }
+
+    @keyframes io-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 
   <!-- SDK do Mercado Pago deve vir antes do seu payment.js -->
@@ -114,18 +160,18 @@
 
   <!-- JS utilitário: deixa as funções globais para o payment.js usar -->
   <script>
-    function showIssuanceOverlay(msg){
+    function showIssuanceOverlay(msg) {
       const el = document.getElementById('issuance-overlay');
-      if(!el) return;
-      if(msg) el.querySelector('.io-title').textContent = msg;
+      if (!el) return;
+      if (msg) el.querySelector('.io-title').textContent = msg;
       el.style.display = 'flex';
       // evita scroll/duplo clique
       document.body.style.pointerEvents = 'none';
       document.body.style.overflow = 'hidden';
     }
-    function hideIssuanceOverlay(){
+    function hideIssuanceOverlay() {
       const el = document.getElementById('issuance-overlay');
-      if(!el) return;
+      if (!el) return;
       el.style.display = 'none';
       document.body.style.pointerEvents = '';
       document.body.style.overflow = '';
@@ -134,16 +180,16 @@
     window.addEventListener('beforeunload', () => hideIssuanceOverlay());
   </script>
   <!-- HEADER em GRID -->
-<header class="site-header">
-  <div class="site-header-inner">
-    <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
+  <header class="site-header">
+    <div class="site-header-inner">
+      <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
 
-    <div class="site-title">
-      <h1>Turin Transportes – Pagamento</h1>
-      <nav id="user-nav" class="user-nav"></nav>
+      <div class="site-title">
+        <h1>Turin Transportes – Pagamento</h1>
+        <nav id="user-nav" class="user-nav"></nav>
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
   <main class="two-cols-pay">
     <!-- Card lateral fixo: Resumo -->
@@ -165,20 +211,20 @@
       <div id="payment-bricks" style="margin-top:12px;"></div>
 
       <!-- Resultado PIX (criado/atualizado pelo JS) -->
-<div id="pix-box" style="display:none">
-  <h4>🚨Atenção, não atualize esta pagina!</h4>
-  
-  <div id="pix-qr"></div>
+      <div id="pix-box" style="display:none">
+        <h4>🚨Atenção, não atualize esta pagina!</h4>
 
-  <div class="pix-row">
-    <input id="pix-code" type="text" readonly>
-    <button id="pix-copy" type="button" class="btn btn-primary">
-      Copiar código
-    </button>
-  </div>
+        <div id="pix-qr"></div>
 
-  <p id="pix-status">Aguardando pagamento…</p>
-</div>
+        <div class="pix-row">
+          <input id="pix-code" type="text" readonly>
+          <button id="pix-copy" type="button" class="btn btn-primary">
+            Copiar código
+          </button>
+        </div>
+
+        <p id="pix-status">Aguardando pagamento…</p>
+      </div>
 
     </section>
   </main>
@@ -195,5 +241,6 @@
       <div class="io-sub">Estamos confirmando sua compra e gerando o DABP-e…</div>
     </div>
   </div>
-</body>
+  </body>
+
 </html>

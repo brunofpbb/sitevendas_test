@@ -141,161 +141,14 @@ function getMail(v) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
 }
 function normalizePhoneBR(v) {
-  // tira tudo que não for dígito; se tiver DDI/DDD ausente, add "55" só no Sheets
-  const d = (v ?? '').toString().replace(/\D+/g, '');
-  return d || ''; // ex.: "31999998888"
-}
-
-
-function getLoginEmail(req, payment, vendaResult) {
-  const fromLogin =
-    getMail(req?.user?.email) ||
-    getMail(req?.session?.user?.email) ||
-    getMail(req?.headers?.['x-user-email']) ||
-    getMail(req?.body?.loginEmail || req?.body?.emailLogin || req?.body?.userEmail) ||
-    getMail(req?.body?.user?.email);
-
-  if (fromLogin) return fromLogin;
-
-  // Fallback: tenta pegar do MP / venda
-  const fromMP =
-    getMail(payment?.payer?.email) ||
-    getMail(payment?.additional_info?.payer?.email) ||
-    getMail(payment?.card?.cardholder?.email);
-
-  if (fromMP) return fromMP;
-
-  const fromVenda =
-    getMail(vendaResult?.EmailCliente) ||
-    getMail(vendaResult?.emailCliente);
-
-  return fromVenda || null;
-}
-
-function getLoginPhone(req, payment, vendaResult) {
-  const fromLogin =
-    req?.user?.phone || req?.session?.user?.phone ||
-    req?.headers?.['x-user-phone'] ||
-    req?.body?.loginPhone || req?.body?.userPhone || req?.body?.user?.phone;
-
-  if (fromLogin) return normalizePhoneBR(fromLogin);
-
-  // Fallbacks (quando existir)
-  const fromMP =
-    payment?.payer?.phone?.number ||
-    payment?.additional_info?.payer?.phone?.number;
-
-  if (fromMP) return normalizePhoneBR(fromMP);
-
-  const fromVenda =
-    vendaResult?.TelefoneCli || vendaResult?.CelularCli;
-
-  return normalizePhoneBR(fromVenda);
-}
-
-
-// === ID de grupo (idempotência por compra)
-function computeGroupId(req, payment, schedule) {
-  return (
-    req?.body?.grupoId ||
-    req?.body?.referencia ||
-    payment?.external_reference ||
-    req?.headers?.['x-idempotency-key'] ||
-    // fallback
-    [
-      schedule?.idViagem,
-      schedule?.date || schedule?.dataViagem,
-      schedule?.horaPartida,
-      (req?.user?.email || req?.headers?.['x-user-email'] || '')
-    ].join('|')
-  );
-}
-
-
-// Remove bilhetes duplicados (mesmo nº/mesma chave BPe)
-function dedupBilhetes(arr = []) {
-  const seen = new Set();
-  return arr.filter(b => {
-    const k = `${b?.numPassagem || ''}|${b?.chaveBPe || ''}`;
-    if (!k.trim() || seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}
-
-// Remove anexos/arquivos duplicados (mesmo fileId ou mesmo nº/caminho)
-function dedupArquivos(arr = []) {
-  const seen = new Set();
-  return arr.filter(a => {
-    const k = `${a?.driveFileId || ''}|${a?.numPassagem || ''}|${a?.pdfLocal || ''}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}
-
-
-
-/* ============================================================================
-   Google Sheets (consulta por email) – leitura (mantido)
-============================================================================ */
-const { google } = require('googleapis');
-
-async function sheetsAuth() {
-  const key = JSON.parse(process.env.GDRIVE_SA_KEY || '{}');
-  const auth = new google.auth.JWT(
-    key.client_email, null, key.private_key,
-    ['https://www.googleapis.com/auth/spreadsheets.readonly']
-  );
-  return google.sheets({ version: 'v4', auth });
-}
-
-
-
-async function sheetsAuthRW() {
-  const key = JSON.parse(process.env.GDRIVE_SA_KEY || '{}');
-  const auth = new google.auth.JWT(
-    key.client_email, null, key.private_key,
-    ['https://www.googleapis.com/auth/spreadsheets'] // escopo de escrita
-  );
-  return google.sheets({ version: 'v4', auth });
-}
-
-// === Tempo SP
-const nowSP = () => {
-  const z = new Date();
-  const fmt = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false
-  }).formatToParts(z).reduce((a, p) => (a[p.type] = p.value, a), {});
-  return `${fmt.day}/${fmt.month}/${fmt.year} ${fmt.hour}:${fmt.minute}:${fmt.second}`;
-};
-
-
-// --- Helpers ---------------------------------------------------------------
-
-function resolveSentido(p, scheduleIda, scheduleVolta, fallback = 'Ida') {
-  // 1) valor explícito vindo da Praxio ou do seu objeto de bilhete
-  const s = String(p?.Sentido || p?.sentido || '').toLowerCase();
-  if (s === 'ida' || s === 'volta') return s[0].toUpperCase() + s.slice(1);
-
-  // 2) tentar inferir por origem/destino
-  const po = Number(p?.Idorigem || p?.idOrigem || p?.OrigemId);
-  const pd = Number(p?.Iddestino || p?.idDestino || p?.DestinoId);
-
-  const iO = Number(scheduleIda?.originId || scheduleIda?.idOrigem);
-  const iD = Number(scheduleIda?.destinationId || scheduleIda?.idDestino);
-
-  const vO = Number(scheduleVolta?.originId || scheduleVolta?.idOrigem);
-  const vD = Number(scheduleVolta?.destinationId || scheduleVolta?.idDestino);
-
-  if (po && pd && iO && iD && po === iO && pd === iD) return 'Ida';
-  if (po && pd && vO && vD && po === vO && pd === vD) return 'Volta';
-
-  // fallback (ex.: idaVoltaDefault do bundle)
-  return (String(fallback).toLowerCase() === 'volta') ? 'Volta' : 'Ida';
+  // tira tudo que não for dígito
+  let d = (v ?? '').toString().replace(/\D+/g, '');
+  if (!d) return '';
+  // Se tiver 10 ou 11 dígitos, assume BR sem DDI e adiciona 55
+  if (d.length >= 10 && d.length <= 11) {
+    d = '55' + d;
+  }
+  return d;
 }
 
 
@@ -358,8 +211,8 @@ async function sheetsAppendBilhetes({
         ? `${scheduleDate} ${scheduleHora}`
         : (scheduleDate || scheduleHora || '');
 
-    const userPhoneDigits = String(userPhone || '').replace(/\D/g, '');
-    const telefoneSheet = userPhoneDigits ? `${userPhoneDigits}` : '';
+    // Usa a mesma normalização (com 55 se precisar)
+    const telefoneSheet = normalizePhoneBR(userPhone);
 
     // ================================================================
     // 1) Lê o Sheets para tentar achar linhas da pré-reserva por Referencia
