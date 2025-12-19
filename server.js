@@ -342,7 +342,7 @@ async function sheetsAppendBilhetes({
 
     const isPix = mpMethod === 'pix';
 
-    const tipoPagamento = isPix ? '8' : '3'; // 8=PIX, 3=Cartão (crédito/débito)
+    const tipoPagamento = isPix ? '6' : '3'; // 6=PIX, 3=Cartão (crédito/débito)
     const forma =
       isPix
         ? 'PIX'
@@ -955,7 +955,7 @@ async function sheetsUpdatePaymentStatusByRef(externalReference, payment) {
           : (payment?.payment_method_id || '').toString().toUpperCase();
 
   const tipo =
-    mpType === 'pix' ? '8'
+    mpType === 'pix' ? '6'
       : (mpType === 'debit_card' || mpType === 'credit_card') ? '3'
         : '';
 
@@ -2581,9 +2581,9 @@ app.post('/api/praxio/vender', async (req, res) => {
         payment?.payment_method_id || payment?.payment_method?.id || ''
       ).toLowerCase();
 
-      const isPix = mpMethod === 'pix';
+    /*  const isPix = mpMethod === 'pix';
 
-      const tipoPagamento = isPix ? '8' : '3'; // 8=PIX | 3=Cartão
+      const tipoPagamento = isPix ? '6' : '3'; // 6=PIX | 3=Cartão
 
       const tipoCartao = isPix
         ? '0'                                  // 0 = PIX na Praxio
@@ -2592,6 +2592,21 @@ app.post('/api/praxio/vender', async (req, res) => {
           : mpType === 'debit_card'
             ? '2'                              // débito
             : '1';
+
+      */
+
+
+      const isPix = mpMethod === 'pix';
+
+      // ✅ Praxio: PIX = 6 (não 8)
+      const tipoPagamento = isPix ? '6' : '3';
+
+      // TipoCartao: só faz sentido quando TipoPagamento=3 (cartão)
+      const tipoCartao = isPix
+      ? '0'
+      : (mpType === 'debit_card' ? '1' : '0'); // 0=crédito | 1=débito
+
+      
 
       const parcelas = Number(payment?.installments || 1);
 
