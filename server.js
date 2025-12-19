@@ -2472,11 +2472,12 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
 
-  // 1) Gera chave GRANULAR: PaymentId + Poltronas
-  // Evita que Item A devolva cache para Item B do mesmo pagamento
+  // 1) Gera chave GRANULAR: PaymentId + IdViagem + Poltronas
+  // Evita que Item A devolva cache para Item B do mesmo pagamento (mesmo que tenham a mesma poltrona)
   const seatList = (passengers || []).map(p => String(p.seatNumber || p.poltrona || '')).filter(Boolean).sort();
+  const tripId = String(req.body?.schedule?.idViagem || '');
   const lockKey = seatList.length
-    ? `${mpPaymentId}::${seatList.join(',')}`
+    ? `${mpPaymentId}::${tripId}::${seatList.join(',')}`
     : String(mpPaymentId || '');
 
   // 0.1) Verifica Cache de Concluídos
