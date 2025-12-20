@@ -1275,9 +1275,6 @@ async function emitirBilhetesViaWebhook(payment) {
   const serverBase = `http://127.0.0.1:${PORT}`;
 
   const allEntries = entries;
-  /* const firstEntry = allEntries[0] || {};
-   const userEmail = firstEntry.email || '';
-   const userPhone = firstEntry.telefone || '';*/
   const firstEntry = allEntries[0] || {};
 
   // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
@@ -1484,66 +1481,6 @@ app.get('/api/mp/wait-flush', async (req, res) => {
   }
 });
 
-
-
-
-
-
-/*
-app.get('/api/mp/wait-flush', async (req, res) => {
-  try {
-    const paymentId = String(req.query.paymentId || '').trim();
-    if (!paymentId) {
-      return res.status(400).json({ ok: false, error: 'paymentId é obrigatório' });
-    }
-
-    // garante que exista uma entrada no AGGR para poder pendurar "waiters"
-    let e = AGGR.get(paymentId);
-    if (!e) {
-      e = {
-        timer: null,
-        startedAt: Date.now(),
-        base: {},
-        bilhetes: [],
-        arquivos: [],
-        emailAttachments: [],
-        expected: 0,
-        flushed: false,
-        waiters: []
-      };
-      AGGR.set(paymentId, e);
-    }
-
-    // se já flushei, não preciso esperar
-    if (e.flushed) {
-      return res.json({ ok: true, flushed: true });
-    }
-
-    // ainda pendente → aguarda o flush do agregador com timeout de segurança
-    const TIMEOUT = Math.max(AGGR_MAX_WAIT_MS, AGGR_DEBOUNCE_MS + 5000); // ~40s
-    await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('timeout')), TIMEOUT);
-      (e.waiters || (e.waiters = [])).push(() => {
-        try { clearTimeout(t); } catch {}
-        resolve();
-      });
-    });
-
-    return res.json({ ok: true, flushed: true });
-  } catch (err) {
-    console.warn('[AGGR] wait-flush erro:', err);
-    // fallback: não travar a UX, mas indicar que não temos certeza se flushei
-    return res.status(200).json({ ok: true, flushed: false, note: 'fallback' });
-  }
-});
-
-*/
-
-
-
-
-
-
 app.post('/api/mp/webhook', async (req, res) => {
   try {
     console.log('[MP][Webhook] body:', JSON.stringify(req.body));
@@ -1602,25 +1539,6 @@ app.post('/api/mp/webhook', async (req, res) => {
     }
 
     // 2) Se estiver efetivamente pago (approved/accredited), dispara emissão
-    /*   const status = String(payment?.status || '').toLowerCase();
-       const pago =
-         status === 'approved' ||
-         status === 'accredited';
-   
-       if (pago) {
-         try {
-           console.log('[MP][Webhook] pagamento pago, emitindo bilhetes via webhook...');
-           await emitirBilhetesViaWebhook(payment);
-         } catch (err) {
-           console.error('[MP][Webhook] erro ao emitir bilhetes via webhook:', err?.message || err);
-         }
-       } else {
-         console.log('[MP][Webhook] status ainda não pago, não emite. status=', status);
-       }
-   
-       */
-
-
     const status = String(payment?.status || '').toLowerCase();
     const pago =
       status === 'approved' ||
@@ -2181,13 +2099,8 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
-
-
 const AGGR_DEBOUNCE_MS = 1500;   // ⬅️ 8s para juntar múltiplas chamadas
 const AGGR_MAX_WAIT_MS = 120000;  // ⬅️ segurança 30s
-
-
-
 
 function queueUnifiedSend(groupId, fragment, doFlushCb) {
   let e = AGGR.get(groupId);
@@ -2272,9 +2185,6 @@ setInterval(() => {
   const now = Date.now();
   for (const [k, v] of SEND_GUARD.entries()) if (v <= now) SEND_GUARD.delete(k);
 }, 60000);
-
-
-
 
 async function praxioLogin() {
   const resp = await fetch('https://oci-parceiros2.praxioluna.com.br/Autumn/Login/efetualogin', {
@@ -2582,21 +2492,6 @@ app.post('/api/praxio/vender', async (req, res) => {
         payment?.payment_method_id || payment?.payment_method?.id || ''
       ).toLowerCase();
 
-    /*  const isPix = mpMethod === 'pix';
-
-      const tipoPagamento = isPix ? '6' : '3'; // 6=PIX | 3=Cartão
-
-      const tipoCartao = isPix
-        ? '0'                                  // 0 = PIX na Praxio
-        : mpType === 'credit_card'
-          ? '1'                                // crédito
-          : mpType === 'debit_card'
-            ? '2'                              // débito
-            : '1';
-
-      */
-
-
       const isPix = mpMethod === 'pix';
 
       // ✅ Praxio: PIX = 6 (não 8)
@@ -2606,8 +2501,6 @@ app.post('/api/praxio/vender', async (req, res) => {
       const tipoCartao = isPix
       ? '0'
       : (mpType === 'debit_card' ? '1' : '0'); // 0=crédito | 1=débito
-
-      
 
       const parcelas = Number(payment?.installments || 1);
 
@@ -2812,35 +2705,6 @@ app.post('/api/praxio/vender', async (req, res) => {
       }
 
 
-
-
-
-
-
-
-      /*
-            if (errosPoltronas.length) {
-              // Retry logic para erro parcial (alguma poltrona falhou)?
-              // Se falhou por indisponível, checa Sheets
-              console.log('[Praxio][Retry] Erro em poltronas. Checando Sheets...');
-              await new Promise(r => setTimeout(r, 2000));
-              const retryEntries = await checkSheetsForSeats();
-              if (retryEntries) {
-                const vRes = { Sucesso: true, ListaPassagem: retryEntries.map(e => ({ NumPassagem: e.numPassagem, Poltrona: e.poltrona })) };
-                const arqs = retryEntries.map(e => ({ numPassagem: e.numPassagem, pdfLocal: '', driveUrl: '' }));
-                return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
-              }
-      
-              const msgs = errosPoltronas
-                .map(p => p.Mensagem || p.MensagemDetalhada)
-                .filter(Boolean)
-                .join(' | ');
-      
-              throw new Error(
-                `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
-              );
-            }
-      */
       // 5) Gerar PDFs (local) e subir no Drive
       const subDir = new Date().toISOString().slice(0, 10);
       const outDir = path.join(TICKETS_DIR, subDir);
@@ -3175,7 +3039,3 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
-
-
-
-//teste
