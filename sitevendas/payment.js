@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               description: 'Compra Turin Transportes',
               external_reference: idem,
               payer: {
-                email: user.email || '',
+                email: user.email || user.Email || formData?.payer?.email || '',
                 identification: formData?.payer?.identification ? {
                   type: formData.payer.identification.type || 'CPF',
                   number: String(formData.payer.identification.number || '').replace(/\D/g, '')
