@@ -2061,6 +2061,10 @@ app.post('/api/auth/request-code', async (req, res) => {
     }
 
     const devPayload = process.env.NODE_ENV !== 'production' ? { demoCode: code } : {};
+
+    // [LOG] Registro do envio do código (User Request)
+    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
+
     return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
 
   } catch (err) {
@@ -2921,8 +2925,12 @@ app.post('/api/praxio/vender', async (req, res) => {
           } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
 
           if (!sent) {
-            await sendViaBrevoApi({ to, subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo });
-            console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
+            try {
+              await sendViaBrevoApi({ to, subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo });
+              console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
+            } catch (err) {
+              console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
+            }
           }
         } else {
           console.warn('[Email] comprador sem e-mail. Pulando envio.');
