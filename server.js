@@ -2061,6 +2061,10 @@ app.post('/api/auth/request-code', async (req, res) => {
     }
 
     const devPayload = process.env.NODE_ENV !== 'production' ? { demoCode: code } : {};
+
+    // [LOG] Registro do envio do código (User Request)
+    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
+
     return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
 
   } catch (err) {
