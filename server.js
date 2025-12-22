@@ -2514,6 +2514,8 @@ app.post('/api/praxio/vender', async (req, res) => {
         ? '0'
         : (mpType === 'debit_card' ? '1' : '0'); // 0=crédito | 1=débito
 
+
+
       const parcelas = Number(payment?.installments || 1);
 
       // helpers datas
