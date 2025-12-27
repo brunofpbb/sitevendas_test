@@ -1423,7 +1423,7 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
   }
 
   return fallback || null;
-}
+
 
 /* =================== CSP (Bricks) =================== */
 app.use((req, res, next) => {
