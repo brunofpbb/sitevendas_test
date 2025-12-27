@@ -1399,6 +1399,8 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
   for (const c of contenders) {
     if (isMail(c)) return String(c).trim();
   }
+    return isMail(fallback) ? String(fallback).trim() : null;
+}
 
   // 2. Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
   // Isso evita que um erro de digitação (ex: user@gmailcom) apague o dado.
@@ -2003,11 +2005,18 @@ async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, a
     }),
   });
 
-  if (!resp.ok) {
+/*  if (!resp.ok) {
     const body = await resp.text().catch(() => '');
     throw new Error(`Brevo API ${resp.status}: ${body.slice(0, 300)}`);
   }
   return resp.json();
+}*/
+
+    if (!resp.ok) {
+    console.error('[Brevo] falhou:', resp.status, body?.slice?.(0, 300));
+    return { ok: false, status: resp.status, body };
+  }
+  return { ok: true };
 }
 
 /* =================== Auth: códigos por e-mail =================== */
