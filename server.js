@@ -1278,29 +1278,24 @@ async function emitirBilhetesViaWebhook(payment) {
   const firstEntry = allEntries[0] || {};
 
 
-  // 0) e-mail: PRIORIDADE ABSOLUTA = o que já está no Sheets (pré-reserva)
-const emailFromSheets = (firstEntry.email || firstEntry['E-mail'] || '').toString().trim();
+  // 0) e-mail: prioridade = o que já está no Sheets (pré-reserva)
+  const emailFromSheets = (firstEntry.email || firstEntry['E-mail'] || '').toString().trim();
 
-// 1) se não tiver no Sheets, tenta descobrir por login/payer/body etc.
-let userEmail = emailFromSheets || pickBuyerEmail({ payment, fallback: '' });
+  // 1) backup: e-mail do Mercado Pago (se você setar payer.email na criação do pagamento)
+  const emailFromMP = (payment?.payer?.email || payment?.additional_info?.payer?.email || '').toString().trim();
 
-// 2) segurança: se ainda não for válido, zera (pra não quebrar Brevo)
-const isMail = (v) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
-if (!isMail(userEmail)) userEmail = '';
-
-console.log('[Webhook][Emit] Email resolvido:', userEmail ? userEmail : '(vazio)');
-
-
-  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-  // Usa o helper pickBuyerEmail para tentar todas as fontes possíveis
-  const userEmail = pickBuyerEmail({
-    payment,
-    vendaResult: { EmailCliente: firstEntry.email }, // simula objeto de venda p/ aproveitar o helper
-    fallback: ''
-  });
+  // 2) escolhe o melhor (SÓ aceitando email válido)
+  const isMail = (v) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
+  let userEmail = '';
+  if (isMail(emailFromSheets)) userEmail = emailFromSheets;
+  else if (isMail(emailFromMP)) userEmail = emailFromMP;
 
   console.log('[Webhook][Emit] Email resolvido:', userEmail ? userEmail : '(vazio)');
+
+  // 3) auto-cura: se o Sheets veio vazio mas o MP tem email, preenche no Sheets
+  if (!isMail(emailFromSheets) && isMail(emailFromMP) && extRef) {
+    await sheetsEnsureEmailByRef(extRef, emailFromMP);
+  }
 
   const userPhone =
     firstEntry.telefone ||
