@@ -1404,17 +1404,13 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
     vendaResult?.EmailCliente
   ];
 
-  // 1. Tenta achar um email VÁLIDO (prioridade)
+  // 1) Tenta achar um email VÁLIDO (prioridade)
   for (const c of contenders) {
     if (isMail(c)) return String(c).trim();
   }
 
-  // sem fallback malformado
-  return isMail(fallback) ? String(fallback).trim() : null;
-}
-
-  // 2. Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
-  // Isso evita que um erro de digitação (ex: user@gmailcom) apague o dado.
+  // 2) Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
+  // (se você quiser parar de aceitar inválido, é só remover esse bloco)
   for (const c of contenders) {
     if (c && String(c).trim().length > 0) {
       console.warn('[pickBuyerEmail] Email malformado aceito como fallback:', c);
@@ -1423,6 +1419,7 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
   }
 
   return fallback || null;
+}
 
 
 /* =================== CSP (Bricks) =================== */
