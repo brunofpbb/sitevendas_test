@@ -1277,6 +1277,20 @@ async function emitirBilhetesViaWebhook(payment) {
   const allEntries = entries;
   const firstEntry = allEntries[0] || {};
 
+
+  // 0) e-mail: PRIORIDADE ABSOLUTA = o que já está no Sheets (pré-reserva)
+const emailFromSheets = (firstEntry.email || firstEntry['E-mail'] || '').toString().trim();
+
+// 1) se não tiver no Sheets, tenta descobrir por login/payer/body etc.
+let userEmail = emailFromSheets || pickBuyerEmail({ payment, fallback: '' });
+
+// 2) segurança: se ainda não for válido, zera (pra não quebrar Brevo)
+const isMail = (v) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
+if (!isMail(userEmail)) userEmail = '';
+
+console.log('[Webhook][Emit] Email resolvido:', userEmail ? userEmail : '(vazio)');
+
+
   // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
   // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
   // Usa o helper pickBuyerEmail para tentar todas as fontes possíveis
