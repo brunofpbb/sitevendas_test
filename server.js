@@ -1413,7 +1413,9 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
   for (const c of contenders) {
     if (isMail(c)) return String(c).trim();
   }
-    return isMail(fallback) ? String(fallback).trim() : null;
+
+  // sem fallback malformado
+  return isMail(fallback) ? String(fallback).trim() : null;
 }
 
   // 2. Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
