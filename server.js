@@ -1277,16 +1277,25 @@ async function emitirBilhetesViaWebhook(payment) {
   const allEntries = entries;
   const firstEntry = allEntries[0] || {};
 
-  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-  // ✅ começa pelo Sheets, mas completa com Mercado Pago se vier vazio
-  // Usa o helper pickBuyerEmail para tentar todas as fontes possíveis
-  const userEmail = pickBuyerEmail({
-    payment,
-    vendaResult: { EmailCliente: firstEntry.email }, // simula objeto de venda p/ aproveitar o helper
-    fallback: ''
-  });
+
+  // 0) e-mail: prioridade = o que já está no Sheets (pré-reserva)
+  const emailFromSheets = (firstEntry.email || firstEntry['E-mail'] || '').toString().trim();
+
+  // 1) backup: e-mail do Mercado Pago (se você setar payer.email na criação do pagamento)
+  const emailFromMP = (payment?.payer?.email || payment?.additional_info?.payer?.email || '').toString().trim();
+
+  // 2) escolhe o melhor (SÓ aceitando email válido)
+  const isMail = (v) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
+  let userEmail = '';
+  if (isMail(emailFromSheets)) userEmail = emailFromSheets;
+  else if (isMail(emailFromMP)) userEmail = emailFromMP;
 
   console.log('[Webhook][Emit] Email resolvido:', userEmail ? userEmail : '(vazio)');
+
+  // 3) auto-cura: se o Sheets veio vazio mas o MP tem email, preenche no Sheets
+  if (!isMail(emailFromSheets) && isMail(emailFromMP) && extRef) {
+    await sheetsEnsureEmailByRef(extRef, emailFromMP);
+  }
 
   const userPhone =
     firstEntry.telefone ||
@@ -1395,13 +1404,13 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
     vendaResult?.EmailCliente
   ];
 
-  // 1. Tenta achar um email VÁLIDO (prioridade)
+  // 1) Tenta achar um email VÁLIDO (prioridade)
   for (const c of contenders) {
     if (isMail(c)) return String(c).trim();
   }
 
-  // 2. Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
-  // Isso evita que um erro de digitação (ex: user@gmailcom) apague o dado.
+  // 2) Se não achou válido, retorna o PRIMEIRO não-vazio (Best Effort)
+  // (se você quiser parar de aceitar inválido, é só remover esse bloco)
   for (const c of contenders) {
     if (c && String(c).trim().length > 0) {
       console.warn('[pickBuyerEmail] Email malformado aceito como fallback:', c);
@@ -1411,6 +1420,7 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
 
   return fallback || null;
 }
+
 
 /* =================== CSP (Bricks) =================== */
 app.use((req, res, next) => {
@@ -2003,11 +2013,18 @@ async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, a
     }),
   });
 
-  if (!resp.ok) {
+/*  if (!resp.ok) {
     const body = await resp.text().catch(() => '');
     throw new Error(`Brevo API ${resp.status}: ${body.slice(0, 300)}`);
   }
   return resp.json();
+}*/
+
+    if (!resp.ok) {
+    console.error('[Brevo] falhou:', resp.status, body?.slice?.(0, 300));
+    return { ok: false, status: resp.status, body };
+  }
+  return { ok: true };
 }
 
 /* =================== Auth: códigos por e-mail =================== */
