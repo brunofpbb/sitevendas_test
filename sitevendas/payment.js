@@ -260,7 +260,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!Array.isArray(order) || !order.length) return;
 
       const userLS = JSON.parse(localStorage.getItem('user') || 'null') || {};
-      const userEmail = (userLS.email || '').toString();
+      const userEmail = (userLS.email || userLS.loginEmail || userLS.userEmail || '').toString().trim();
+      // const userEmail = (userLS.email || '').toString();
       let userPhone = (userLS.phone || userLS.telefone || '').toString();
 
       // Fallback: se userPhone vazio, tenta pegar do 1º passageiro
