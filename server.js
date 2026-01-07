@@ -612,6 +612,7 @@ async function sheetsAppendBilhetes({
 
 
 // === Pré-reserva no Sheets (1 linha por bilhete, antes do pagamento) ===
+// [REFACTORED] Agora usa Mapeamento Dinâmico de Colunas para evitar erros se a planilha mudar
 app.post('/api/sheets/pre-reserva', async (req, res) => {
   try {
     const {
@@ -630,85 +631,113 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
 
     const sheets = await sheetsAuthRW();
     const spreadsheetId = process.env.SHEETS_BPE_ID;
-    const range = process.env.SHEETS_BPE_RANGE || 'BPE!A:AK';
 
+    // Resolve range base
+    let baseTab = 'BPE';
+    if (process.env.SHEETS_BPE_RANGE && process.env.SHEETS_BPE_RANGE.includes('!')) {
+      baseTab = process.env.SHEETS_BPE_RANGE.split('!')[0];
+    }
+    const headerRange = `${baseTab}!1:1`; // Lê apenas o header
+
+    // 1) Ler Header para descobrir índices
+    const headerResp = await sheets.spreadsheets.values.get({
+      spreadsheetId, range: headerRange
+    });
+    const headerRow = headerResp.data.values?.[0] || [];
+
+    // Normalizador de header
+    const normH = (h) => String(h || '').trim().toLowerCase();
+    const idxOf = (...candidates) => headerRow.findIndex(h => candidates.includes(normH(h)));
+
+    const col = {
+      dataSolic: idxOf('data/horasolicitação', 'data/horasolicitacao'),
+      nome: idxOf('nome'),
+      telefone: idxOf('telefone', 'celular'),
+      email: idxOf('e-mail', 'email'),
+      cpf: idxOf('cpf'),
+      valor: idxOf('valor'),
+      valorConv: idxOf('valorconveniencia'),
+      statusPag: idxOf('statuspagamento'),
+      status: idxOf('status'),
+      sentido: idxOf('sentido'),
+      ref: idxOf('referencia'),
+      dataViagem: idxOf('data_viagem', 'dataviagem'),
+      dataHora: idxOf('data_hora', 'datahora', 'datahoraviagem'),
+      origem: idxOf('origem'),
+      destino: idxOf('destino'),
+      poltrona: idxOf('poltrona'),
+      idViagem: idxOf('idviagem'),
+      idOrigem: idxOf('idorigem'),
+      idDestino: idxOf('iddestino'),
+      horaPartida: idxOf('hora_partida', 'horapartida'),
+      seriePassagem: idxOf('seriepassagem', 'serie')
+    };
+
+    // 2) Montar linhas respeitando os índices
+    const now = nowSP();
     const phoneDigits = String(userPhone || '').replace(/\D/g, '');
     const phoneSheet = phoneDigits ? `55${phoneDigits}` : '';
 
-    const now = nowSP();
+    const newRows = bilhetes.map((b) => {
+      // Cria array vazio suficiente para cobrir todas as colunas encontradas
+      const maxIdx = Math.max(...Object.values(col));
+      const row = new Array(maxIdx + 1).fill('');
 
-    const values = bilhetes.map((b) => {
+      // Helpers de dados
       const dataViagem = b.dataViagem || b.date || '';
       const horaPartida = (b.horaPartida || '').toString().slice(0, 5);
-      const dataHoraViagem = dataViagem && horaPartida
-        ? `${dataViagem} ${horaPartida}`
-        : (dataViagem || horaPartida);
-
-      const sentido = (String(b.idaVolta || '').toLowerCase() === 'volta')
-        ? 'Volta'
-        : 'Ida';
-
+      const dataHoraViagem = dataViagem && horaPartida ? `${dataViagem} ${horaPartida}` : (dataViagem || horaPartida);
+      const sentido = (String(b.idaVolta || '').toLowerCase() === 'volta') ? 'Volta' : 'Ida';
       const nome = b.nomeCliente || b.nome || '';
-      const doc = String(b.docCliente || b.cpf || b.document || '')
-        .replace(/\D/g, '');
-
-      const valorNumber =
-        Number(String(b.valor || b.price || 0).replace(',', '.')) || 0;
+      const doc = String(b.docCliente || b.cpf || b.document || '').replace(/\D/g, '');
+      const valorNumber = Number(String(b.valor || b.price || 0).replace(',', '.')) || 0;
       const valor = valorNumber.toFixed(2);
 
-      return [
-        now,                    // Data/horaSolicitação
-        nome,                   // Nome
-        phoneSheet,             // Telefone
-        userEmail,              // E-mail
-        doc,                    // CPF
-        valor,                  // Valor
-        '2',                    // ValorConveniencia
-        '',                     // ComissaoMP
-        '',                     // ValorLiquido
-        '',                     // NumPassagem
-        '93',                   // SeriePassagem
-        'Aguardando pagamento', // StatusPagamento
-        'Pendente',             // Status
-        '',                     // ValorDevolucao
-        sentido,                // Sentido
-        '',                     // Data/hora_Pagamento
-        '',                     // NomePagador
-        '',                     // CPF_Pagador
-        '',                     // ID_Transação
-        '',                     // TipoPagamento
-        '',                     // correlationID
-        '',                     // idURL
-        external_reference,     // Referencia
-        '',                     // Forma_Pagamento
-        '',                     // idUser
-        dataViagem,             // Data_Viagem
-        dataHoraViagem,         // Data_Hora
-        b.origemNome || b.origem || '',   // Origem
-        b.destinoNome || b.destino || '',   // Destino
-        '',                     // Identificador
-        '',                     // idPagamento
-        '',                     // LinkBPE
-        b.poltrona || b.seatNumber || '',   // Poltrona
-        b.idViagem || b.id_viagem || '',  // IdViagem  (NOVA COLUNA)
-        b.idOrigem || b.id_origem || '',  // IdOrigem  (NOVA COLUNA)
-        b.idDestino || b.id_destino || '',  // IdDestino (NOVA COLUNA) 
-        horaPartida             // Hora_Partida (NOVA COLUNA)
+      // Preenche indices mapeados
+      if (col.dataSolic >= 0) row[col.dataSolic] = now;
+      if (col.nome >= 0) row[col.nome] = nome;
+      if (col.telefone >= 0) row[col.telefone] = phoneSheet;
 
-      ];
+      // Email: Se userEmail vazio, tenta pegar do payload se tiver
+      if (col.email >= 0) row[col.email] = userEmail;
+
+      if (col.cpf >= 0) row[col.cpf] = doc;
+      if (col.valor >= 0) row[col.valor] = valor;
+      if (col.valorConv >= 0) row[col.valorConv] = '2';
+
+      if (col.seriePassagem >= 0) row[col.seriePassagem] = '93';
+      if (col.statusPag >= 0) row[col.statusPag] = 'Aguardando pagamento';
+      if (col.status >= 0) row[col.status] = 'Pendente';
+
+      if (col.sentido >= 0) row[col.sentido] = sentido;
+      if (col.ref >= 0) row[col.ref] = external_reference;
+
+      if (col.dataViagem >= 0) row[col.dataViagem] = dataViagem;
+      if (col.dataHora >= 0) row[col.dataHora] = dataHoraViagem;
+      if (col.origem >= 0) row[col.origem] = b.origemNome || b.origem || '';
+      if (col.destino >= 0) row[col.destino] = b.destinoNome || b.destino || '';
+
+      if (col.poltrona >= 0) row[col.poltrona] = b.poltrona || b.seatNumber || '';
+      if (col.idViagem >= 0) row[col.idViagem] = b.idViagem || b.id_viagem || '';
+      if (col.idOrigem >= 0) row[col.idOrigem] = b.idOrigem || b.id_origem || '';
+      if (col.idDestino >= 0) row[col.idDestino] = b.idDestino || b.id_destino || '';
+      if (col.horaPartida >= 0) row[col.horaPartida] = horaPartida;
+
+      return row;
     });
 
+    // 3) Append (usando dynamic rows)
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range,
+      range: `${baseTab}!A:A`, // Append inteligente do Google acha a prima linha vazia
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
-      requestBody: { values }
+      requestBody: { values: newRows }
     });
 
-    console.log('[Sheets][pre-reserva] append ok:', values.length, 'linhas');
+    console.log('[Sheets][pre-reserva] append Dinâmico ok:', newRows.length, 'linhas');
 
-    return res.json({ ok: true, appended: values.length });
+    return res.json({ ok: true, appended: newRows.length });
   } catch (e) {
     console.error('[Sheets][pre-reserva] erro:', e);
     return res.status(500).json({
