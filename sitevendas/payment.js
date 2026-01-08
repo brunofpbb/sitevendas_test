@@ -121,13 +121,90 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ——— carrinho
+  // MODIFICADO: Se existir 'pendingPurchase' (vindo do login/busca recente), 
+  // ele deve SOBRESCREVER quaisquer itens "abertos" antigos no bookings.
+  function mergePendingPurchase() {
+    const pendingJson = localStorage.getItem('pendingPurchase');
+    if (!pendingJson) return; // nada novo pendente
+
+    try {
+      const p = JSON.parse(pendingJson);
+      if (p && Array.isArray(p.legs) && p.legs.length > 0) {
+        console.log('[Cart] Encontrada compra pendente recente. Atualizando carrinho...');
+        const allBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+
+        // Mantém apenas o histórico pago
+        const paidOnly = allBookings.filter(b => b.paid === true);
+
+        // Adiciona os novos itens pendentes
+        const newBookings = [...paidOnly, ...p.legs];
+
+        localStorage.setItem('bookings', JSON.stringify(newBookings));
+        localStorage.removeItem('pendingPurchase'); // consome
+      }
+    } catch (e) {
+      console.error('[Cart] Erro ao mesclar compra pendente:', e);
+    }
+  }
+
+  // Executa a mesclagem ao iniciar
+  mergePendingPurchase();
+
   function readCart() {
     const b = JSON.parse(localStorage.getItem('bookings') || '[]');
+    // Agora o 'bookings' já deve conter o que era 'pendingPurchase' se houver
     const open = b.filter(x => x.paid !== true);
-    if (open.length) return open;
-    const p = JSON.parse(localStorage.getItem('pendingPurchase') || 'null');
-    return p && Array.isArray(p.legs) ? p.legs : [];
+    return open;
   }
+
+  // Verifica datas retroativas e remove itens expirados
+  function validateCartDates(cartItems) {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) return cartItems;
+
+    // Data de hoje (YYYY-MM-DD) local
+    const now = new Date();
+    // Ajuste simples p/ fuso -3 ou pega data local string
+    const todayStr = now.toLocaleDateString('pt-BR').split('/').reverse().join('-');
+    // ou: const todayStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+    const validItems = [];
+    let removedCount = 0;
+
+    cartItems.forEach(item => {
+      // Tenta normalizar a data do item (esperado YYYY-MM-DD)
+      const dateRaw = item.schedule?.date || item.dataViagem || '';
+      const dateYMD = toYMD(dateRaw);
+
+      // Se não tiver data, deixamos passar (ou bloqueamos? Assumindo passar p/ não quebrar dados legados sem data)
+      if (!dateYMD) {
+        validItems.push(item);
+        return;
+      }
+
+      // Comparação lexical YYYY-MM-DD funciona bem
+      if (dateYMD < todayStr) {
+        console.warn(`[Cart] Removendo item expirado: ${dateYMD} < ${todayStr}`, item);
+        removedCount++;
+      } else {
+        validItems.push(item);
+      }
+    });
+
+    if (removedCount > 0) {
+      alert(`Atenção: ${removedCount} item(s) com data expirada foram removidos do seu carrinho.`);
+      // Atualiza o localStorage com a lista limpa
+      const allBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+      const paidOnly = allBookings.filter(b => b.paid === true);
+      localStorage.setItem('bookings', JSON.stringify([...paidOnly, ...validItems]));
+      return validItems;
+    }
+
+    return cartItems;
+  }
+
+  // Lê carrinho e valida datas
+  let rawCart = readCart();
+  rawCart = validateCartDates(rawCart);
 
   // explode um booking em N itens (um por poltrona) e guarda ponteiros do item original
   function expandCartItems(raw) {
@@ -156,7 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // let order = readCart();
-  let order = expandCartItems(readCart());
+  let order = expandCartItems(rawCart);
 
 
   // tenta inferir ida/volta a partir dos dois primeiros trechos
