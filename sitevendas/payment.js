@@ -254,13 +254,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // ===== Pré-reserva no Sheets (antes de criar o pagamento) =====
-  async function preRegistrarNoSheets(externalReference) {
+  async function preRegistrarNoSheets(externalReference, explicitEmail) {
     try {
       if (!externalReference) return;
       if (!Array.isArray(order) || !order.length) return;
 
       const userLS = JSON.parse(localStorage.getItem('user') || 'null') || {};
-      const userEmail = (userLS.email || userLS.loginEmail || userLS.userEmail || '').toString().trim();
+      // Prioridade: Email passado explicitamente (do Form) > localStorage > vazio
+      const userEmail = (explicitEmail || userLS.email || userLS.loginEmail || userLS.userEmail || '').toString().trim();
       // const userEmail = (userLS.email || '').toString();
       let userPhone = (userLS.phone || userLS.telefone || '').toString();
 
@@ -647,7 +648,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (body.payer && body.payer.identification === undefined) delete body.payer.identification;
 
             // grava pré-reserva no Sheets antes de criar o pagamento
-            await preRegistrarNoSheets(idem);
+            const payerEmail = body.payer && body.payer.email ? body.payer.email : '';
+            await preRegistrarNoSheets(idem, payerEmail);
 
 
 
