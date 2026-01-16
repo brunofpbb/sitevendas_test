@@ -2008,7 +2008,7 @@ async function ensureTransport() {
 }
 
 // === Brevo API (primário) ===
-async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, attachments = [] }) {
+async function sendViaBrevoApi({ to, cc, subject, html, text, fromEmail, fromName, attachments = [] }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error('BREVO_API_KEY ausente');
 
@@ -2035,6 +2035,7 @@ async function sendViaBrevoApi({ to, subject, html, text, fromEmail, fromName, a
     body: JSON.stringify({
       sender: { email: fromEmail, name: fromName },
       to: [{ email: to }],
+      cc: cc ? [{ email: cc }] : undefined,
       subject,
       htmlContent: html,
       textContent: text,
@@ -2975,7 +2976,9 @@ app.post('/api/praxio/vender', async (req, res) => {
             if (got.transporter) {
               await got.transporter.sendMail({
                 from: `"${fromName}" <${fromEmail}>`,
-                to, subject: `Seus bilhetes – ${appName}`, html, text,
+                to,
+                cc: fromEmail, // <--- Cópia para o próprio envio (noreply)
+                subject: `Seus bilhetes – ${appName}`, html, text,
                 attachments: attachmentsSMTP,
               });
               sent = true;
@@ -2985,7 +2988,11 @@ app.post('/api/praxio/vender', async (req, res) => {
 
           if (!sent) {
             try {
-              await sendViaBrevoApi({ to, subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo });
+              await sendViaBrevoApi({
+                to,
+                cc: fromEmail,
+                subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo
+              });
               console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
             } catch (err) {
               console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
