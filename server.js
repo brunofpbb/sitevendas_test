@@ -2942,7 +2942,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           const html =
             `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
        <p>Olá,</p>
-       <p>Recebemos o seu pagamento em <b>${appName}</b>. Seguem os bilhetes em anexo.</p>
+       <p>Recebemos o seu pagamento em <b>${appName}</b>. Segue(em) o(s) bilhete(s) em anexo.</p>
        <p><b>Rota:</b> ${headerRoute}<br/>
           <b>Valor total:</b> ${valorTotalBRL}
        </p>
