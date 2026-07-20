@@ -3338,32 +3338,38 @@ app.post('/api/praxio/vender', async (req, res) => {
           ].join('\n');
 
 
-const attachmentsBrevo = emailAttachments.map((a) => ({
-  filename: a.filename,
-  contentBase64: a.contentBase64
-}));
+          const attachmentsBrevo = emailAttachments.map((a) => ({
+            filename: a.filename,
+            contentBase64: a.contentBase64
+          }));
 
-try {
-  await sendViaBrevoApi({
-    to,
-    cc: fromEmail,
-    subject: `Seus bilhetes – ${appName}`,
-    html,
-    text,
-    fromEmail,
-    fromName,
-    attachments: attachmentsBrevo
-  });
+          try {
+            await sendViaBrevoApi({
+              to,
+              cc: fromEmail,
+              subject: `Seus bilhetes – ${appName}`,
+              html,
+              text,
+              fromEmail,
+              fromName,
+              attachments: attachmentsBrevo
+            });
 
-  console.log(
-    `[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`
-  );
-} catch (err) {
-  console.error(
-    '[Email Brevo] CRITICAL falha ao enviar:',
-    err?.message || err
-  );
-}
+            console.log(
+              `[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`
+            );
+          } catch (err) {
+            console.error(
+              '[Email Brevo] CRITICAL falha ao enviar:',
+              err?.message || err
+            );
+          }
+
+        } else {
+          console.warn('[Email] comprador sem e-mail. Pulando envio.');
+        }
+
+        // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
 
 
         // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
