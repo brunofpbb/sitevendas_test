@@ -2454,7 +2454,32 @@ app.post('/api/partidas', async (req, res) => {
         DescontoAutomatico: 0,
       }),
     });
-    const partData = await partResp.json();
+    
+    
+    //const partData = await partResp.json();
+
+
+    const responseText = await partResp.text();
+
+try {
+    const partData = JSON.parse(responseText);
+
+    return res.json(partData);
+
+} catch (e) {
+
+    console.error(
+        'Resposta inválida da Praxio:',
+        responseText.substring(0, 500)
+    );
+
+    await fs.promises.writeFile(
+        './logs/debug_partidas.html',
+        responseText
+    );
+
+    throw e;
+}
 
     // [DEBUG] Log response to file
     try {
