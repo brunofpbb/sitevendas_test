@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
+//const nodemailer = require('nodemailer');
 const { uploadPdfToDrive } = require('./drive');
 const fetch = require('node-fetch');                // se não existir ainda
 function fetchWithTimeout(url, opts = {}, ms = 10000) {
@@ -59,8 +59,7 @@ async function notifyAdminVendaFalha(entry) {
     const appName = process.env.APP_NAME || 'Turin Transportes';
     const fromName = process.env.SUPPORT_FROM_NAME || appName;
     const fromEmail =
-      process.env.SUPPORT_FROM_EMAIL ||
-      process.env.SMTP_USER;
+      process.env.SUPPORT_FROM_EMAIL;
 
     const subject =
       `[${appName}] Falha na emissão de bilhete ` +
