@@ -5,7 +5,6 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
 const { uploadPdfToDrive } = require('./drive');
 const fetch = require('node-fetch');                // se não existir ainda
 function fetchWithTimeout(url, opts = {}, ms = 10000) {
@@ -59,10 +58,11 @@ async function notifyAdminVendaFalha(entry) {
     const appName = process.env.APP_NAME || 'Turin Transportes';
     const fromName = process.env.SUPPORT_FROM_NAME || appName;
     const fromEmail =
-      process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+      process.env.SUPPORT_FROM_EMAIL;
 
     const subject =
-      `[${appName}] Falha na emissão de bilhete (payment ${entry?.mpPaymentId || entry?.payment?.id || '—'})`;
+      `[${appName}] Falha na emissão de bilhete ` +
+      `(payment ${entry?.mpPaymentId || entry?.payment?.id || '—'})`;
 
     const body = [
       'Falha na emissão do bilhete após pagamento aprovado.',
@@ -70,40 +70,27 @@ async function notifyAdminVendaFalha(entry) {
       `Erro: ${entry.errorMessage || entry.error || '(sem mensagem)'}`,
       '',
       'Dados da venda/pagamento:',
-      JSON.stringify(entry, null, 2),
+      JSON.stringify(entry, null, 2)
     ].join('\n');
 
-    let sent = false;
-    try {
-      const got = await ensureTransport();
-      if (got.transporter) {
-        await got.transporter.sendMail({
-          from: `"${fromName}" <${fromEmail}>`,
-          to: ADMIN_ALERT_EMAIL,
-          subject,
-          text: body,
-        });
-        console.log('[Venda][Erro] alerta enviado via SMTP para', ADMIN_ALERT_EMAIL);
-        sent = true;
-      }
-    } catch (e) {
-      console.error('[Venda][Erro] falha ao enviar alerta via SMTP:', e?.message || e);
-    }
+    await sendViaBrevoApi({
+      to: ADMIN_ALERT_EMAIL,
+      subject,
+      html: body.replace(/\n/g, '<br>'),
+      text: body,
+      fromEmail,
+      fromName
+    });
 
-    // fallback Brevo
-    if (!sent) {
-      await sendViaBrevoApi({
-        to: ADMIN_ALERT_EMAIL,
-        subject,
-        html: body.replace(/\n/g, '<br>'),
-        text: body,
-        fromEmail,
-        fromName,
-      });
-      console.log('[Venda][Erro] alerta enviado via Brevo para', ADMIN_ALERT_EMAIL);
-    }
+    console.log(
+      '[Venda][Erro] alerta enviado via Brevo para',
+      ADMIN_ALERT_EMAIL
+    );
   } catch (e) {
-    console.error('[Venda][Erro] falha ao enviar e-mail de alerta:', e?.message || e);
+    console.error(
+      '[Venda][Erro] falha ao enviar e-mail de alerta:',
+      e?.message || e
+    );
   }
 }
 
@@ -1956,56 +1943,6 @@ app.post('/api/cancel-ticket', async (req, res) => {
 
 
 /* =================== SMTP / Brevo =================== */
-function createSSL() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE } = process.env;
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    secure: String(SMTP_SECURE || 'true') === 'true',
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-    tls: { rejectUnauthorized: false },
-    family: 4,
-    connectionTimeout: 3500,
-    greetingTimeout: 3500,
-    socketTimeout: 3500,
-  });
-}
-function createSTARTTLS() {
-  const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: 587,
-    secure: false,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-    tls: { rejectUnauthorized: false },
-    family: 4,
-    connectionTimeout: 3500,
-    greetingTimeout: 3500,
-    socketTimeout: 3500,
-  });
-}
-function verifyWithTimeout(transporter, ms = 3500) {
-  return Promise.race([
-    transporter.verify().then(() => ({ ok: true })),
-    new Promise(r => setTimeout(() => r({ ok: false, error: 'verify-timeout' }), ms + 200)),
-  ]).catch(e => ({ ok: false, error: e?.message || String(e) }));
-}
-async function ensureTransport() {
-  let t = createSSL();
-  if (t) {
-    const r = await verifyWithTimeout(t);
-    if (r.ok) return { transporter: t, mode: 'SSL(465)' };
-  }
-  t = createSTARTTLS();
-  if (t) {
-    const r = await verifyWithTimeout(t);
-    if (r.ok) return { transporter: t, mode: 'STARTTLS(587)' };
-    return { transporter: null, mode: null, error: r.error || 'falha STARTTLS' };
-  }
-  return { transporter: null, mode: null, error: 'vars SMTP ausentes' };
-}
 
 // === Brevo API (primário) ===
 async function sendViaBrevoApi({ to, cc, subject, html, text, fromEmail, fromName, attachments = [] }) {
@@ -2043,12 +1980,6 @@ async function sendViaBrevoApi({ to, cc, subject, html, text, fromEmail, fromNam
     }),
   });
 
-  /*  if (!resp.ok) {
-      const body = await resp.text().catch(() => '');
-      throw new Error(`Brevo API ${resp.status}: ${body.slice(0, 300)}`);
-    }
-    return resp.json();
-  }*/
 
   if (!resp.ok) {
     console.error('[Brevo] falhou:', resp.status, body?.slice?.(0, 300));
@@ -2081,8 +2012,8 @@ app.post('/api/auth/request-code', async (req, res) => {
 
     const appName = process.env.APP_NAME || 'Turin Transportes';
     const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-    const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
-    const from = `"${fromName}" <${fromEmail}>`;
+    const fromEmail = process.env.SUPPORT_FROM_EMAIL;
+  //  const from = `"${fromName}" <${fromEmail}>`;
 
     const html = `
       <div style="font-family:Arial,sans-serif;font-size:16px;color:#222">
@@ -2095,6 +2026,10 @@ app.post('/api/auth/request-code', async (req, res) => {
     `;
     const text = `Seu código é: ${code} (expira em ${CODE_TTL_MIN} minutos).`;
 
+
+
+/*
+    
     try {
       const got = await ensureTransport();
       if (!got.transporter) throw new Error('smtp-indisponivel');
@@ -2114,7 +2049,27 @@ app.post('/api/auth/request-code', async (req, res) => {
 
     return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
 
-  } catch (err) {
+  } 
+
+  
+  
+  
+  */
+  
+  
+  await sendViaBrevoApi({
+  to: email,
+  subject: `Seu código de acesso (${appName})`,
+  html,
+  text,
+  fromEmail,
+  fromName
+});
+
+console.log(`[Auth][Email] Código enviado via Brevo API para ${email}`);
+  
+  
+  catch (err) {
     console.error('Erro ao enviar e-mail:', err?.message || err);
     return res.status(500).json({ ok: false, error: 'Falha ao enviar e-mail.' });
   }
@@ -2911,7 +2866,7 @@ app.post('/api/praxio/vender', async (req, res) => {
         if (to) {
           const appName = process.env.APP_NAME || 'Turin Transportes';
           const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-          const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+          const fromEmail = process.env.SUPPORT_FROM_EMAIL;
 
           // Descobre se há múltiplas rotas
           const pairs = new Set(bilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
@@ -2959,10 +2914,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           ].join('\n');
 
           // usa os nomes já definidos (displayName)
-          const attachmentsSMTP = emailAttachments.map(a => ({
-            filename: a.filename,
-            content: a.buffer
-          }));
+
 
           const attachmentsBrevo = emailAttachments.map(a => ({
             filename: a.filename,       // <— usa filename (não “name”)
@@ -2970,35 +2922,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           }));
 
 
-          let sent = false;
-          try {
-            const got = await ensureTransport();
-            if (got.transporter) {
-              await got.transporter.sendMail({
-                from: `"${fromName}" <${fromEmail}>`,
-                to,
-                cc: fromEmail, // <--- Cópia para o próprio envio (noreply)
-                subject: `Seus bilhetes – ${appName}`, html, text,
-                attachments: attachmentsSMTP,
-              });
-              sent = true;
-              console.log(`[Email] enviados ${attachmentsSMTP.length} anexos para ${to} via ${got.mode}`);
-            }
-          } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
-
-          if (!sent) {
-            try {
-              await sendViaBrevoApi({
-                to,
-                cc: fromEmail,
-                subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo
-              });
-              console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
-            } catch (err) {
-              console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
-            }
-          }
-        } else {
+                 } else {
           console.warn('[Email] comprador sem e-mail. Pulando envio.');
         }
 
