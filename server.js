@@ -3269,6 +3269,10 @@ app.post('/api/praxio/vender', async (req, res) => {
       // chave por compra
       const groupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
 
+     
+      
+      
+      
       // enfileira; quando o AGGR perceber que chegou tudo (ou estourar timeout), ele dispara 1x
       queueUnifiedSend(groupId, fragment, async (bundle) => {
         const { base, bilhetes, arquivos, emailAttachments } = bundle;
@@ -3334,43 +3338,33 @@ app.post('/api/praxio/vender', async (req, res) => {
             ...bilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`)
           ].join('\n');
 
-          // usa os nomes já definidos (displayName)
-          const attachmentsSMTP = emailAttachments.map(a => ({
-            filename: a.filename,
-            content: a.buffer
-          }));
 
-          const attachmentsBrevo = emailAttachments.map(a => ({
-            filename: a.filename,       // <— usa filename (não “name”)
-            contentBase64: a.contentBase64
-          }));
+const attachmentsBrevo = emailAttachments.map(a => ({
+  filename: a.filename,
+  contentBase64: a.contentBase64
+}));
 
+try {
+  await sendViaBrevoApi({
+    to,
+    cc: fromEmail,
+    subject: `Seus bilhetes – ${appName}`,
+    html,
+    text,
+    fromEmail,
+    fromName,
+    attachments: attachmentsBrevo
+  });
 
-          let sent = false;
-          try {
-            const got = await ensureTransport();
-            if (got.transporter) {
-              await got.transporter.sendMail({
-                from: `"${fromName}" <${fromEmail}>`,
-                to,
-                cc: fromEmail, // <--- Cópia para o próprio envio (noreply)
-                subject: `Seus bilhetes – ${appName}`, html, text,
-                attachments: attachmentsSMTP,
-              });
-              sent = true;
-              console.log(`[Email] enviados ${attachmentsSMTP.length} anexos para ${to} via ${got.mode}`);
-            }
-          } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
-
-          if (!sent) {
-            try {
-              await sendViaBrevoApi({
-                to,
-                cc: fromEmail,
-                subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo
-              });
-              console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
-            } catch (err) {
+  console.log(
+    `[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`
+  );
+} catch (err) {
+  console.error(
+    '[Email Brevo] CRITICAL falha ao enviar:',
+    err?.message || err
+  );
+} catch (err) {
               console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
             }
           }
@@ -3432,6 +3426,12 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
       });
+
+
+
+
+
+      
 
 
       return { status: 200, body: { ok: true, vendaResult, arquivos } };
