@@ -1945,47 +1945,118 @@ app.post('/api/cancel-ticket', async (req, res) => {
 /* =================== SMTP / Brevo =================== */
 
 // === Brevo API (primário) ===
-async function sendViaBrevoApi({ to, cc, subject, html, text, fromEmail, fromName, attachments = [] }) {
+async function sendViaBrevoApi({
+  to,
+  cc,
+  subject,
+  html,
+  text,
+  fromEmail,
+  fromName,
+  attachments = []
+}) {
   const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) throw new Error('BREVO_API_KEY ausente');
 
-  const slug = s => String(s || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-    .toLowerCase();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY ausente');
+  }
 
-  const brevoAttachments = (attachments || []).map(a => ({
-    // aceita filename OU name (por segurança)
-    name: (a.filename || a.name || 'anexo.pdf'),
-    // aceita contentBase64 OU content (por segurança)
-    content: (a.contentBase64 || a.content || '')
-  }));
+  if (!to) {
+    throw new Error('Destinatário do e-mail ausente');
+  }
 
+  if (!fromEmail) {
+    throw new Error('SUPPORT_FROM_EMAIL ausente');
+  }
 
+  const brevoAttachments = (attachments || [])
+    .map((attachment) => ({
+      name:
+        attachment.filename ||
+        attachment.name ||
+        'anexo.pdf',
 
-  const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'api-key': apiKey,
+      content:
+        attachment.contentBase64 ||
+        attachment.content ||
+        ''
+    }))
+    .filter((attachment) => Boolean(attachment.content));
+
+  const payload = {
+    sender: {
+      email: fromEmail,
+      name: fromName || 'Turin Transportes'
     },
-    body: JSON.stringify({
-      sender: { email: fromEmail, name: fromName },
-      to: [{ email: to }],
-      cc: cc ? [{ email: cc }] : undefined,
-      subject,
-      htmlContent: html,
-      textContent: text,
-      attachment: brevoAttachments.length ? brevoAttachments : undefined,
-    }),
-  });
 
+    to: [
+      {
+        email: to
+      }
+    ],
+
+    subject,
+    htmlContent: html,
+    textContent: text
+  };
+
+  if (cc) {
+    payload.cc = [
+      {
+        email: cc
+      }
+    ];
+  }
+
+  if (brevoAttachments.length > 0) {
+    payload.attachment = brevoAttachments;
+  }
+
+  const resp = await fetch(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      method: 'POST',
+
+      headers: {
+        'content-type': 'application/json',
+        'api-key': apiKey
+      },
+
+      body: JSON.stringify(payload)
+    }
+  );
+
+  const responseBody = await resp.text().catch(() => '');
 
   if (!resp.ok) {
-    console.error('[Brevo] falhou:', resp.status, body?.slice?.(0, 300));
-    return { ok: false, status: resp.status, body };
+    console.error(
+      '[Brevo] falhou:',
+      resp.status,
+      responseBody.slice(0, 500)
+    );
+
+    throw new Error(
+      `Brevo API ${resp.status}: ${responseBody.slice(0, 300)}`
+    );
   }
-  return { ok: true };
+
+  let responseData = {};
+
+  if (responseBody) {
+    try {
+      responseData = JSON.parse(responseBody);
+    } catch {
+      responseData = {
+        raw: responseBody
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    status: resp.status,
+    data: responseData
+  };
 }
 
 /* =================== Auth: códigos por e-mail =================== */
