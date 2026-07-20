@@ -3338,7 +3338,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           ].join('\n');
 
 
-const attachmentsBrevo = emailAttachments.map(a => ({
+const attachmentsBrevo = emailAttachments.map((a) => ({
   filename: a.filename,
   contentBase64: a.contentBase64
 }));
@@ -3363,13 +3363,7 @@ try {
     '[Email Brevo] CRITICAL falha ao enviar:',
     err?.message || err
   );
-} catch (err) {
-              console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
-            }
-          }
-        } else {
-          console.warn('[Email] comprador sem e-mail. Pulando envio.');
-        }
+}
 
 
         // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
