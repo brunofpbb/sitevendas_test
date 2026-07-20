@@ -2003,75 +2003,80 @@ setInterval(() => {
 app.post('/api/auth/request-code', async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
+
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ ok: false, error: 'E-mail inválido.' });
+      return res.status(400).json({
+        ok: false,
+        error: 'E-mail inválido.'
+      });
     }
+
     const code = genCode();
     const expiresAt = Date.now() + CODE_TTL_MIN * 60 * 1000;
-    codes.set(email, { code, expiresAt, attempts: 0 });
+
+    codes.set(email, {
+      code,
+      expiresAt,
+      attempts: 0
+    });
 
     const appName = process.env.APP_NAME || 'Turin Transportes';
     const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-    const fromEmail = process.env.SUPPORT_FROM_EMAIL;
-  //  const from = `"${fromName}" <${fromEmail}>`;
+    const fromEmail =
+      process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
 
     const html = `
       <div style="font-family:Arial,sans-serif;font-size:16px;color:#222">
         <p>Olá,</p>
+
         <p>Seu código de acesso ao <b>${appName}</b> é:</p>
-        <p style="font-size:28px;letter-spacing:3px;margin:16px 0"><b>${code}</b></p>
-        <p>Ele expira em ${CODE_TTL_MIN} minutos.</p>
-        <p style="color:#666;font-size:13px">Se não foi você, ignore este e-mail.</p>
+
+        <p style="font-size:30px;font-weight:bold;letter-spacing:4px">
+          ${code}
+        </p>
+
+        <p>Este código expira em ${CODE_TTL_MIN} minutos.</p>
+
+        <p style="font-size:13px;color:#777">
+          Se você não solicitou este código, ignore este e-mail.
+        </p>
       </div>
     `;
-    const text = `Seu código é: ${code} (expira em ${CODE_TTL_MIN} minutos).`;
 
+    const text =
+      `Seu código de acesso é ${code}. ` +
+      `Ele expira em ${CODE_TTL_MIN} minutos.`;
 
+    await sendViaBrevoApi({
+      to: email,
+      subject: `Seu código de acesso (${appName})`,
+      html,
+      text,
+      fromEmail,
+      fromName
+    });
 
-/*
-    
-    try {
-      const got = await ensureTransport();
-      if (!got.transporter) throw new Error('smtp-indisponivel');
-      await got.transporter.sendMail({
-        from, to: email, replyTo: fromEmail,
-        subject: `Seu código de acesso (${appName})`,
-        html, text,
-      });
-    } catch {
-      await sendViaBrevoApi({ to: email, subject: `Seu código de acesso (${appName})`, html, text, fromEmail, fromName });
-    }
+    const devPayload =
+      process.env.NODE_ENV !== 'production'
+        ? { demoCode: code }
+        : {};
 
-    const devPayload = process.env.NODE_ENV !== 'production' ? { demoCode: code } : {};
+    return res.json({
+      ok: true,
+      message: 'Código enviado com sucesso.',
+      ...devPayload
+    });
 
-    // [LOG] Registro do envio do código (User Request)
-    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
+  } catch (err) {
+    console.error(
+      'Erro ao preparar/envio do e-mail:',
+      err?.message || err
+    );
 
-    return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
-
-  } 
-
-  
-  
-  
-  */
-  
-  
-  await sendViaBrevoApi({
-  to: email,
-  subject: `Seu código de acesso (${appName})`,
-  html,
-  text,
-  fromEmail,
-  fromName
-});
-
-console.log(`[Auth][Email] Código enviado via Brevo API para ${email}`);
-  
-  
-  catch (err) {
-    console.error('Erro ao enviar e-mail:', err?.message || err);
-    return res.status(500).json({ ok: false, error: 'Falha ao enviar e-mail.' });
+    return res.status(500).json({
+      ok: false,
+      error: 'Falha ao enviar e-mail.'
+    });
   }
 });
 
