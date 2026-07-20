@@ -2434,6 +2434,10 @@ function nowWithTZOffsetISO(offsetMinutes = -(3 * 60)) {
 }
 
 /* =================== Partidas/Poltronas =================== */
+
+/*
+
+
 app.post('/api/partidas', async (req, res) => {
   try {
     const { origemId, destinoId, data } = req.body;
@@ -2499,6 +2503,260 @@ try {
     res.status(500).json({ error: 'Erro ao consultar partidas' });
   }
 });
+
+
+
+*/
+
+
+
+app.post('/api/partidas', async (req, res) => {
+  const PRAXIO_PARTIDAS_URL =
+    'https://oci-parceiros2.praxioluna.com.br/Autumn/Partidas/Partidas';
+
+  const wait = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function consultarPartidas(tentativa) {
+    // Gera uma sessão nova em toda tentativa
+    const IdSessaoOp = await praxioLogin();
+
+    if (!IdSessaoOp) {
+      throw new Error(
+        `Praxio não retornou IdSessaoOp na tentativa ${tentativa}`
+      );
+    }
+
+    const payload = {
+      IdSessaoOp,
+      LocalidadeOrigem: origemId,
+      LocalidadeDestino: destinoId,
+      DataPartida: data,
+      SugestaoPassagem: '1',
+      ListarTodas: '1',
+      SomenteExtra: '0',
+      TempoPartida: 1,
+      IdEstabelecimento: '1',
+      DescontoAutomatico: 0
+    };
+
+    const partResp = await fetchWithTimeout(
+      PRAXIO_PARTIDAS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(payload)
+      },
+      15000
+    );
+
+    /*
+     * Lemos primeiro como texto porque a Praxio pode retornar
+     * uma página HTML em caso de instabilidade.
+     */
+    const responseText = await partResp.text();
+
+    const contentType =
+      partResp.headers.get('content-type') || '';
+
+    let partData;
+
+    try {
+      partData = JSON.parse(responseText);
+    } catch {
+      const preview = responseText
+        .replace(/\s+/g, ' ')
+        .slice(0, 500);
+
+      console.warn(
+        `[Praxio][Partidas] resposta não JSON na tentativa ${tentativa}:`,
+        {
+          status: partResp.status,
+          statusText: partResp.statusText,
+          contentType,
+          preview
+        }
+      );
+
+      // Salva a resposta HTML para diagnóstico
+      try {
+        await fs.promises.mkdir(ERROR_LOG_DIR, {
+          recursive: true
+        });
+
+        const filename =
+          `debug_partidas_invalidas_${Date.now()}_tentativa_${tentativa}.html`;
+
+        await fs.promises.writeFile(
+          path.join(ERROR_LOG_DIR, filename),
+          responseText,
+          'utf8'
+        );
+
+        console.log(
+          '[DEBUG] Resposta inválida da Praxio salva em:',
+          path.join(ERROR_LOG_DIR, filename)
+        );
+      } catch (logError) {
+        console.error(
+          '[DEBUG] Não foi possível salvar resposta inválida:',
+          logError?.message || logError
+        );
+      }
+
+      const invalidJsonError = new Error(
+        `Praxio retornou conteúdo não JSON. HTTP ${partResp.status}`
+      );
+
+      invalidJsonError.code = 'PRAXIO_INVALID_JSON';
+      invalidJsonError.httpStatus = partResp.status;
+      invalidJsonError.responsePreview = preview;
+
+      throw invalidJsonError;
+    }
+
+    if (!partResp.ok) {
+      const mensagem =
+        partData?.Mensagem ||
+        partData?.MensagemDetalhada ||
+        `HTTP ${partResp.status}`;
+
+      const httpError = new Error(
+        `Falha ao consultar partidas na Praxio: ${mensagem}`
+      );
+
+      httpError.code = 'PRAXIO_HTTP_ERROR';
+      httpError.httpStatus = partResp.status;
+      httpError.praxioResponse = partData;
+
+      throw httpError;
+    }
+
+    /*
+     * Algumas respostas podem vir com HTTP 200,
+     * mas ainda indicar erro dentro do JSON.
+     */
+    if (partData?.IdErro) {
+      const mensagem =
+        partData?.MensagemDetalhada ||
+        partData?.Mensagem ||
+        partData.IdErro;
+
+      const apiError = new Error(
+        `Praxio retornou erro: ${mensagem}`
+      );
+
+      apiError.code = 'PRAXIO_API_ERROR';
+      apiError.praxioResponse = partData;
+
+      throw apiError;
+    }
+
+    return partData;
+  }
+
+  const { origemId, destinoId, data } = req.body || {};
+
+  if (!origemId || !destinoId || !data) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Origem, destino e data são obrigatórios.'
+    });
+  }
+
+  try {
+    let partData;
+    let ultimoErro;
+
+    // Primeira tentativa + uma nova tentativa
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      try {
+        console.log(
+          `[Praxio][Partidas] iniciando tentativa ${tentativa}/2`,
+          {
+            origemId,
+            destinoId,
+            data
+          }
+        );
+
+        partData = await consultarPartidas(tentativa);
+
+        console.log(
+          `[Praxio][Partidas] consulta concluída na tentativa ${tentativa}`
+        );
+
+        break;
+      } catch (error) {
+        ultimoErro = error;
+
+        console.error(
+          `[Praxio][Partidas] tentativa ${tentativa}/2 falhou:`,
+          error?.message || error
+        );
+
+        if (tentativa < 2) {
+          console.log(
+            '[Praxio][Partidas] aguardando 1 segundo e tentando novamente com nova sessão...'
+          );
+
+          await wait(1000);
+        }
+      }
+    }
+
+    if (!partData) {
+      throw ultimoErro || new Error(
+        'A Praxio não respondeu corretamente.'
+      );
+    }
+
+    // Mantém seu arquivo de debug com o JSON válido
+    try {
+      await fs.promises.mkdir(ERROR_LOG_DIR, {
+        recursive: true
+      });
+
+      await fs.promises.writeFile(
+        path.join(ERROR_LOG_DIR, 'debug_partidas.json'),
+        JSON.stringify(partData, null, 2),
+        'utf8'
+      );
+
+      console.log(
+        '[DEBUG] Praxio response saved to logs/debug_partidas.json'
+      );
+    } catch (debugError) {
+      console.error(
+        '[DEBUG] Failed to save log:',
+        debugError?.message || debugError
+      );
+    }
+
+    return res.json(partData);
+  } catch (error) {
+    console.error(
+      '[Praxio][Partidas] falha definitiva após duas tentativas:',
+      error?.message || error
+    );
+
+    return res.status(502).json({
+      ok: false,
+      error:
+        'O sistema de viagens está temporariamente indisponível. Tente novamente em alguns instantes.'
+    });
+  }
+});
+
+
+
+
+
+
+
 
 app.post('/api/poltronas', async (req, res) => {
   try {
