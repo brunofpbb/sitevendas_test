@@ -5,6 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 const { uploadPdfToDrive } = require('./drive');
 const fetch = require('node-fetch');                // se não existir ainda
 function fetchWithTimeout(url, opts = {}, ms = 10000) {
@@ -58,7 +59,8 @@ async function notifyAdminVendaFalha(entry) {
     const appName = process.env.APP_NAME || 'Turin Transportes';
     const fromName = process.env.SUPPORT_FROM_NAME || appName;
     const fromEmail =
-      process.env.SUPPORT_FROM_EMAIL;
+      process.env.SUPPORT_FROM_EMAIL ||
+      process.env.SMTP_USER;
 
     const subject =
       `[${appName}] Falha na emissão de bilhete ` +
@@ -102,18 +104,62 @@ const { generateTicketPdf } = require('./services/ticket/pdf');
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
-// Middleware para CSP (Permitir Mercado Pago)
 app.use((req, res, next) => {
   res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://www.google.com https://www.gstatic.com https://http2.mlstatic.com https://secure-fields.mercadopago.com https://api.mercadopago.com; " +
-    "connect-src 'self' https://api.mercadopago.com https://events.mercadopago.com https://secure-fields.mercadopago.com https://*.mercadolibre.com https://http2.mlstatic.com https://*.mercadopago.com; " +
-    "img-src 'self' data: https://*.mercadolibre.com https://http2.mlstatic.com https://*.mercadopago.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://http2.mlstatic.com; " +
-    "font-src 'self' https://fonts.gstatic.com https://http2.mlstatic.com data:; " +
-    "frame-src 'self' https://mpplayer.mercadopago.com https://www.mercadolibre.com.br https://*.mercadopago.com;"
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+        "https://sdk.mercadopago.com " +
+        "https://wallet.mercadopago.com " +
+        "https://http2.mlstatic.com " +
+        "https://secure-fields.mercadopago.com",
+
+      "connect-src 'self' " +
+        "https://api.mercadopago.com " +
+        "https://events.mercadopago.com " +
+        "https://wallet.mercadopago.com " +
+        "https://http2.mlstatic.com " +
+        "https://api-static.mercadopago.com " +
+        "https://secure-fields.mercadopago.com " +
+        "https://api.mercadolibre.com " +
+        "https://*.mercadolibre.com " +
+        "https://*.mercadolivre.com " +
+        "https://*.mercadopago.com",
+
+      "img-src 'self' data: blob: " +
+        "https://*.mercadopago.com " +
+        "https://*.mpago.li " +
+        "https://http2.mlstatic.com " +
+        "https://*.mercadolibre.com " +
+        "https://*.mercadolivre.com",
+
+      "frame-src 'self' " +
+        "https://wallet.mercadopago.com " +
+        "https://secure-fields.mercadopago.com " +
+        "https://api.mercadopago.com " +
+        "https://api-static.mercadopago.com " +
+        "https://mpplayer.mercadopago.com " +
+        "https://*.mercadolibre.com " +
+        "https://*.mercadolivre.com " +
+        "https://*.mercadopago.com",
+
+      "child-src 'self' " +
+        "https://wallet.mercadopago.com " +
+        "https://secure-fields.mercadopago.com " +
+        "https://api.mercadopago.com " +
+        "https://api-static.mercadopago.com " +
+        "https://*.mercadolibre.com " +
+        "https://*.mercadolivre.com " +
+        "https://*.mercadopago.com",
+
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://http2.mlstatic.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://http2.mlstatic.com",
+      "worker-src 'self' blob:"
+    ].join('; ')
   );
+
   next();
 });
 
@@ -1216,9 +1262,6 @@ async function sheetsDeleteRowsByRef(externalRef) {
   });
 }
 
-
-
-
 async function emitirBilhetesViaWebhook(payment) {
   const extRef = (payment?.external_reference || '').trim();
   if (!extRef) {
@@ -1438,24 +1481,6 @@ function pickBuyerEmail({ req, payment, vendaResult, fallback }) {
 }
 
 
-/* =================== CSP (Bricks) =================== */
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://wallet.mercadopago.com https://http2.mlstatic.com",
-      "connect-src 'self' https://api.mercadopago.com https://wallet.mercadopago.com https://http2.mlstatic.com https://api-static.mercadopago.com https://api.mercadolibre.com https://*.mercadolibre.com https://*.mercadolivre.com",
-      "img-src 'self' data: https://*.mercadopago.com https://*.mpago.li https://http2.mlstatic.com https://*.mercadolibre.com https://*.mercadolivre.com",
-      "frame-src https://wallet.mercadopago.com https://api.mercadopago.com https://api-static.mercadopago.com https://*.mercadolibre.com https://*.mercadolivre.com",
-      "child-src https://wallet.mercadopago.com https://api.mercadopago.com https://api-static.mercadopago.com https://*.mercadolibre.com https://*.mercadolivre.com",
-      "style-src 'self' 'unsafe-inline'",
-      "font-src 'self' data:"
-    ].join('; ')
-  );
-  next();
-});
-
 /* =================== Middlewares =================== */
 
 app.use(express.static(PUBLIC_DIR));
@@ -1612,7 +1637,6 @@ app.post('/api/mp/webhook', async (req, res) => {
     });
   }
 });
-
 
 
 // diagnóstico rápido
@@ -1944,7 +1968,6 @@ app.post('/api/cancel-ticket', async (req, res) => {
 
 /* =================== SMTP / Brevo =================== */
 
-// === Brevo API (primário) ===
 async function sendViaBrevoApi({
   to,
   cc,
@@ -1966,65 +1989,43 @@ async function sendViaBrevoApi({
   }
 
   if (!fromEmail) {
-    throw new Error('SUPPORT_FROM_EMAIL ausente');
+    throw new Error('SUPPORT_FROM_EMAIL/SMTP_USER ausente');
   }
 
   const brevoAttachments = (attachments || [])
-    .map((attachment) => ({
-      name:
-        attachment.filename ||
-        attachment.name ||
-        'anexo.pdf',
-
-      content:
-        attachment.contentBase64 ||
-        attachment.content ||
-        ''
+    .map(a => ({
+      name: a.filename || a.name || 'anexo.pdf',
+      content: a.contentBase64 || a.content || ''
     }))
-    .filter((attachment) => Boolean(attachment.content));
+    .filter(a => Boolean(a.content));
 
   const payload = {
     sender: {
       email: fromEmail,
       name: fromName || 'Turin Transportes'
     },
-
-    to: [
-      {
-        email: to
-      }
-    ],
-
+    to: [{ email: to }],
     subject,
     htmlContent: html,
     textContent: text
   };
 
   if (cc) {
-    payload.cc = [
-      {
-        email: cc
-      }
-    ];
+    payload.cc = [{ email: cc }];
   }
 
-  if (brevoAttachments.length > 0) {
+  if (brevoAttachments.length) {
     payload.attachment = brevoAttachments;
   }
 
-  const resp = await fetch(
-    'https://api.brevo.com/v3/smtp/email',
-    {
-      method: 'POST',
-
-      headers: {
-        'content-type': 'application/json',
-        'api-key': apiKey
-      },
-
-      body: JSON.stringify(payload)
-    }
-  );
+  const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'api-key': apiKey
+    },
+    body: JSON.stringify(payload)
+  });
 
   const responseBody = await resp.text().catch(() => '');
 
@@ -2040,22 +2041,17 @@ async function sendViaBrevoApi({
     );
   }
 
-  let responseData = {};
-
-  if (responseBody) {
-    try {
-      responseData = JSON.parse(responseBody);
-    } catch {
-      responseData = {
-        raw: responseBody
-      };
-    }
+  let data = {};
+  try {
+    data = responseBody ? JSON.parse(responseBody) : {};
+  } catch {
+    data = { raw: responseBody };
   }
 
   return {
     ok: true,
     status: resp.status,
-    data: responseData
+    data
   };
 }
 
@@ -2070,6 +2066,63 @@ setInterval(() => {
   const now = Date.now();
   for (const [k, v] of codes.entries()) if (v.expiresAt <= now) codes.delete(k);
 }, 60 * 1000);
+
+
+/*
+
+app.post('/api/auth/request-code', async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: 'E-mail inválido.' });
+    }
+    const code = genCode();
+    const expiresAt = Date.now() + CODE_TTL_MIN * 60 * 1000;
+    codes.set(email, { code, expiresAt, attempts: 0 });
+
+    const appName = process.env.APP_NAME || 'Turin Transportes';
+    const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
+    const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
+    const from = `"${fromName}" <${fromEmail}>`;
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;font-size:16px;color:#222">
+        <p>Olá,</p>
+        <p>Seu código de acesso ao <b>${appName}</b> é:</p>
+        <p style="font-size:28px;letter-spacing:3px;margin:16px 0"><b>${code}</b></p>
+        <p>Ele expira em ${CODE_TTL_MIN} minutos.</p>
+        <p style="color:#666;font-size:13px">Se não foi você, ignore este e-mail.</p>
+      </div>
+    `;
+    const text = `Seu código é: ${code} (expira em ${CODE_TTL_MIN} minutos).`;
+
+    try {
+      const got = await ensureTransport();
+      if (!got.transporter) throw new Error('smtp-indisponivel');
+      await got.transporter.sendMail({
+        from, to: email, replyTo: fromEmail,
+        subject: `Seu código de acesso (${appName})`,
+        html, text,
+      });
+    } catch {
+      await sendViaBrevoApi({ to: email, subject: `Seu código de acesso (${appName})`, html, text, fromEmail, fromName });
+    }
+
+    const devPayload = process.env.NODE_ENV !== 'production' ? { demoCode: code } : {};
+
+    // [LOG] Registro do envio do código (User Request)
+    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
+
+    return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
+
+  } catch (err) {
+    console.error('Erro ao enviar e-mail:', err?.message || err);
+    return res.status(500).json({ ok: false, error: 'Falha ao enviar e-mail.' });
+  }
+});
+
+*/
+
 
 app.post('/api/auth/request-code', async (req, res) => {
   try {
@@ -2132,6 +2185,8 @@ app.post('/api/auth/request-code', async (req, res) => {
         ? { demoCode: code }
         : {};
 
+    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
+
     return res.json({
       ok: true,
       message: 'Código enviado com sucesso.',
@@ -2150,6 +2205,13 @@ app.post('/api/auth/request-code', async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
+
 
 app.post('/api/auth/verify-code', (req, res) => {
   const email = normalizeEmail(req.body?.email);
@@ -2942,7 +3004,7 @@ app.post('/api/praxio/vender', async (req, res) => {
         if (to) {
           const appName = process.env.APP_NAME || 'Turin Transportes';
           const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-          const fromEmail = process.env.SUPPORT_FROM_EMAIL;
+          const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
 
           // Descobre se há múltiplas rotas
           const pairs = new Set(bilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
@@ -2990,7 +3052,10 @@ app.post('/api/praxio/vender', async (req, res) => {
           ].join('\n');
 
           // usa os nomes já definidos (displayName)
-
+          const attachmentsSMTP = emailAttachments.map(a => ({
+            filename: a.filename,
+            content: a.buffer
+          }));
 
           const attachmentsBrevo = emailAttachments.map(a => ({
             filename: a.filename,       // <— usa filename (não “name”)
@@ -2998,7 +3063,35 @@ app.post('/api/praxio/vender', async (req, res) => {
           }));
 
 
-                 } else {
+          let sent = false;
+          try {
+            const got = await ensureTransport();
+            if (got.transporter) {
+              await got.transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to,
+                cc: fromEmail, // <--- Cópia para o próprio envio (noreply)
+                subject: `Seus bilhetes – ${appName}`, html, text,
+                attachments: attachmentsSMTP,
+              });
+              sent = true;
+              console.log(`[Email] enviados ${attachmentsSMTP.length} anexos para ${to} via ${got.mode}`);
+            }
+          } catch (e) { console.warn('[Email SMTP] falhou, tentando Brevo...', e?.message || e); }
+
+          if (!sent) {
+            try {
+              await sendViaBrevoApi({
+                to,
+                cc: fromEmail,
+                subject: `Seus bilhetes – ${appName}`, html, text, fromEmail, fromName, attachments: attachmentsBrevo
+              });
+              console.log(`[Email] enviados ${attachmentsBrevo.length} anexos para ${to} via Brevo API`);
+            } catch (err) {
+              console.error('[Email Brevo] CRITICAL falha ao enviar:', err.message || err);
+            }
+          }
+        } else {
           console.warn('[Email] comprador sem e-mail. Pulando envio.');
         }
 
@@ -3127,5 +3220,3 @@ app.get('*', (req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
-
-//teste
