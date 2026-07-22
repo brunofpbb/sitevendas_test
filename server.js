@@ -2067,62 +2067,6 @@ setInterval(() => {
 }, 60 * 1000);
 
 
-/*
-
-app.post('/api/auth/request-code', async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body?.email);
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ ok: false, error: 'E-mail inválido.' });
-    }
-    const code = genCode();
-    const expiresAt = Date.now() + CODE_TTL_MIN * 60 * 1000;
-    codes.set(email, { code, expiresAt, attempts: 0 });
-
-    const appName = process.env.APP_NAME || 'Turin Transportes';
-    const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
-    const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
-    const from = `"${fromName}" <${fromEmail}>`;
-
-    const html = `
-      <div style="font-family:Arial,sans-serif;font-size:16px;color:#222">
-        <p>Olá,</p>
-        <p>Seu código de acesso ao <b>${appName}</b> é:</p>
-        <p style="font-size:28px;letter-spacing:3px;margin:16px 0"><b>${code}</b></p>
-        <p>Ele expira em ${CODE_TTL_MIN} minutos.</p>
-        <p style="color:#666;font-size:13px">Se não foi você, ignore este e-mail.</p>
-      </div>
-    `;
-    const text = `Seu código é: ${code} (expira em ${CODE_TTL_MIN} minutos).`;
-
-    try {
-      const got = await ensureTransport();
-      if (!got.transporter) throw new Error('smtp-indisponivel');
-      await got.transporter.sendMail({
-        from, to: email, replyTo: fromEmail,
-        subject: `Seu código de acesso (${appName})`,
-        html, text,
-      });
-    } catch {
-      await sendViaBrevoApi({ to: email, subject: `Seu código de acesso (${appName})`, html, text, fromEmail, fromName });
-    }
-
-    const devPayload = process.env.NODE_ENV !== 'production' ? { demoCode: code } : {};
-
-    // [LOG] Registro do envio do código (User Request)
-    console.log(`[Auth][Code] Código enviado para: ${email} | Expires: ${new Date(expiresAt).toISOString()} | IP: ${req.ip || req.connection.remoteAddress}`);
-
-    return res.json({ ok: true, message: 'Código enviado.', ...devPayload });
-
-  } catch (err) {
-    console.error('Erro ao enviar e-mail:', err?.message || err);
-    return res.status(500).json({ ok: false, error: 'Falha ao enviar e-mail.' });
-  }
-});
-
-*/
-
-
 app.post('/api/auth/request-code', async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -2204,12 +2148,6 @@ app.post('/api/auth/request-code', async (req, res) => {
     });
   }
 });
-
-
-
-
-
-
 
 
 app.post('/api/auth/verify-code', (req, res) => {
@@ -2433,81 +2371,6 @@ function nowWithTZOffsetISO(offsetMinutes = -(3 * 60)) {
 }
 
 /* =================== Partidas/Poltronas =================== */
-
-/*
-
-
-app.post('/api/partidas', async (req, res) => {
-  try {
-    const { origemId, destinoId, data } = req.body;
-    const IdSessaoOp = await praxioLogin();
-
-    const partResp = await fetch('https://oci-parceiros2.praxioluna.com.br/Autumn/Partidas/Partidas', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        IdSessaoOp,
-        LocalidadeOrigem: origemId,
-        LocalidadeDestino: destinoId,
-        DataPartida: data,
-        SugestaoPassagem: '1',
-        ListarTodas: '1',
-        SomenteExtra: '0',
-        TempoPartida: 1,
-        IdEstabelecimento: '1',
-        DescontoAutomatico: 0,
-      }),
-    });
-    
-    
-    //const partData = await partResp.json();
-
-
-    const responseText = await partResp.text();
-
-try {
-    const partData = JSON.parse(responseText);
-
-    return res.json(partData);
-
-} catch (e) {
-
-    console.error(
-        'Resposta inválida da Praxio:',
-        responseText.substring(0, 500)
-    );
-
-    await fs.promises.writeFile(
-        './logs/debug_partidas.html',
-        responseText
-    );
-
-    throw e;
-}
-
-    // [DEBUG] Log response to file
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      const logDir = path.join(__dirname, 'logs');
-      if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
-      fs.writeFileSync(path.join(logDir, 'debug_partidas.json'), JSON.stringify(partData, null, 2));
-      console.log('[DEBUG] Praxio response saved to logs/debug_partidas.json');
-    } catch (err) {
-      console.error('[DEBUG] Failed to save log:', err);
-    }
-
-    res.json(partData);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao consultar partidas' });
-  }
-});
-
-
-
-*/
-
-
 
 app.post('/api/partidas', async (req, res) => {
   const PRAXIO_PARTIDAS_URL =
@@ -2749,12 +2612,6 @@ app.post('/api/partidas', async (req, res) => {
     });
   }
 });
-
-
-
-
-
-
 
 
 app.post('/api/poltronas', async (req, res) => {
@@ -3268,10 +3125,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       // chave por compra
       const groupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
 
-     
-      
-      
-      
+        
       // enfileira; quando o AGGR perceber que chegou tudo (ou estourar timeout), ele dispara 1x
       queueUnifiedSend(groupId, fragment, async (bundle) => {
         const { base, bilhetes, arquivos, emailAttachments } = bundle;
@@ -3425,12 +3279,6 @@ app.post('/api/praxio/vender', async (req, res) => {
 
 
       });
-
-
-
-
-
-      
 
 
       return { status: 200, body: { ok: true, vendaResult, arquivos } };
