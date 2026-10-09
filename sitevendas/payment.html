@@ -3,10 +3,9 @@
 
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pagamento</title>
   <link rel="stylesheet" href="style.css" />
-  <script defer src="main.js"></script>
-
 
   <!-- Favicons -->
   <link rel="icon" href="/img/turin-fav.ico?v=2">
@@ -14,7 +13,6 @@
   <link rel="icon" type="image/png" href="/img/turin-fav-wide-192.png?v=2" sizes="192x192">
   <link rel="apple-touch-icon" href="/img/turin-fav-wide-180.png?v=2">
   <link rel="shortcut icon" href="/img/turin-fav-wide-32.png?v=2">
-
 
   <!-- Esconde visualmente o seletor de parcelas do Payment Brick -->
   <style>
@@ -33,21 +31,6 @@
       overflow: hidden !important;
     }
 
-    /* Caixa do PIX 
-    #pix-box{
-      margin-top:16px; padding:14px; border:1px solid #e2e2e2; border-radius:10px;
-      background:#fff;
-    }
-    #pix-box h4{ margin:0 0 8px 0 }
-    #pix-box .pix-row{ display:flex; gap:8px; align-items:center; margin-top:8px }
-    #pix-code{ flex:1; padding:.6rem; border:1px solid #ccc; border-radius:6px }
-    #pix-copy{ padding:.6rem .9rem; border:0; border-radius:8px; cursor:pointer }
-    #pix-status{ margin-top:8px; color:#555 }
-    #pix-qr img{ max-width:220px; height:auto; }*/
-
-
-
-    /* Caixa do PIX */
     #pix-box {
       margin-top: 16px;
       padding: 14px;
@@ -56,16 +39,12 @@
       background: #fff;
     }
 
-    #pix-box h4 {
-      margin: 0 0 8px 0
-    }
+    #pix-box h4 { margin: 0 0 8px 0; }
 
     #pix-box .pix-row {
       display: flex;
       flex-direction: column;
-      /* empilha código + botão */
       align-items: center;
-      /* centraliza no eixo horizontal */
       justify-content: center;
       gap: 8px;
       margin-top: 8px;
@@ -87,23 +66,9 @@
       cursor: pointer;
     }
 
-    #pix-status {
-      margin-top: 8px;
-      color: #555
-    }
+    #pix-status { margin-top: 8px; color: #555; }
+    #pix-qr img { max-width: 220px; height: auto; }
 
-    #pix-qr img {
-      max-width: 220px;
-      height: auto;
-    }
-
-
-
-
-
-
-
-    /* ===== Overlay de emissão do bilhete ===== */
     #issuance-overlay {
       position: fixed;
       inset: 0;
@@ -146,29 +111,27 @@
       animation: io-spin 1s linear infinite;
     }
 
-    @keyframes io-spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
+    @keyframes io-spin { to { transform: rotate(360deg); } }
   </style>
 
-  <!-- SDK do Mercado Pago deve vir antes do seu payment.js -->
-  <script src="https://sdk.mercadopago.com/js/v2"></script>
-  <script defer src="main.js?v=3"></script>
-  <script defer src="payment.js?v=3"></script>
+  <!-- Valida e prepara o carrinho antes do Mercado Pago -->
+  <script src="payment-guard.js?v=3"></script>
 
-  <!-- JS utilitário: deixa as funções globais para o payment.js usar -->
+  <!-- SDK do Mercado Pago deve vir antes do payment.js -->
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+  <script defer src="payment.js?v=5"></script>
+
+  <!-- Funções globais utilizadas pelo payment.js -->
   <script>
     function showIssuanceOverlay(msg) {
       const el = document.getElementById('issuance-overlay');
       if (!el) return;
       if (msg) el.querySelector('.io-title').textContent = msg;
       el.style.display = 'flex';
-      // evita scroll/duplo clique
       document.body.style.pointerEvents = 'none';
       document.body.style.overflow = 'hidden';
     }
+
     function hideIssuanceOverlay() {
       const el = document.getElementById('issuance-overlay');
       if (!el) return;
@@ -176,10 +139,39 @@
       document.body.style.pointerEvents = '';
       document.body.style.overflow = '';
     }
-    // se a página for descarregada, garante que o overlay não "grude"
-    window.addEventListener('beforeunload', () => hideIssuanceOverlay());
+
+    function updateUserNav() {
+      const nav = document.getElementById('user-nav');
+      if (!nav) return;
+
+      let user = null;
+      try {
+        user = JSON.parse(localStorage.getItem('user') || 'null');
+      } catch (_) {
+        user = null;
+      }
+
+      if (!user || !user.email) {
+        nav.innerHTML = '<a class="pill cta-enter" href="login.html">Entrar</a>';
+        return;
+      }
+
+      nav.innerHTML = `
+        <a class="pill user-name" href="profile.html">Minhas Compras</a>
+        <button class="pill cta-exit" id="btn-logout-payment" type="button">Desconectar</button>
+      `;
+
+      document.getElementById('btn-logout-payment')?.addEventListener('click', () => {
+        localStorage.removeItem('user');
+        location.href = 'index.html';
+      });
+    }
+
+    window.addEventListener('beforeunload', hideIssuanceOverlay);
   </script>
-  <!-- HEADER em GRID -->
+</head>
+
+<body>
   <header class="site-header">
     <div class="site-header-inner">
       <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
@@ -192,7 +184,6 @@
   </header>
 
   <main class="two-cols-pay">
-    <!-- Card lateral fixo: Resumo -->
     <aside class="summary-card" id="summary-card">
       <h2 class="step-title">Resumo do Pedido</h2>
       <div id="summary-body"><!-- preenchido pelo payment.js --></div>
@@ -202,38 +193,30 @@
       </div>
     </aside>
 
-    <!-- Card central: Bricks -->
     <section class="content-card" id="bricks-card">
-      <h2 class="step-title">Informações de Pagamento </h2>
-      <p class="mute">🚨Atenção, ao não atualize esta pagina!</p>
+      <h2 class="step-title">Informações de Pagamento</h2>
+      <p class="mute">Escolha abaixo a forma de pagamento</p>
 
-      <!-- Container do Brick -->
       <div id="payment-bricks" style="margin-top:12px;"></div>
 
-      <!-- Resultado PIX (criado/atualizado pelo JS) -->
       <div id="pix-box" style="display:none">
-        <h4>🚨Atenção, não atualize esta pagina!</h4>
-
+        <h4>Leia o QRCode ou copie o código PIX para realizar o pagamento</h4>
         <div id="pix-qr"></div>
 
         <div class="pix-row">
           <input id="pix-code" type="text" readonly>
-          <button id="pix-copy" type="button" class="btn btn-primary">
-            Copiar código
-          </button>
+          <button id="pix-copy" type="button" class="btn btn-primary">Copiar código</button>
         </div>
 
         <p id="pix-status">Aguardando pagamento…</p>
       </div>
-
     </section>
   </main>
 
   <footer>
-    <p>&copy; 2025 Turin Transportes</p>
+    <p>&copy; 2026 Turin Transportes</p>
   </footer>
 
-  <!-- Overlay de carregamento -->
   <div id="issuance-overlay">
     <div class="io-card">
       <div class="io-spinner" aria-hidden="true"></div>
@@ -241,6 +224,6 @@
       <div class="io-sub">Estamos confirmando sua compra e gerando o DABP-e…</div>
     </div>
   </div>
-  </body>
+</body>
 
 </html>
