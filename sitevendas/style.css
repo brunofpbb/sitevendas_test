@@ -1668,3 +1668,78 @@ footer { text-align: center; }
 }
 
 
+/* ===================================================================
+   TURIN DESIGN 2026 · Ambiente de testes · camada visual isolada
+   Mantem as regras funcionais legadas acima (poltronas, MP, formularios).
+   =================================================================== */
+:root{
+  --turin-green:#086b3d;--turin-deep:#063c29;--turin-ink:#153b30;
+  --turin-mint:#e6f5ee;--turin-lime:#c6e96f;--turin-border:#e1ebe6;
+  --turin-surface:#ffffff;--turin-muted:#60766d;
+  --turin-shadow:0 14px 45px rgba(9,56,37,.085);
+}
+html{scroll-behavior:smooth}
+body{font-family:Inter,"Segoe UI",Arial,Helvetica,sans-serif;color:var(--turin-ink);background:linear-gradient(180deg,#f3f8f5 0%,#f8faf9 62%,#f1f5f3 100%);min-height:100vh;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit}
+button,a,input,select{transition:border-color .2s,background-color .2s,box-shadow .2s,transform .2s}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9ee2bd;outline-offset:3px}
+.top-accent{height:5px;background:linear-gradient(90deg,#b2dc49,#15814b 55%,#08452f)}
+.site-header{background:#fff!important;color:var(--turin-ink)!important;padding:0 24px!important;border-bottom:1px solid var(--turin-border);box-shadow:0 2px 14px rgba(13,64,40,.035)}
+.site-header-inner{max-width:1380px;margin:auto;display:flex!important;align-items:center;justify-content:space-between;gap:24px;min-height:90px}
+.site-header .brand-logo{display:block;max-width:200px;max-height:65px;object-fit:contain;filter:brightness(0) saturate(100%) invert(22%) sepia(54%) saturate(878%) hue-rotate(100deg) brightness(87%)}
+.site-title{display:flex;align-items:center;gap:30px;min-width:0}
+.site-title h1{font-size:clamp(15px,1.6vw,19px)!important;font-weight:800!important;color:var(--turin-deep);letter-spacing:-.04em;margin:0!important}
+.header-subtitle{font-size:12px;color:var(--turin-muted);font-weight:500}
+.user-nav{margin:0!important;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.site-header nav a{color:var(--turin-green)!important;font-weight:700;padding:10px 13px;border-radius:10px;margin:0 3px!important}
+.site-header nav a:hover{background:var(--turin-mint)}
+.welcome-banner{position:relative;overflow:hidden;max-width:1332px;margin:30px auto 0;min-height:260px;display:flex;justify-content:space-between;align-items:center;gap:24px;padding:35px clamp(28px,5vw,72px);border-radius:24px;background:radial-gradient(circle at 78% 22%,rgba(189,237,143,.24),transparent 31%),linear-gradient(115deg,#073f2a,#097044 77%,#0a7442);color:white;box-shadow:0 20px 48px rgba(8,87,54,.15)}
+.welcome-banner:before{content:"";position:absolute;width:340px;height:340px;border:1px solid rgba(255,255,255,.12);border-radius:50%;right:-85px;top:-190px;box-shadow:0 0 0 55px rgba(255,255,255,.035),0 0 0 110px rgba(255,255,255,.028)}
+.welcome-copy{z-index:1;position:relative;max-width:740px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.welcome-banner .eyebrow{color:#d8f7d5;display:inline-flex;align-items:center;gap:9px}
+.live-dot{height:8px;width:8px;background:#c6ee77;border-radius:50%;box-shadow:0 0 0 5px rgba(198,238,119,.15)}
+.welcome-banner h2{color:#fff;font-size:clamp(30px,3.8vw,51px);line-height:1.1;letter-spacing:-.045em;margin:16px 0 13px;font-weight:800}
+.welcome-banner h2 em{font-style:normal;color:#d4f3a0}
+.welcome-banner p{max-width:560px;line-height:1.6;font-size:15px;color:#d4e9dd;margin:0}
+.welcome-benefits{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.welcome-benefits span{font-size:11px;color:#e9faed;background:rgba(255,255,255,.115);padding:7px 11px;border:1px solid rgba(255,255,255,.14);border-radius:30px;font-weight:700}
+.welcome-graphic{flex:0 0 230px;position:relative;align-self:stretch;display:flex;align-items:flex-end;justify-content:center}
+.route-line{position:absolute;width:220px;height:118px;border:3px dashed rgba(216,243,171,.67);border-left:0;border-bottom:0;border-radius:55% 55% 0 0;transform:rotate(-18deg);top:25px}
+.route-pin{position:absolute;font-size:30px;color:#d7f6ae}.pin-start{left:22px;top:103px}.pin-end{right:2px;top:8px}
+.graphic-label{font-size:15px;font-weight:800;letter-spacing:-.02em;text-align:center;color:#e7fbd9;line-height:1.4;padding-bottom:10px}
+.two-cols{max-width:1380px;margin:0 auto!important;padding:25px 24px 36px!important;gap:24px!important;grid-template-columns:minmax(310px,370px) minmax(0,1fr)!important;align-items:start}
+.booking-panel{background:#fff;padding:25px 24px;border:1px solid var(--turin-border);border-radius:20px;box-shadow:var(--turin-shadow)}
+.booking-heading{display:flex;gap:13px;align-items:center;margin-bottom:24px}
+.booking-heading-icon{flex:0 0 42px;height:42px;display:grid;place-items:center;background:#e7f5ec;color:var(--turin-green);font-size:24px;border-radius:13px}
+.booking-heading .eyebrow{color:var(--turin-green);font-size:10px}
+.booking-heading h2{font-size:21px;letter-spacing:-.045em;margin:3px 0 0;color:var(--turin-deep)}
+.search-form{display:flex;flex-direction:column;gap:8px}
+.search-form label{font-size:11px!important;font-weight:800!important;letter-spacing:.07em;color:#526c5f!important;margin-top:10px}
+.search-form input:not([type="checkbox"]){width:100%;max-width:100%;height:50px;padding:0 15px!important;background:#f8fbf9;border:1.5px solid #dce8e1;border-radius:12px!important;color:var(--turin-ink);font-size:14px}
+.search-form input::placeholder{color:#90a49a}
+.search-form input:focus{background:#fff;border-color:#3aa76e;outline:none;box-shadow:0 0 0 4px rgba(40,150,88,.10)}
+.search-form .ac-panel{z-index:20;border-radius:12px;box-shadow:0 14px 32px rgba(8,53,35,.14)}
+.search-actions{margin-top:19px!important;gap:10px}
+.search-actions #btnSearch{width:100%;min-height:50px;letter-spacing:.035em}
+.btn,.select-btn{border-radius:11px!important;font-weight:750;min-height:41px;box-shadow:none}
+.btn-primary,.select-btn{background:linear-gradient(120deg,#077544,#065b36)!important;border:1px solid #087041!important;color:#fff!important;box-shadow:0 5px 14px rgba(7,114,66,.16)!important}
+.btn-primary:hover,.select-btn:hover{transform:translateY(-1px);filter:brightness(1.065);box-shadow:0 9px 18px rgba(7,114,66,.18)!important}
+.btn-secondary{background:#f0f6f2!important;color:#24533b!important;border:1px solid #d8e9dd!important}
+.btn-danger{background:#fff!important;color:#7d4d48!important;border:1px solid #f0dfdc!important}
+.search-actions-row>*{flex:1;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px}
+.results-panel,.content-card{background:white;border:1px solid var(--turin-border);border-radius:20px!important;box-shadow:var(--turin-shadow);padding:27px!important;min-width:0}
+.results-panel{min-height:420px}
+.results-panel h2,.content-card h2,.step-title,.page-title{letter-spacing:-.035em;color:var(--turin-deep);font-weight:800}
+.mute{color:var(--turin-muted)}
+.schedule-card{border:1px solid #dfeae3!important;border-radius:15px!important;padding:17px!important;box-shadow:0 2px 8px rgba(8,58,32,.025);background:#fff!important}
+.schedule-card:hover{border-color:#65bb8c!important;box-shadow:0 10px 25px rgba(8,64,37,.095)!important;transform:translateY(-1px)}
+.schedule-header b{color:var(--turin-deep)}
+.seat{border-radius:7px!important;background:#e9f6ec}
+.seat.selected{background:#087445!important;border-color:#067444!important;color:#fff!important}
+.seat.occupied,.seat[aria-disabled="true"]{background:#e0e5e3!important;color:#7a8580!important}
+input:not(.seat),select,textarea{accent-color:#087445}
+footer{background:transparent!important;color:#72857b!important;text-align:center!important;font-size:12px!important;padding:25px 16px!important;border-top:1px solid #e3ece7}
+@media (max-width:1030px){.welcome-banner{margin:20px 24px 0}.welcome-graphic{flex-basis:160px}.route-line{width:150px}.two-cols{grid-template-columns:300px minmax(0,1fr)!important}}
+@media (max-width:760px){.site-header{padding:10px 18px!important}.site-header-inner{min-height:60px;flex-wrap:wrap;gap:8px!important}.site-header .brand-logo{max-width:145px;max-height:50px}.site-title{gap:8px;flex-wrap:wrap}.site-title h1{font-size:15px!important}.header-subtitle{display:none}.welcome-banner{margin:14px 14px 0;min-height:unset;padding:29px 24px;border-radius:18px}.welcome-banner h2{font-size:32px}.welcome-graphic{display:none}.welcome-benefits{gap:6px}.welcome-benefits span{font-size:10px}.two-cols{grid-template-columns:minmax(0,1fr)!important;padding:15px 14px 24px!important;gap:16px!important}.booking-panel{padding:22px 19px}.results-panel,.content-card{padding:20px!important}.schedule-card{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"header" "body" "actions"!important}.schedule-actions{justify-content:stretch!important;padding-left:0!important}.schedule-actions button{width:100%}}
+@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
