@@ -1743,3 +1743,95 @@ footer{background:transparent!important;color:#72857b!important;text-align:cente
 @media (max-width:1030px){.welcome-banner{margin:20px 24px 0}.welcome-graphic{flex-basis:160px}.route-line{width:150px}.two-cols{grid-template-columns:300px minmax(0,1fr)!important}}
 @media (max-width:760px){.site-header{padding:10px 18px!important}.site-header-inner{min-height:60px;flex-wrap:wrap;gap:8px!important}.site-header .brand-logo{max-width:145px;max-height:50px}.site-title{gap:8px;flex-wrap:wrap}.site-title h1{font-size:15px!important}.header-subtitle{display:none}.welcome-banner{margin:14px 14px 0;min-height:unset;padding:29px 24px;border-radius:18px}.welcome-banner h2{font-size:32px}.welcome-graphic{display:none}.welcome-benefits{gap:6px}.welcome-benefits span{font-size:10px}.two-cols{grid-template-columns:minmax(0,1fr)!important;padding:15px 14px 24px!important;gap:16px!important}.booking-panel{padding:22px 19px}.results-panel,.content-card{padding:20px!important}.schedule-card{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"header" "body" "actions"!important}.schedule-actions{justify-content:stretch!important;padding-left:0!important}.schedule-actions button{width:100%}}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+
+/* === Refinamento responsivo · cabeçalho, banner e busca (out/2026) === */
+.site-header{width:100%;min-height:0!important}
+.site-header-inner{
+  position:static!important;display:flex!important;align-items:center!important;
+  justify-content:space-between!important;gap:22px!important;
+  padding:12px 6px!important;min-height:85px!important;height:auto!important;
+}
+.site-header .header-brand{
+  display:inline-flex;align-items:center;justify-content:flex-start;gap:18px;
+  position:relative;flex:0 1 auto;min-width:0;text-decoration:none;color:var(--turin-deep);
+}
+.site-header .header-brand .brand-logo{
+  position:static!important;left:auto!important;top:auto!important;
+  transform:none!important;display:block!important;
+  width:178px!important;max-width:min(38vw,178px)!important;height:58px!important;
+  max-height:58px!important;object-fit:contain!important;flex-shrink:0;
+}
+.brand-caption{display:flex;flex-direction:column;align-items:flex-start;gap:4px;white-space:nowrap}
+.brand-caption strong{font-size:17px;line-height:1.15;color:var(--turin-deep);font-weight:800;letter-spacing:-.035em}
+.brand-caption small{font-size:12px;color:#667f70;font-weight:500}
+.site-header .user-nav{
+  position:static!important;display:flex!important;align-items:center!important;
+  justify-content:flex-end!important;gap:8px!important;margin:0!important;
+  flex:0 1 auto;min-width:0;flex-wrap:wrap!important;text-align:right!important;
+}
+.site-header .user-nav .pill{
+  border:1px solid #cfe5d8!important;background:#eff8f1!important;
+  color:#0a653e!important;border-radius:999px!important;
+  font-size:13px!important;font-weight:750!important;padding:11px 18px!important;
+  line-height:1.2!important;text-decoration:none!important;box-shadow:none!important;
+  white-space:nowrap;
+}
+.site-header .user-nav .pill:hover{background:#e0f2e7!important}
+.site-header .user-nav .cta-exit{border-color:#f0dfdc!important;background:#fff!important;color:#89584f!important}
+.results-panel:empty{position:relative;display:flex;align-items:center;justify-content:center;text-align:center;min-height:420px}
+.results-panel:empty:before{
+  content:"Escolha seu próximo destino";
+  position:absolute;left:20px;right:20px;top:42%;
+  color:#1f5136;font-size:clamp(19px,2vw,25px);font-weight:800;letter-spacing:-.035em;
+}
+.results-panel:empty:after{
+  content:"Informe origem, destino e data ao lado para ver os horários disponíveis.";
+  position:absolute;left:18%;right:18%;top:calc(42% + 41px);
+  color:#71877a;font-size:14px;line-height:1.65;
+}
+.welcome-banner{width:calc(100% - 48px);box-sizing:border-box}
+.welcome-copy{min-width:0}
+@media (max-width:850px){
+ .site-header-inner{gap:14px!important}
+ .site-header .header-brand{gap:10px}
+ .site-header .header-brand .brand-logo{width:135px!important;height:50px!important}
+ .brand-caption strong{font-size:15px}
+ .brand-caption small{font-size:11px}
+}
+@media (max-width:760px){
+ .site-header{padding:0 16px!important}
+ .site-header-inner{padding:12px 0!important;min-height:70px!important;gap:12px!important;flex-wrap:nowrap!important}
+ .site-header .header-brand{gap:9px;flex:0 1 auto}
+ .site-header .header-brand .brand-logo{width:115px!important;max-width:32vw!important;height:43px!important;max-height:43px!important}
+ .brand-caption strong{font-size:12px;white-space:normal}
+ .brand-caption small{font-size:10px;white-space:normal}
+ .site-header .user-nav{justify-content:flex-end!important;flex:0 0 auto}
+ .site-header .user-nav .pill{font-size:12px!important;padding:9px 12px!important}
+ .welcome-banner{
+   width:calc(100% - 28px)!important;max-width:none!important;
+   margin:15px 14px 0!important;padding:27px 22px!important;
+   min-height:0!important;height:auto!important;display:block!important;
+   overflow:hidden!important;
+ }
+ .welcome-copy{width:100%;max-width:100%;position:relative;z-index:1}
+ .welcome-banner h2{display:block!important;font-size:clamp(27px,7.5vw,35px)!important;line-height:1.14!important;margin:14px 0!important}
+ .welcome-banner p{display:block!important;max-width:100%!important;font-size:13px!important;line-height:1.6!important}
+ .welcome-banner .eyebrow{font-size:9px!important;line-height:1.5;letter-spacing:.075em}
+ .welcome-benefits{display:flex!important;flex-wrap:wrap!important;gap:6px!important;margin-top:17px!important}
+ .welcome-benefits span{padding:6px 9px!important;font-size:10px!important}
+ .welcome-graphic{display:none!important}
+ .two-cols{width:100%!important;max-width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;margin:0 auto!important;padding:15px 14px 24px!important}
+ .two-cols>aside,.two-cols>section{width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important}
+ .booking-panel{padding:20px 18px!important}
+ .booking-heading h2{font-size:19px!important}
+ .results-panel:empty{min-height:200px!important}
+ .results-panel:empty:before{top:29%!important;font-size:19px!important}
+ .results-panel:empty:after{top:calc(29% + 33px)!important;left:11%!important;right:11%!important;font-size:12px!important}
+}
+@media (max-width:390px){
+ .site-header .header-brand .brand-logo{width:100px!important}
+ .brand-caption small{display:none}
+ .brand-caption strong{max-width:115px}
+ .site-header .user-nav .pill{padding:8px 10px!important}
+}
