@@ -514,4 +514,3 @@ function checkSessionTimeout() {
   const updateActivity = () => localStorage.setItem('lastActive', Date.now());
   ['mousemove', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, updateActivity));
 }
-
