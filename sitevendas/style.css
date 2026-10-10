@@ -537,7 +537,7 @@ footer{
   grid-template-columns: repeat(11, 36px);
   grid-auto-rows: 26px;
   gap: 8px 10px;
-  margin: 0 18px 0 140px; /* empurra para dentro da carcaça esquerda */
+  margin: 0; /* posicionamento calculado exclusivamente pelo seats.js */
 }
 
 
@@ -1906,3 +1906,15 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
   .login-page main{width:calc(100% - 24px)!important}
   .login-page .auth-card{padding:21px 17px!important}
 }
+
+
+/* Mapa de assentos: estilos globais antigos não podem adicionar offsets à malha. */
+.seats-onepage .bus-grid{
+  margin:0!important;
+  padding:0!important;
+  width:max-content;
+  max-width:none;
+  box-sizing:content-box;
+}
+.seats-onepage .bus-wrap{align-items:stretch!important}
+.seats-onepage .bus-img{margin:0!important;flex:0 0 auto}
