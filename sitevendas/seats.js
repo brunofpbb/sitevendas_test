@@ -43,12 +43,7 @@
 }
 
 
-/* Ajuste fino do ônibus no mobile: traz as poltronas um pouco pra esquerda */
-@media (max-width: 768px){
-  .seats-onepage .bus-grid{
-    transform: translateX(-90px);  /* teste -16, -18, -20 até encaixar */
-  }
-}
+/* A grade acompanha a imagem escalada sem deslocamentos fixos no mobile. */
 
 
 .seats-onepage .seat{
@@ -502,10 +497,7 @@
       // limita só pra não ficar gigante em telas enormes
       if (scale > 1.5) scale = 1.5;
 
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-
-      // pequeno ajuste só para mobile (puxa um pouco para a esquerda)
-      const baseLeft = isMobile ? (BASE_LEFT - 30) : BASE_LEFT;
+      const baseLeft = BASE_LEFT; // mesma origem proporcional em todos os tamanhos
 
       root.style.setProperty('--grid-top', (BASE_TOP * scale) + 'px');
       root.style.setProperty('--grid-left', (baseLeft * scale) + 'px');
