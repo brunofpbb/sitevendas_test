@@ -1976,3 +1976,66 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
  #schedule-list .trip-price-box{display:flex!important;align-items:stretch!important}
  #schedule-list .trip-price-box .select-btn{width:100%}
 }
+
+
+/* SiteVendas test: checkout responsivo, sem alterar os Bricks/Mercado Pago */
+body:has(.two-cols-pay) .site-header-inner{
+  position:static!important;display:flex!important;flex-wrap:nowrap!important;
+  align-items:center!important;justify-content:space-between!important;
+  gap:16px!important;min-height:76px!important;padding:12px 6px!important;
+}
+body:has(.two-cols-pay) .site-header .header-brand{
+  display:flex!important;align-items:center!important;gap:12px!important;
+  position:static!important;min-width:0;text-decoration:none;
+}
+body:has(.two-cols-pay) .site-header .header-brand .brand-logo{
+  position:static!important;left:auto!important;top:auto!important;
+  transform:none!important;width:155px!important;max-width:32vw!important;
+  height:54px!important;object-fit:contain!important;flex:0 0 auto;
+}
+body:has(.two-cols-pay) .site-header .user-nav{
+  display:flex!important;align-items:center!important;justify-content:flex-end!important;
+  flex-wrap:wrap!important;position:static!important;gap:7px!important;min-width:0;
+}
+body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:nowrap}
+.two-cols-pay{
+  box-sizing:border-box!important;max-width:1332px!important;width:100%!important;
+  margin:26px auto 42px!important;padding:0 20px!important;
+  display:grid!important;grid-template-columns:minmax(275px,360px) minmax(0,1fr)!important;
+  gap:22px!important;align-items:start!important;
+}
+.two-cols-pay>.summary-card,.two-cols-pay>#bricks-card{
+  box-sizing:border-box!important;min-width:0!important;max-width:100%!important;
+  width:100%!important;margin:0!important;border:1px solid var(--turin-border,#e1ebe6)!important;
+  border-radius:20px!important;background:white!important;padding:24px!important;
+  box-shadow:0 12px 32px rgba(8,58,35,.065)!important;
+}
+.two-cols-pay>.summary-card{position:static!important;top:auto!important}
+.two-cols-pay .actions{padding:12px 0 0!important}
+.two-cols-pay .step-title{font-size:clamp(20px,2.5vw,27px);line-height:1.25}
+.two-cols-pay #summary-body{overflow-wrap:anywhere;min-width:0}
+.two-cols-pay .summary-line{min-width:0;overflow-wrap:anywhere}
+.two-cols-pay #bricks-card #payment-bricks{max-width:100%;min-width:0}
+.two-cols-pay #bricks-card .mute{white-space:normal}
+@media(max-width:900px){
+  .two-cols-pay{grid-template-columns:minmax(0,1fr)!important;gap:18px!important;max-width:680px!important}
+}
+@media(max-width:760px){
+  body:has(.two-cols-pay) .site-header{padding:0 14px!important}
+  body:has(.two-cols-pay) .site-header-inner{min-height:66px!important;gap:8px!important}
+  body:has(.two-cols-pay) .site-header .header-brand .brand-logo{
+    max-width:24vw!important;width:105px!important;height:42px!important;
+  }
+  body:has(.two-cols-pay) .brand-caption strong{font-size:12px}
+  body:has(.two-cols-pay) .brand-caption small{display:none}
+  body:has(.two-cols-pay) .site-header .user-nav{gap:4px!important;flex-wrap:nowrap!important}
+  body:has(.two-cols-pay) .site-header .user-nav .pill{padding:9px!important;font-size:11px!important}
+  .two-cols-pay{margin:16px auto 32px!important;padding:0 14px!important}
+  .two-cols-pay>.summary-card,.two-cols-pay>#bricks-card{padding:20px 17px!important}
+  .two-cols-pay .summary-total{gap:10px;flex-wrap:wrap}
+  .two-cols-pay .step-title{font-size:22px}
+}
+@media(max-width:390px){
+  body:has(.two-cols-pay) .brand-caption{display:none}
+  body:has(.two-cols-pay) .site-header .user-nav .pill{padding:8px!important}
+}
