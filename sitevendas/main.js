@@ -285,22 +285,61 @@ document.addEventListener('DOMContentLoaded', () => {
           const tipoHorario = linha.TipoHorario || (linha.ViagemTFO && linha.ViagemTFO.TipoHorario) || '';
           const icons = tipoHorario && tipoHorario.toLowerCase().includes('execut') ? '❄️🛜🚻' : '';
 
-          const card = document.createElement('div'); card.className = 'schedule-card';
-          const header = document.createElement('div'); header.className = 'schedule-header';
-          header.innerHTML = `
-          <div><b>Saída:</b> ${saida || '00:00'}</div>
-          <div><b>Chegada:</b> ${chegada || '--'}</div>
-          <div><b>Tempo:</b> ${tempo || '--'}</div>
-          <div><b>R$ ${isNaN(parseFloat(tarifaRaw)) ? '0,00' : parseFloat(tarifaRaw).toFixed(2)}</b></div>
-        `;
-          const body = document.createElement('div'); body.className = 'schedule-body';
-          const parts = [];
-          if (disponiveis) parts.push(`<div><b>Poltronas Disponíveis:</b> ${disponiveis} 💺</div>`);
-          if (tipoHorario || icons) parts.push(`<div>${(tipoHorario || '') + ' ' + icons}</div>`);
-          body.innerHTML = parts.join('');
+          // Visual novo, conservando integralmente os dados e a seleção da viagem.
+          const card = document.createElement('article');
+          card.className = 'schedule-card trip-card';
 
-          const actions = document.createElement('div'); actions.className = 'schedule-actions'; actions.style.gridRow = '1 / -1';
-          const btn = document.createElement('button'); btn.className = 'btn btn-primary'; btn.textContent = 'Selecionar';
+          const details = document.createElement('div');
+          details.className = 'trip-details';
+          const times = document.createElement('div');
+          times.className = 'trip-times';
+          [
+            ['Saída', saida || '--:--'],
+            ['Chegada', chegada || '--:--'],
+            ['Duração', tempo || '--']
+          ].forEach(([label, value]) => {
+            const item = document.createElement('div');
+            item.className = 'trip-time-block';
+            const caption = document.createElement('span');
+            caption.className = 'trip-label';
+            caption.textContent = label;
+            const number = document.createElement('strong');
+            number.textContent = String(value);
+            item.append(caption, number);
+            times.appendChild(item);
+          });
+          const amenities = document.createElement('div');
+          amenities.className = 'trip-card-bottom';
+          const addChip = (txt) => {
+            const chip = document.createElement('span');
+            chip.className = 'trip-chip';
+            chip.textContent = txt;
+            amenities.appendChild(chip);
+          };
+          if (tipoHorario) addChip(String(tipoHorario));
+          if (disponiveis !== '' && disponiveis !== null && disponiveis !== undefined) {
+            addChip(String(disponiveis) + ' poltronas disponíveis');
+          }
+          if (icons) addChip('❄️ Wi-Fi · Banheiro');
+          details.append(times, amenities);
+
+          const actions = document.createElement('div');
+          actions.className = 'schedule-actions trip-price-box';
+          const valueLabel = document.createElement('span');
+          valueLabel.className = 'trip-price-label';
+          valueLabel.textContent = 'Passagem a partir de';
+          const price = document.createElement('strong');
+          price.className = 'trip-price';
+          const numericPrice = typeof window.normalizePrice === 'function'
+            ? window.normalizePrice(tarifaRaw)
+            : Number(String(tarifaRaw ?? 0).replace(',', '.'));
+          price.textContent = Number.isFinite(numericPrice)
+            ? numericPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            : 'Consulte o valor';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-primary select-btn';
+          btn.textContent = 'Selecionar viagem';
           btn.addEventListener('click', () => {
             const schedule = {
               idViagem,
@@ -319,10 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             onSelect && onSelect(schedule);
           });
-          actions.appendChild(btn);
-
-          header.style.gridColumn = '1 / 2'; actions.style.gridColumn = '2 / 3'; body.style.gridColumn = '1 / 2';
-          card.appendChild(header); card.appendChild(actions); card.appendChild(body);
+          actions.append(valueLabel, price, btn);
+          card.append(details, actions);
           list.appendChild(card);
         });
       })
@@ -427,11 +464,19 @@ function updateUserNav() {
     if (!nav) return;
 
     const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const quickAccount = document.getElementById('mobile-account-link');
+    if (quickAccount) {
+      quickAccount.href = user?.email ? 'profile.html' : 'login.html';
+      quickAccount.textContent = user?.email ? 'Minhas compras' : 'Acessar conta';
+      quickAccount.onclick = user?.email ? null : () => {
+        localStorage.setItem('postLoginRedirect', 'index.html');
+      };
+    }
 
     // DESLOGADO
     if (!user || !user.email) {
       nav.innerHTML = `
-      <a class="pill cta-enter" href="login.html" id="nav-login">Entrar</a>
+      <a class="pill cta-enter" href="login.html" id="nav-login">Acessar conta</a>
     `;
 
       // guarda de onde o usuário veio, para voltar depois do login
