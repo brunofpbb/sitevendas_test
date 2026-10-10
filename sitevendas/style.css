@@ -2167,3 +2167,43 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
   .profile-brand-text{display:none}
   .profile-account-nav .pill{padding:7px!important;font-size:10px!important}
 }
+
+
+/* Banner fotográfico Turin — ambiente de testes.
+   Foto institucional hospedada no próprio domínio da Turin.
+   Mantemos gradiente sólido de fallback para falhas de rede. */
+.welcome-banner{
+  isolation:isolate;
+  box-sizing:border-box;
+  min-height:330px;
+  padding:clamp(30px,4.5vw,66px)!important;
+  background-color:#07452d!important;
+  background-image:
+    linear-gradient(90deg,rgba(3,44,30,.97) 0%,rgba(4,54,36,.91) 32%,rgba(5,58,38,.62) 57%,rgba(6,54,34,.12) 100%),
+    url("https://turintransportes.com/wp-content/uploads/2017/12/frota.jpg")!important;
+  background-repeat:no-repeat,no-repeat!important;
+  background-position:center,center right!important;
+  background-size:cover,cover!important;
+}
+.welcome-banner::before{display:none!important;content:none!important}
+.welcome-banner .welcome-copy{max-width:630px;width:100%}
+.welcome-banner h2{font-size:clamp(34px,4.1vw,55px);text-wrap:balance}
+.welcome-banner p{max-width:470px}
+.welcome-banner .welcome-benefits{position:relative;z-index:1}
+.welcome-banner .welcome-benefits span{background:rgba(9,65,42,.5);backdrop-filter:blur(5px)}
+@media (max-width:760px){
+ .welcome-banner{
+   min-height:315px!important;
+   padding:28px 24px!important;
+   background-image:
+     linear-gradient(90deg,rgba(3,44,30,.93) 0%,rgba(4,54,36,.77) 56%,rgba(3,44,30,.30) 100%),
+     url("https://turintransportes.com/wp-content/uploads/2017/12/frota.jpg")!important;
+   background-position:center,62% center!important;
+   background-size:cover,cover!important;
+ }
+ .welcome-banner h2{font-size:clamp(31px,8vw,40px)!important;max-width:410px}
+ .welcome-banner p{max-width:340px!important}
+}
+@media (prefers-reduced-data:reduce){
+ .welcome-banner{background-image:linear-gradient(115deg,#07442e,#0b8550)!important}
+}
