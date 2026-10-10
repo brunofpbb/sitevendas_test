@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Turin Transportes – Minhas Viagens</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=turin-profile-20261010" />
   <script defer src="main.js"></script>
   <script src="profile.js" defer></script>
 
@@ -33,38 +33,37 @@
 </head>
 <body>
   
-    <!-- HEADER em GRID -->
-<header class="site-header">
-  <div class="site-header-inner">
-    <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
-
-    <div class="site-title">
-      <h1>Turin Transportes – Minhas Viagens</h1>
-      <nav id="user-nav" class="user-nav"></nav>
+  <div class="top-accent" aria-hidden="true"></div>
+  <header class="profile-topbar">
+    <div class="profile-topbar-inner">
+      <a class="profile-home" href="index.html" aria-label="Turin Transportes - Página inicial">
+        <img class="profile-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
+        <span class="profile-brand-text"><strong>Minhas viagens</strong><small>Turin Transportes</small></span>
+      </a>
+      <nav id="user-nav" class="profile-account-nav" aria-label="Conta do usuário"></nav>
     </div>
-  </div>
-</header>
+  </header>
 
-  <main class="auth-wrapper">
-    <section class="auth-card" style="width: 980px;">
-      <h2 class="step-title" style="text-align:center">Reservas</h2>
-      <p class="mute" id="cancel-info" style="text-align:center; margin-top:-6px">
+  <main class="profile-main">
+    <section class="profile-panel">
+      <div class="profile-heading"><span class="profile-eyebrow">HISTÓRICO DE BILHETES</span><h1 class="step-title">Minhas compras</h1><p>Consulte seus bilhetes e acompanhe suas viagens.</p></div>
+      <p class="mute profile-notice">
         <b>Política de Cancelamento:</b> Em Minas Gerais, para os usuários do transporte intermunicipal vale o que determinam a Lei estadual 13.655, de 2000, e o
            Decreto 44.603, de 2007, que estipulam o prazo de até <b>12 horas antes do embarque</b> para que o passageiro cancele e tenha direito ao reembolso ou remarque sua passagem.
            Suporte via WhatsApp (31) 3551-1650
       </p>
 
       
-      <p class="mute" id="cancel-info" style="text-align:center; margin-top:-6px">
+      <p class="mute profile-notice">
         <b>Atenção:</b> Este histórico é temporário e pode ser apagado sem aviso prévio. Todos os bilhetes são enviados por e-mail no momento de sua emissão. 
       </p>
 
 
       
 
-      <div id="trips-list" style="margin-top:12px"></div>
+      <div id="trips-list" class="profile-trips"></div>
 
-      <div class="actions" style="margin-top:24px; justify-content:flex-start">
+      <div class="actions profile-back">
         <a class="btn btn-ghost btn-lg" href="index.html">Voltar</a>
       </div>
     </section>
