@@ -2082,3 +2082,88 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  .checkout-account-nav .pill{font-size:11px!important;padding:8px!important;min-height:35px}
 }
 @media(max-width:390px){.checkout-brand-text{display:none}.checkout-logo{max-width:29vw}}
+
+
+/* Turin · Cabeçalhos isolados para checkout e histórico (2026-10-10) */
+.checkout-logo,.profile-logo{
+  /* O recurso original é uma arte branca: exibir a marca em verde sobre fundo claro. */
+  filter:brightness(0) saturate(100%) invert(21%) sepia(37%) saturate(1051%) hue-rotate(99deg) brightness(91%);
+}
+.checkout-topbar{z-index:2}
+.checkout-home{flex:0 1 auto}
+.checkout-brand-text{min-width:0}
+.checkout-account-nav{flex:0 1 auto}
+.profile-topbar{
+  width:100%;box-sizing:border-box;background:#fff;
+  border-bottom:1px solid #e1ebe6;flex-shrink:0;
+}
+.profile-topbar-inner{
+  max-width:1280px;margin:0 auto;padding:13px 24px;min-height:82px;box-sizing:border-box;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.profile-home{position:static;display:flex;align-items:center;gap:14px;min-width:0;text-decoration:none}
+.profile-logo{
+  position:static!important;width:155px;height:53px;max-width:32vw;
+  object-fit:contain;transform:none!important;flex-shrink:0;margin:0!important;
+}
+.profile-brand-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.profile-brand-text strong{font-size:17px;font-weight:800;letter-spacing:-.025em;color:#0e4c32}
+.profile-brand-text small{font-size:12px;color:#6a8173}
+.profile-account-nav{display:flex;position:static!important;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin:0!important}
+.profile-account-nav .pill{
+  display:inline-flex!important;align-items:center;justify-content:center;
+  position:static!important;min-height:40px;padding:10px 15px!important;
+  border-radius:999px!important;border:1px solid #d1e7da!important;
+  background:#eaf6ee!important;color:#135e3b!important;
+  font-size:12px!important;font-weight:750!important;text-decoration:none!important;
+  margin:0!important;white-space:nowrap
+}
+.profile-account-nav .cta-exit{background:#fff!important;color:#665c59!important;border-color:#e6e4df!important}
+.profile-main{flex:1 0 auto;display:block;max-width:1280px;width:100%;padding:28px 24px 48px;margin:0 auto;box-sizing:border-box;min-width:0}
+.profile-main .profile-panel{
+  background:#fff;border:1px solid #e0ebe3;border-radius:22px;
+  box-shadow:0 13px 38px rgba(10,64,35,.055);padding:clamp(20px,3vw,34px);
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+}
+.profile-heading{text-align:left;padding-bottom:18px;border-bottom:1px solid #edf1ee;margin-bottom:17px}
+.profile-eyebrow{font-size:11px;letter-spacing:.12em;font-weight:800;color:#238353}
+.profile-heading .step-title{text-align:left!important;font-size:clamp(25px,3vw,34px);line-height:1.1;margin:9px 0;color:#083e2a}
+.profile-heading p{margin:0;color:#6b8274;line-height:1.5;font-size:14px}
+.profile-notice{font-size:13px!important;text-align:left!important;color:#526b5e!important;line-height:1.6!important;margin:8px 0!important;overflow-wrap:anywhere}
+.profile-notice:last-of-type{margin-bottom:22px!important}
+.profile-trips{display:grid;gap:14px;margin-top:24px;min-width:0}
+.profile-trips .reserva{
+  width:100%;min-width:0;box-sizing:border-box;
+  border:1px solid #e2ebe5!important;border-radius:16px!important;
+  background:#fff!important;padding:20px!important;margin:0!important;
+  box-shadow:0 5px 17px rgba(10,58,34,.035);line-height:1.65;overflow-wrap:anywhere;
+}
+.profile-trips .reserva>div:first-child{font-weight:750;color:#164b34;font-size:16px;line-height:1.45;margin-bottom:10px}
+.profile-trips .reserva>div:not(:first-child){font-size:13px}
+.profile-trips .reserva .actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-start;padding:12px 0 0!important;margin:0!important}
+.profile-trips .reserva .actions .btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:10px 15px!important;text-decoration:none}
+.profile-trips .reserva .btn-success{background:#087444!important;border-radius:10px!important;color:#fff!important}
+.profile-trips .reserva .btn-disabled{background:#e7ebe8!important;color:#718075!important}
+.profile-trips .reserva .calc-box{max-width:100%;overflow-wrap:anywhere}
+.profile-trips .reserva .calc-cols{min-width:0}
+.profile-back{padding:22px 0 0!important;margin:0!important}
+.profile-back .btn{min-height:43px;display:inline-flex;align-items:center;justify-content:center}
+@media(max-width:760px){
+  .profile-topbar-inner{min-height:68px;padding:10px 14px;gap:10px}
+  .profile-logo{width:110px;max-width:28vw;height:42px}
+  .profile-home{gap:8px}
+  .profile-brand-text strong{font-size:12px}
+  .profile-brand-text small{display:none}
+  .profile-account-nav{gap:5px;flex-wrap:nowrap}
+  .profile-account-nav .pill{min-height:36px;padding:8px!important;font-size:11px!important}
+  .profile-main{padding:16px 14px 32px!important;margin:0 auto!important;width:100%!important;max-width:100%!important}
+  .profile-main .profile-panel{border-radius:19px;padding:20px 17px}
+  .profile-trips .reserva{padding:16px!important;font-size:13px}
+  .profile-trips .reserva .actions .btn{flex:0 1 auto}
+  .profile-trips .reserva .calc-cols{display:block!important}
+  .profile-trips .reserva .calc-left,.profile-trips .reserva .calc-right{width:100%;min-width:0}
+}
+@media(max-width:390px){
+  .profile-brand-text{display:none}
+  .profile-account-nav .pill{padding:7px!important;font-size:10px!important}
+}
