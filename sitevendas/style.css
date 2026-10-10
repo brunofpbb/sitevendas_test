@@ -2039,3 +2039,46 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
   body:has(.two-cols-pay) .brand-caption{display:none}
   body:has(.two-cols-pay) .site-header .user-nav .pill{padding:8px!important}
 }
+
+
+/* Checkout header isolado: evita regras antigas com logo position:absolute. */
+.checkout-topbar{
+  width:100%;box-sizing:border-box;position:relative;z-index:1;
+  background:#fff;border-bottom:1px solid #e1ebe6;flex-shrink:0;
+}
+.checkout-topbar-inner{
+  width:100%;max-width:1332px;min-height:78px;margin:0 auto;
+  padding:12px 20px;box-sizing:border-box;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+}
+.checkout-home{position:static;display:flex;align-items:center;gap:14px;min-width:0;text-decoration:none}
+.checkout-logo{
+  position:static!important;display:block;width:156px;height:53px;
+  max-width:32vw;object-fit:contain;transform:none!important;margin:0!important;
+}
+.checkout-brand-text{display:flex;flex-direction:column;gap:4px}
+.checkout-brand-text strong{color:#0b4932;font-size:16px;line-height:1.2;font-weight:800}
+.checkout-brand-text small{color:#667e70;font-size:11px;line-height:1.2}
+.checkout-account-nav{
+  position:static!important;display:flex;align-items:center;justify-content:flex-end;
+  flex-wrap:wrap;gap:8px;min-width:0;margin:0!important;
+}
+.checkout-account-nav .pill{
+  position:static!important;display:inline-flex!important;align-items:center;justify-content:center;
+  min-height:39px;box-sizing:border-box;padding:10px 14px!important;
+  border:1px solid #d3e8db!important;border-radius:999px!important;
+  background:#eaf6ee!important;color:#11603c!important;
+  font-size:12px!important;line-height:1.2;font-weight:750;text-decoration:none!important;
+  white-space:nowrap;transform:none!important;margin:0!important;
+}
+.checkout-account-nav .cta-exit{background:#fff!important;color:#6c625e!important;border-color:#e8e3df!important}
+@media(max-width:760px){
+ .checkout-topbar-inner{padding:10px 14px;min-height:65px;gap:9px}
+ .checkout-home{gap:8px}
+ .checkout-logo{width:104px;height:41px;max-width:25vw}
+ .checkout-brand-text strong{font-size:12px}
+ .checkout-brand-text small{display:none}
+ .checkout-account-nav{gap:5px;flex-wrap:nowrap}
+ .checkout-account-nav .pill{font-size:11px!important;padding:8px!important;min-height:35px}
+}
+@media(max-width:390px){.checkout-brand-text{display:none}.checkout-logo{max-width:29vw}}
