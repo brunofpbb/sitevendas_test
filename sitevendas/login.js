@@ -126,13 +126,31 @@ try {
   localStorage.setItem('user', JSON.stringify(data.user));
 }
 
-if (typeof updateUserNav === 'function') updateUserNav();
+// Cada login confirmado inicia um carrinho novo. O histórico já pago permanece.
+      // A limpeza acontece somente após a validação do código pela API.
+      try {
+        const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+        const paidOnly = Array.isArray(bookings)
+          ? bookings.filter(item => item && item.paid === true)
+          : [];
+        localStorage.setItem('bookings', JSON.stringify(paidOnly));
+      } catch (storageError) {
+        console.warn('[Auth] Não foi possível ler o carrinho anterior:', storageError);
+        // Se estiver corrompido, remove o carrinho inválido.
+        localStorage.removeItem('bookings');
+      }
+      localStorage.removeItem('pendingPurchase');
+      localStorage.removeItem('outboundPassengers');
+      localStorage.removeItem('outboundSeatCount');
 
+      if (typeof updateUserNav === 'function') updateUserNav();
 
-
-      
-
-      const redirect = localStorage.getItem('postLoginRedirect');
+      // Não redireciona para pagamento após esvaziar o carrinho:
+      // evita exibir um resumo antigo ou uma tela de pagamento sem itens.
+      const requestedRedirect = localStorage.getItem('postLoginRedirect');
+      const redirect = /^(payment\.html)(?:[?#].*)?$/i.test(requestedRedirect || '')
+        ? 'index.html'
+        : requestedRedirect;
       if (redirect) {
         localStorage.removeItem('postLoginRedirect');
         window.location.href = redirect;
