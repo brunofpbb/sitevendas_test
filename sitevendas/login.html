@@ -13,7 +13,7 @@
   <link rel="shortcut icon" href="/img/turin-fav-wide-32.png?v=2">
 
   <!-- estilos globais do site -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=turin-mobile-20261010" />
  
   <!-- scripts globais (navbar/estado do usuário, etc.) -->
   <script defer src="main.js"></script>
@@ -21,21 +21,21 @@
   <script defer src="login.js"></script>
 </head>
 <body class="login-page">
+<div class="top-accent" aria-hidden="true"></div>
 <header class="site-header">
   <div class="site-header-inner">
-    <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
-
-    <div class="site-title">
-      <h1>Turin Transportes – Acesso</h1>
-      <nav id="user-nav" class="user-nav"></nav>
-    </div>
+    <a class="header-brand" href="index.html" aria-label="Turin Transportes - Página inicial">
+      <img class="brand-logo" src="/img/turin-wordmark-white.png" alt="Turin Transportes">
+      <span class="brand-caption"><strong>Acesse sua conta</strong><small>Turin Transportes</small></span>
+    </a>
+    <nav id="user-nav" class="user-nav" aria-label="Conta do usuário"></nav>
   </div>
 </header>
 
 
   <main>
     <div class="auth-card">
-      <h2 class="auth-title">Entrar</h2>
+      <div class="auth-badge">ACESSO SEGURO</div><h2 class="auth-title">Entre para continuar</h2>
       <p class="muted">Use seu e-mail para receber um código de verificação.</p>
 
       <!-- Etapa 1: solicitar e-mail -->
