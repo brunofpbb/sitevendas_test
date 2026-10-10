@@ -126,8 +126,31 @@ try {
   localStorage.setItem('user', JSON.stringify(data.user));
 }
 
-// Cada login confirmado inicia um carrinho novo. O histórico já pago permanece.
-      // A limpeza acontece somente após a validação do código pela API.
+// Login feito no meio de uma compra: preservar a seleção concluída e
+      // permitir que payment.js incorpore pendingPurchase ao carrinho.
+      // Login normal: descartar carrinhos abertos de sessões anteriores.
+      const requestedRedirect = localStorage.getItem('postLoginRedirect');
+      let pendingCheckout = null;
+      if (requestedRedirect === 'payment.html') {
+        try {
+          const pending = JSON.parse(localStorage.getItem('pendingPurchase') || 'null');
+          const legs = pending?.legs;
+          const complete = Array.isArray(legs) && legs.length > 0 &&
+            legs.every(leg =>
+              leg && Array.isArray(leg.seats) && leg.seats.length > 0 &&
+              Array.isArray(leg.passengers) &&
+              leg.passengers.length === leg.seats.length &&
+              leg.passengers.every(p => p && String(p.name || '').trim() &&
+                String(p.cpf || '').trim() && String(p.phone || '').trim()) &&
+              leg.schedule && leg.schedule.date && leg.paid !== true
+            );
+          if (complete) pendingCheckout = pending;
+        } catch (storageError) {
+          console.warn('[Auth] Compra pendente inválida:', storageError);
+        }
+      }
+
+      // O histórico pago não é carrinho e deve continuar disponível.
       try {
         const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
         const paidOnly = Array.isArray(bookings)
@@ -135,21 +158,23 @@ try {
           : [];
         localStorage.setItem('bookings', JSON.stringify(paidOnly));
       } catch (storageError) {
-        console.warn('[Auth] Não foi possível ler o carrinho anterior:', storageError);
-        // Se estiver corrompido, remove o carrinho inválido.
+        console.warn('[Auth] Carrinho anterior inválido:', storageError);
         localStorage.removeItem('bookings');
       }
-      localStorage.removeItem('pendingPurchase');
-      localStorage.removeItem('outboundPassengers');
-      localStorage.removeItem('outboundSeatCount');
+
+      if (!pendingCheckout) {
+        localStorage.removeItem('pendingPurchase');
+        localStorage.removeItem('outboundPassengers');
+        localStorage.removeItem('outboundSeatCount');
+      }
 
       if (typeof updateUserNav === 'function') updateUserNav();
 
-      // Não redireciona para pagamento após esvaziar o carrinho:
-      // evita exibir um resumo antigo ou uma tela de pagamento sem itens.
-      const requestedRedirect = localStorage.getItem('postLoginRedirect');
-      const redirect = /^(payment\.html)(?:[?#].*)?$/i.test(requestedRedirect || '')
-        ? 'index.html'
+      // Quando existe uma compra concluída aguardando login, volta para
+      // payment.html, que já faz a mesclagem da compra pendente.
+      // Sem compra válida, nunca abre pagamento com carrinho vazio.
+      const redirect = pendingCheckout ? 'payment.html'
+        : requestedRedirect === 'payment.html' ? 'index.html'
         : requestedRedirect;
       if (redirect) {
         localStorage.removeItem('postLoginRedirect');
