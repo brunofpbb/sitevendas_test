@@ -3,7 +3,7 @@
   // ====== Dimensões-base do layout (usadas para escalar) ======
   const BASE_IMG_WIDTH = 980;
   const BASE_TOP = 28;      // px (sobe/desce a grade sobre o bus-blank)
-  const BASE_LEFT = 105;     // px (empurra grade p/ direita/esquerda)
+  const BASE_LEFT = 220;     // início da cabine de passageiros, na escala base da imagem     // px (empurra grade p/ direita/esquerda)
   const BASE_CELL_W = 41;      // largura da célula (assento)
   const BASE_CELL_H = 36;      // altura da célula
   const BASE_GAP_X = 17;      // espaço horizontal entre assentos
