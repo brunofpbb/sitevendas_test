@@ -258,19 +258,27 @@
     const root = document.createElement('div');
     root.className = 'seats-onepage';
     root.innerHTML = `
-      <div class="bus-wrap">
-        <img src="bus-blank.png" alt="Layout do ônibus" class="bus-img" />
-        <div class="bus-grid" id="busGrid"></div>
+      <div class="seat-map-panel">
+        <div class="bus-wrap">
+          <img src="bus-blank.png" alt="Layout do ônibus" class="bus-img" />
+          <div class="bus-grid" id="busGrid"></div>
+        </div>
       </div>
 
-      <div class="legend">
+      <div class="legend" aria-label="Legenda das poltronas">
         <div class="i"><span class="sw free"></span> Disponível</div>
         <div class="i"><span class="sw sel"></span> Selecionado</div>
         <div class="i"><span class="sw occ"></span> Ocupado</div>
       </div>
 
-      <div class="info-line" id="tripInfo"></div>
-      <div class="counter">Poltronas selecionadas: <b id="selCount">0</b></div>
+      <div class="seat-trip-summary">
+        <span class="seat-summary-icon" aria-hidden="true">🚌</span>
+        <div class="info-line" id="tripInfo"></div>
+      </div>
+      <div class="seat-count-summary">
+        <span class="seat-summary-icon" aria-hidden="true">💺</span>
+        <div class="counter">Poltronas selecionadas: <b id="selCount">0</b></div>
+      </div>
 
       <div class="pax" id="paxBox">
         <div class="pax-list" id="paxList"></div>
