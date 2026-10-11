@@ -302,10 +302,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const times = document.createElement('div');
           times.className = 'trip-times';
           [
-            ['Saída', saida || '--:--'],
-            ['Chegada', chegada || '--:--'],
-            ['Duração', tempo || '--']
-          ].forEach(([label, value]) => {
+            ['Saída', saida || '--:--', '🚌'],
+            ['Chegada', chegada || '--:--', '⚑'],
+            ['Duração', tempo || '--', '◷']
+          ].forEach(([label, value, symbol]) => {
             const item = document.createElement('div');
             item.className = 'trip-time-block';
             const caption = document.createElement('span');
@@ -313,7 +313,13 @@ document.addEventListener('DOMContentLoaded', () => {
             caption.textContent = label;
             const number = document.createElement('strong');
             number.textContent = String(value);
-            item.append(caption, number);
+            const icon = document.createElement('span');
+            icon.className = 'trip-time-icon';
+            icon.textContent = symbol;
+            const valueRow = document.createElement('div');
+            valueRow.className = 'trip-time-value';
+            valueRow.append(icon, number);
+            item.append(caption, valueRow);
             times.appendChild(item);
           });
           const extras = document.createElement('div');
@@ -350,16 +356,21 @@ document.addEventListener('DOMContentLoaded', () => {
           const amenities = document.createElement('div');
           amenities.className = 'trip-amenities';
           [['❄️', 'Ar-condicionado', ar], ['🚻', 'Banheiro', banheiro], ['📶', 'Wi-Fi', wifi]]
-            .filter(([, , enabled]) => enabled)
             .forEach(([symbol, label]) => {
               const item = document.createElement('span');
-              item.className = 'trip-amenity';
+              item.className = 'trip-amenity' + (enabled ? '' : ' trip-amenity-unconfirmed');
+              if (!enabled) item.title = 'Comodidade não confirmada nos dados desta viagem';
               const icon = document.createElement('span');
               icon.className = 'trip-amenity-icon';
               icon.textContent = symbol;
               const name = document.createElement('span');
               name.textContent = label;
               item.append(icon, name);
+              if (!enabled) {
+                const note = document.createElement('small');
+                note.textContent = 'Não informado';
+                item.appendChild(note);
+              }
               amenities.appendChild(item);
             });
           if (amenities.childElementCount) extras.appendChild(amenities);
