@@ -507,6 +507,8 @@
 
       const baseLeft = BASE_LEFT; // mesma origem proporcional em todos os tamanhos
 
+      // Mantém tipografia proporcional à imagem do ônibus em telas pequenas.
+      root.style.setProperty('--seat-font', Math.max(8, Math.min(13, 19 * scale)) + 'px');
       root.style.setProperty('--grid-top', (BASE_TOP * scale) + 'px');
       root.style.setProperty('--grid-left', (baseLeft * scale) + 'px');
       root.style.setProperty('--cell-w', (BASE_CELL_W * scale) + 'px');
