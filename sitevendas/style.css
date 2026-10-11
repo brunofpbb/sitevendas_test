@@ -2295,3 +2295,30 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  .welcome-banner .welcome-benefits{gap:5px!important;margin-top:12px!important}
  .welcome-banner .welcome-benefits span{font-size:9px!important;padding:5px 8px!important}
 }
+
+/* Banner mobile dedicado: elimina a sobreposição do bloco desktop */
+.welcome-mobile-message{display:none}
+@media(max-width:760px){
+ section.welcome-banner{
+   position:relative!important;display:flex!important;flex-direction:column!important;
+   justify-content:center!important;align-items:stretch!important;
+   box-sizing:border-box!important;
+   width:calc(100% - 28px)!important;max-width:calc(100% - 28px)!important;
+   height:auto!important;min-height:120px!important;max-height:none!important;
+   margin:12px 14px 0!important;padding:18px 20px!important;
+   border-radius:18px!important;overflow:hidden!important;
+ }
+ section.welcome-banner>.welcome-copy{display:none!important}
+ section.welcome-banner>.welcome-mobile-message{
+   display:flex!important;position:relative!important;z-index:2!important;
+   flex-direction:column!important;gap:7px!important;
+   width:100%!important;min-width:0!important;max-width:100%!important;
+   visibility:visible!important;opacity:1!important;
+ }
+ .welcome-mobile-message strong{
+   display:block!important;color:#fff!important;font-size:clamp(19px,5.2vw,24px)!important;
+   line-height:1.2!important;letter-spacing:-.025em!important;font-weight:800!important;
+   white-space:normal!important;overflow-wrap:break-word!important;
+ }
+ .welcome-mobile-message span{display:block!important;color:#d9f2e2!important;font-size:12px!important;line-height:1.35!important}
+}
