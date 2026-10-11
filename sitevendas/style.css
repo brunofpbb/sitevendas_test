@@ -2266,6 +2266,10 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
 /* Única regra final do banner para mobile. Desktop permanece intacto. */
 @media screen and (max-width:760px){
  section.welcome-banner{
+   /* O body e flex-column: banner nao deve encolher para acomodar o main. */
+   flex:0 0 auto!important;
+   flex-shrink:0!important;
+   align-self:stretch!important;
    display:block!important;
    position:relative!important;
    box-sizing:border-box!important;
