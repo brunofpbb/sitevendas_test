@@ -2225,3 +2225,23 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  #schedule-list .trip-amenities{gap:6px}
  #schedule-list .trip-amenity{font-size:10px}
 }
+
+
+/* Cartão de viagens fiel à referência, somente ambiente de teste */
+#schedule-list .schedule-card.trip-card{grid-template-columns:minmax(0,1fr)!important;gap:0!important}
+#schedule-list .trip-details{gap:14px}
+#schedule-list .trip-seats-info{display:flex;align-items:center;gap:13px;min-width:0}
+#schedule-list .trip-seat-icon{font-size:38px;line-height:1;display:flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;background:#d8f2e3;flex-shrink:0}
+#schedule-list .trip-seats-count small{font-size:.46em;color:#6c8580;font-weight:750}
+#schedule-list .trip-seats-highlight{background:linear-gradient(110deg,#effbf3,#e7f8ee);padding:18px}
+#schedule-list .trip-price-box{border:0!important;border-top:1px solid #e3ede7!important;padding:17px 0 0!important;margin-top:16px;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;column-gap:12px;align-items:end!important;justify-content:stretch!important}
+#schedule-list .trip-price-label{grid-column:1;grid-row:1;font-size:12px}
+#schedule-list .trip-price{grid-column:1;grid-row:2;font-size:clamp(26px,4vw,38px)}
+#schedule-list .trip-price-box .select-btn{grid-column:2;grid-row:1/span 2;min-width:160px;align-self:center;background:#087343!important}
+@media(max-width:480px){
+ #schedule-list .trip-seat-icon{width:44px;height:44px;font-size:28px}
+ #schedule-list .trip-seats-info{gap:8px}
+ #schedule-list .trip-seats-highlight{padding:12px}
+ #schedule-list .trip-seats-count{font-size:34px}
+ #schedule-list .trip-price-box .select-btn{min-width:125px;font-size:12px}
+}
