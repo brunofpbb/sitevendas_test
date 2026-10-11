@@ -2495,3 +2495,32 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
    font-size:15px!important;
  }
 }
+
+/* Ônibus ampliado no mobile: scroll restrito ao mapa, com escala da grade pelo seats.js. */
+@media screen and (max-width:760px){
+  .seats-onepage-root .seat-map-panel{
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    scrollbar-color:#bfd9c9 transparent;
+    padding:9px 7px!important;
+  }
+  .seats-onepage-root .seat-map-panel .bus-wrap{
+    width:125%!important;
+    max-width:none!important;
+    min-width:0!important;
+    position:relative!important;
+    margin:0!important;
+  }
+  .seats-onepage-root .seat-map-panel .bus-img{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    height:auto!important;
+  }
+  .seats-onepage-root .seat-map-panel .seat{
+    font-size:clamp(9px,2.5vw,12px)!important;
+  }
+}
