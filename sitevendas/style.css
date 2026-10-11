@@ -2245,3 +2245,21 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  #schedule-list .trip-seats-count{font-size:34px}
  #schedule-list .trip-price-box .select-btn{min-width:125px;font-size:12px}
 }
+
+/* Ajustes do print mobile: categoria sem quebra, comodidades e horários */
+#schedule-list .trip-category{max-width:none!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;flex-shrink:0;font-size:12px}
+#schedule-list .trip-seats-info{flex:1;min-width:0}
+#schedule-list .trip-seats-label{font-size:clamp(10px,2.5vw,13px)}
+#schedule-list .trip-time-value{display:flex;align-items:center;gap:7px}
+#schedule-list .trip-time-icon{font-size:21px;line-height:1;color:#087343}
+#schedule-list .trip-amenity-unconfirmed{opacity:.62;background:#f5f7f6}
+#schedule-list .trip-amenity small{font-size:9px;font-weight:500}
+@media(max-width:480px){
+ #schedule-list .trip-category{font-size:11px!important;padding:8px 10px!important}
+ #schedule-list .trip-seats-highlight{gap:7px}
+ #schedule-list .trip-seat-icon{width:38px;height:38px;font-size:24px}
+ #schedule-list .trip-time-value{gap:4px}
+ #schedule-list .trip-time-icon{font-size:15px}
+ #schedule-list .trip-time-block strong{font-size:clamp(14px,4vw,20px)}
+ #schedule-list .trip-amenity{min-height:86px;padding:8px 3px}
+}
