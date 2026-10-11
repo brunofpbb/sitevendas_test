@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const idViagem = linha.IdViagem || linha.CodViagem || 0;
           const idTipoVeiculo = linha.IdTipoVeiculo || linha.TipoVeiculo || linha.IdTipoOnibus || 0;
           const disponiveis = linha.PoltronasDisponiveis ?? linha.ViagemTFO?.PoltronasDisponiveis ?? null;
-          const capacidade = linha.TotalPoltronas ?? linha.QuantidadePoltronas ?? linha.ViagemTFO?.TotalPoltronas ?? linha.ViagemTFO?.QuantidadePoltronas ?? null;
+          const capacidade = linha.ViagemTFO?.QtdPoltronas ?? linha.QtdPoltronas ?? linha.TotalPoltronas ?? linha.QuantidadePoltronas ?? null;
           const tipoHorario = linha.TipoHorario || linha.ViagemTFO?.TipoHorario || '';
           const dadosComodidades = { ...(linha.ViagemTFO || {}), ...linha };
           const recurso = campos => campos.some(c => {
