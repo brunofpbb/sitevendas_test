@@ -281,9 +281,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const idViagem = linha.IdViagem || linha.CodViagem || 0;
           const idTipoVeiculo = linha.IdTipoVeiculo || linha.TipoVeiculo || linha.IdTipoOnibus || 0;
-          const disponiveis = linha.PoltronasDisponiveis || (linha.ViagemTFO && linha.ViagemTFO.PoltronasDisponiveis) || '';
-          const tipoHorario = linha.TipoHorario || (linha.ViagemTFO && linha.ViagemTFO.TipoHorario) || '';
-          const icons = tipoHorario && tipoHorario.toLowerCase().includes('execut') ? '❄️🛜🚻' : '';
+          const disponiveis = linha.PoltronasDisponiveis ?? linha.ViagemTFO?.PoltronasDisponiveis ?? null;
+          const capacidade = linha.TotalPoltronas ?? linha.QuantidadePoltronas ?? linha.ViagemTFO?.TotalPoltronas ?? linha.ViagemTFO?.QuantidadePoltronas ?? null;
+          const tipoHorario = linha.TipoHorario || linha.ViagemTFO?.TipoHorario || '';
+          const dadosComodidades = { ...(linha.ViagemTFO || {}), ...linha };
+          const recurso = campos => campos.some(c => {
+            const v = dadosComodidades[c];
+            return v === true || v === 1 || (typeof v === 'string' && ['sim','s','true','1'].includes(v.trim().toLowerCase()));
+          });
+          const ar = recurso(['ArCondicionado','PossuiArCondicionado','TemArCondicionado']);
+          const banheiro = recurso(['Banheiro','PossuiBanheiro','TemBanheiro']);
+          const wifi = recurso(['Wifi','WiFi','PossuiWifi','PossuiWiFi','TemWifi']);
 
           // Visual novo, conservando integralmente os dados e a seleção da viagem.
           const card = document.createElement('article');
@@ -308,20 +316,54 @@ document.addEventListener('DOMContentLoaded', () => {
             item.append(caption, number);
             times.appendChild(item);
           });
-          const amenities = document.createElement('div');
-          amenities.className = 'trip-card-bottom';
-          const addChip = (txt) => {
-            const chip = document.createElement('span');
-            chip.className = 'trip-chip';
-            chip.textContent = txt;
-            amenities.appendChild(chip);
-          };
-          if (tipoHorario) addChip(String(tipoHorario));
-          if (disponiveis !== '' && disponiveis !== null && disponiveis !== undefined) {
-            addChip(String(disponiveis) + ' poltronas disponíveis');
+          const extras = document.createElement('div');
+          extras.className = 'trip-extras';
+          const seats = document.createElement('div');
+          seats.className = 'trip-seats-highlight';
+          const seatInfo = document.createElement('div');
+          const seatIcon = document.createElement('span');
+          seatIcon.className = 'trip-seat-icon';
+          seatIcon.textContent = '💺';
+          const seatText = document.createElement('div');
+          const seatLabel = document.createElement('span');
+          seatLabel.className = 'trip-seats-label';
+          seatLabel.textContent = 'POLTRONAS DISPONÍVEIS';
+          const seatCount = document.createElement('strong');
+          seatCount.className = 'trip-seats-count';
+          seatCount.textContent = disponiveis !== null && disponiveis !== '' ? String(disponiveis) : '—';
+          if (capacidade !== null && capacidade !== '' && Number(capacidade) > 0) {
+            const total = document.createElement('small');
+            total.textContent = ' / ' + capacidade;
+            seatCount.appendChild(total);
           }
-          if (icons) addChip('❄️ Wi-Fi · Banheiro');
-          details.append(times, amenities);
+          seatText.append(seatLabel, seatCount);
+          seatInfo.className = 'trip-seats-info';
+          seatInfo.append(seatIcon, seatText);
+          seats.appendChild(seatInfo);
+          if (tipoHorario) {
+            const category = document.createElement('span');
+            category.className = 'trip-category';
+            category.textContent = String(tipoHorario);
+            seats.appendChild(category);
+          }
+          extras.appendChild(seats);
+          const amenities = document.createElement('div');
+          amenities.className = 'trip-amenities';
+          [['❄️', 'Ar-condicionado', ar], ['🚻', 'Banheiro', banheiro], ['📶', 'Wi-Fi', wifi]]
+            .filter(([, , enabled]) => enabled)
+            .forEach(([symbol, label]) => {
+              const item = document.createElement('span');
+              item.className = 'trip-amenity';
+              const icon = document.createElement('span');
+              icon.className = 'trip-amenity-icon';
+              icon.textContent = symbol;
+              const name = document.createElement('span');
+              name.textContent = label;
+              item.append(icon, name);
+              amenities.appendChild(item);
+            });
+          if (amenities.childElementCount) extras.appendChild(amenities);
+          details.append(times, extras);
 
           const actions = document.createElement('div');
           actions.className = 'schedule-actions trip-price-box';
@@ -558,59 +600,4 @@ function checkSessionTimeout() {
   localStorage.setItem('lastActive', Date.now());
   const updateActivity = () => localStorage.setItem('lastActive', Date.now());
   ['mousemove', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, updateActivity));
-}           const disponiveis = linha.PoltronasDisponiveis ?? linha.ViagemTFO?.PoltronasDisponiveis ?? null;
-           const tipoHorario = linha.TipoHorario || linha.ViagemTFO?.TipoHorario || '';
-           // Exibir comodidades apenas quando houver indicação explícita nos dados.
-           const dadosComodidades = { ...linha.ViagemTFO, ...linha };
-           const recurso = (campos) => campos.some(c => {
-             const v = dadosComodidades[c];
-             return v === true || v === 1 || (typeof v === 'string' && ['true','sim','s','1'].includes(v.trim().toLowerCase()));
-           });
-           const ar = recurso(['ArCondicionado','PossuiArCondicionado','TemArCondicionado']);
-           const banheiro = recurso(['Banheiro','PossuiBanheiro','TemBanheiro']);
-           const wifi = recurso(['Wifi','WiFi','PossuiWifi','PossuiWiFi','TemWifi']);
-           const extras = document.createElement('div');
-           extras.className = 'trip-extras';
-           if (disponiveis !== null && disponiveis !== '' && Number.isFinite(Number(disponiveis))) {
-             const seats = document.createElement('div');
-             seats.className = 'trip-seats-highlight';
-             const seatInfo = document.createElement('div');
-             const seatLabel = document.createElement('span');
-             seatLabel.className = 'trip-seats-label';
-             seatLabel.textContent = '💺 POLTRONAS DISPONÍVEIS';
-             const seatCount = document.createElement('strong');
-             seatCount.className = 'trip-seats-count';
-             seatCount.textContent = String(disponiveis);
-             seatInfo.append(seatLabel, seatCount);
-             seats.appendChild(seatInfo);
-             if (tipoHorario) {
-               const category = document.createElement('span');
-               category.className = 'trip-category';
-               category.textContent = String(tipoHorario);
-               seats.appendChild(category);
-             }
-             extras.appendChild(seats);
-           } else if (tipoHorario) {
-             const category = document.createElement('span');
-             category.className = 'trip-category';
-             category.textContent = String(tipoHorario);
-             extras.appendChild(category);
-           }
-           const amenities = document.createElement('div');
-           amenities.className = 'trip-amenities';
-           [['❄️', 'Ar-condicionado', ar], ['🚻', 'Banheiro', banheiro], ['📶', 'Wi-Fi', wifi]]
-             .filter(([, , enabled]) => enabled)
-             .forEach(([symbol, label]) => {
-               const item = document.createElement('span');
-               item.className = 'trip-amenity';
-               const icon = document.createElement('span');
-               icon.className = 'trip-amenity-icon';
-               icon.textContent = symbol;
-               const name = document.createElement('span');
-               name.textContent = label;
-               item.append(icon, name);
-               amenities.appendChild(item);
-             });
-           if (amenities.childElementCount) extras.appendChild(amenities);
-           details.append(times, extras);
-
+}
