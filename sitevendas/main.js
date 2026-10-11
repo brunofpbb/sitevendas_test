@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const amenities = document.createElement('div');
           amenities.className = 'trip-amenities';
           [['❄️', 'Ar-condicionado', ar], ['🚻', 'Banheiro', banheiro], ['📶', 'Wi-Fi', wifi]]
-            .forEach(([symbol, label]) => {
+            .forEach(([symbol, label, enabled]) => {
               const item = document.createElement('span');
               item.className = 'trip-amenity' + (enabled ? '' : ' trip-amenity-unconfirmed');
               if (!enabled) item.title = 'Comodidade não confirmada nos dados desta viagem';
