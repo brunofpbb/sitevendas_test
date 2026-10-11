@@ -2398,3 +2398,100 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  .seats-onepage-root .seat-summary-icon{flex-basis:36px;width:36px;height:36px;font-size:20px}
  .seats-onepage-root .actions .btn{min-height:52px}
 }
+
+/* Poltronas: refinamento visual dos três pontos solicitados — somente componente seats */
+.seats-onepage-root .legend{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  align-items:stretch!important;
+  gap:7px!important;
+}
+.seats-onepage-root .legend .i{
+  min-width:0!important;
+  flex:none!important;
+  white-space:nowrap!important;
+  gap:5px!important;
+}
+.seats-onepage-root .seats-onepage .seat{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  box-sizing:border-box!important;
+  min-width:0!important;
+  width:var(--cell-w)!important;
+  height:var(--cell-h)!important;
+  padding:0!important;
+  margin:0!important;
+  line-height:1!important;
+  font-size:var(--seat-font,12px)!important;
+  font-weight:650!important;
+  border-radius:clamp(3px,.55vw,7px)!important;
+  letter-spacing:-.025em;
+  overflow:hidden;
+}
+.seats-onepage-root .seats-onepage .seat.selected{
+  background:#08683d!important;
+  color:#fff!important;
+  border-color:#08683d!important;
+}
+.seats-onepage-root .pax-list{gap:12px!important}
+.seats-onepage-root .pax-row{
+  display:grid!important;
+  grid-template-columns:90px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr)!important;
+  gap:10px!important;
+  align-items:center!important;
+  padding:16px!important;
+  margin:0!important;
+  background:#f8fbf9;
+  border:1px solid #deebe3;
+  border-radius:15px;
+}
+.seats-onepage-root .pax-row .label{
+  color:#0a6140!important;
+  font-weight:850!important;
+  font-size:14px!important;
+  text-align:left!important;
+  padding:0!important;
+}
+.seats-onepage-root .pax-row .form-control{
+  display:block;
+  min-width:0!important;
+  width:100%!important;
+  height:43px!important;
+  background:#fff!important;
+  border:1px solid #d4e1da!important;
+  border-radius:10px!important;
+  padding:9px 12px!important;
+  font-size:14px!important;
+}
+.seats-onepage-root .pax-row .form-control:focus{
+  border-color:#088048!important;
+  outline:2px solid rgba(8,128,72,.13)!important;
+  outline-offset:0;
+}
+@media(max-width:760px){
+ .seats-onepage-root .legend{gap:5px!important}
+ .seats-onepage-root .legend .i{
+   font-size:clamp(9px,2.55vw,11px)!important;
+   padding:9px 2px!important;
+   gap:4px!important;
+   border-radius:11px!important;
+ }
+ .seats-onepage-root .legend .sw{
+   width:15px!important;height:15px!important;flex:0 0 15px!important;
+   border-radius:5px!important;
+ }
+ .seats-onepage-root .pax-row{
+   grid-template-columns:minmax(0,1fr)!important;
+   gap:9px!important;
+   padding:14px!important;
+ }
+ .seats-onepage-root .pax-row .label{
+   font-size:15px!important;
+   padding:0 0 3px!important;
+ }
+ .seats-onepage-root .pax-row .form-control{
+   height:46px!important;
+   font-size:15px!important;
+ }
+}
