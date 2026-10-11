@@ -2330,3 +2330,71 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
    line-height:1.25!important;
  }
 }
+
+/* Seleção de poltronas — apresentação visual do componente dinâmico.
+   Escopo exclusivo: não altera layout do ônibus, escala do grid nem eventos. */
+.seats-onepage-root .seats-onepage{display:flex;flex-direction:column;gap:0;min-width:0}
+.seats-onepage-root .seat-map-panel{
+  padding:12px 10px;background:#f7faf9;border:1px solid #e2ece8;
+  border-radius:16px;min-width:0;overflow:hidden;
+}
+.seats-onepage-root .seat-map-panel .bus-wrap{margin:0!important;max-width:100%}
+.seats-onepage-root .legend{
+  display:flex!important;justify-content:space-between!important;align-items:stretch!important;
+  flex-wrap:wrap!important;gap:8px!important;margin:13px 0 16px!important;
+}
+.seats-onepage-root .legend .i{
+  display:flex!important;flex:1 1 105px;justify-content:center;align-items:center;
+  gap:8px!important;padding:10px 8px;background:#f5f8f7;border-radius:14px;
+  font-size:12px!important;font-weight:650;color:#364b43!important;white-space:nowrap;
+}
+.seats-onepage-root .legend .sw{width:23px!important;height:23px!important;flex:0 0 23px;border-radius:7px!important}
+.seats-onepage-root .seat-trip-summary,
+.seats-onepage-root .seat-count-summary{
+  display:flex;align-items:center;gap:13px;min-width:0;
+  padding:14px 15px;border-radius:15px;margin-bottom:10px;
+}
+.seats-onepage-root .seat-trip-summary{
+  background:#edf8f3;border:1px solid #d9eee2;
+}
+.seats-onepage-root .seat-count-summary{
+  background:#f3f7f9;border:1px solid #ebf0f2;
+}
+.seats-onepage-root .seat-summary-icon{
+  display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;
+  background:#daefe3;border-radius:50%;font-size:23px;line-height:1;
+}
+.seats-onepage-root .seat-count-summary .seat-summary-icon{background:#e3f0ec}
+.seats-onepage-root .seat-trip-summary #tripInfo,
+.seats-onepage-root .seat-trip-summary .info-line{
+  margin:0!important;font-size:clamp(14px,2vw,17px);line-height:1.5;
+  color:#123e2d;font-weight:800;min-width:0;overflow-wrap:anywhere;
+}
+.seats-onepage-root .seat-count-summary .counter{
+  margin:0!important;font-size:clamp(14px,1.8vw,17px);
+  color:#284239;line-height:1.4;
+}
+.seats-onepage-root .seat-count-summary .counter b{font-size:1.2em;color:#076b3d}
+.seats-onepage-root .actions{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px!important;margin:8px 0 0!important;padding:0!important;
+}
+.seats-onepage-root .actions .btn{
+  width:100%;min-width:0;min-height:56px;
+  border-radius:13px!important;font-size:clamp(13px,1.7vw,16px);
+  font-weight:800;white-space:normal;line-height:1.25;
+}
+.seats-onepage-root .actions .btn-primary{
+  background:#076c3f!important;color:#fff!important;
+  box-shadow:0 8px 18px rgba(5,93,52,.12)!important;
+}
+.seats-onepage-root .actions .btn-ghost{background:#e8edf0!important;color:#20332d!important}
+@media(max-width:760px){
+ .seats-onepage-root{padding:0 12px 12px!important}
+ .seats-onepage-root .seat-map-panel{padding:9px 7px;border-radius:13px}
+ .seats-onepage-root .legend .i{flex-basis:90px;padding:8px 5px;font-size:11px!important;gap:5px!important}
+ .seats-onepage-root .legend .sw{width:17px!important;height:17px!important;flex-basis:17px}
+ .seats-onepage-root .seat-trip-summary,.seats-onepage-root .seat-count-summary{padding:12px 11px;gap:10px}
+ .seats-onepage-root .seat-summary-icon{flex-basis:36px;width:36px;height:36px;font-size:20px}
+ .seats-onepage-root .actions .btn{min-height:52px}
+}
