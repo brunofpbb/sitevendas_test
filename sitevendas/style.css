@@ -2207,3 +2207,21 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
 @media (prefers-reduced-data:reduce){
  .welcome-banner{background-image:linear-gradient(115deg,#07442e,#0b8550)!important}
 }
+
+
+/* Destaque de disponibilidade e comodidades individuais — site de testes */
+#schedule-list .trip-extras{display:flex;flex-direction:column;gap:12px;min-width:0}
+#schedule-list .trip-seats-highlight{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 17px;border-radius:15px;background:#eaf8ef;border:1px solid #c5ebd3}
+#schedule-list .trip-seats-label{display:block;color:#28634a;font-weight:800;font-size:11px;letter-spacing:.025em}
+#schedule-list .trip-seats-count{display:block;color:#087344;font-size:clamp(32px,5vw,45px);font-weight:850;line-height:1.15;margin-top:3px}
+#schedule-list .trip-category{display:inline-flex;align-items:center;border-radius:999px;background:#d4f0df;color:#195b3a;padding:9px 13px;font-weight:750;font-size:12px;max-width:50%;overflow-wrap:anywhere;text-align:center}
+#schedule-list .trip-amenities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#schedule-list .trip-amenity{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:73px;padding:10px 5px;text-align:center;border:1px solid #e1eae5;background:#f9fbfa;border-radius:12px;color:#275642;font-size:11px;font-weight:700}
+#schedule-list .trip-amenity-icon{font-size:22px;line-height:1.2}
+@media(max-width:480px){
+ #schedule-list .trip-seats-highlight{padding:13px 12px}
+ #schedule-list .trip-seats-label{font-size:10px}
+ #schedule-list .trip-category{font-size:11px;padding:8px 10px}
+ #schedule-list .trip-amenities{gap:6px}
+ #schedule-list .trip-amenity{font-size:10px}
+}
