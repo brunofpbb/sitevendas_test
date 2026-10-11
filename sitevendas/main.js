@@ -289,9 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const v = dadosComodidades[c];
             return v === true || v === 1 || (typeof v === 'string' && ['sim','s','true','1'].includes(v.trim().toLowerCase()));
           });
-          const ar = recurso(['ArCondicionado','PossuiArCondicionado','TemArCondicionado']);
-          const banheiro = recurso(['Banheiro','PossuiBanheiro','TemBanheiro']);
-          const wifi = recurso(['Wifi','WiFi','PossuiWifi','PossuiWiFi','TemWifi']);
+          // Regra operacional confirmada: categoria Executivo possui os três recursos.
+          const executivo = /executivo/i.test(String(tipoHorario).normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+          const ar = executivo || recurso(['ArCondicionado','PossuiArCondicionado','TemArCondicionado']);
+          const banheiro = executivo || recurso(['Banheiro','PossuiBanheiro','TemBanheiro']);
+          const wifi = executivo || recurso(['Wifi','WiFi','PossuiWifi','PossuiWiFi','TemWifi']);
 
           // Visual novo, conservando integralmente os dados e a seleção da viagem.
           const card = document.createElement('article');
