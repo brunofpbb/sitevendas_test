@@ -2263,3 +2263,35 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  #schedule-list .trip-time-block strong{font-size:clamp(14px,4vw,20px)}
  #schedule-list .trip-amenity{min-height:86px;padding:8px 3px}
 }
+
+/* Banner compacto e estável em telas móveis; evita regras desktop sobrepostas */
+@media (max-width:760px){
+ html,body{max-width:100%;overflow-x:clip}
+ .welcome-banner{
+   width:calc(100% - 28px)!important;
+   max-width:calc(100% - 28px)!important;
+   min-width:0!important;
+   min-height:0!important;
+   height:auto!important;
+   margin:12px 14px 0!important;
+   padding:20px 20px 19px!important;
+   display:block!important;
+   overflow:hidden!important;
+   border-radius:18px!important;
+   background-position:center,center!important;
+   background-size:cover,cover!important;
+ }
+ .welcome-banner .welcome-copy{width:100%!important;max-width:100%!important;min-width:0!important}
+ .welcome-banner .eyebrow{font-size:9px!important;letter-spacing:.045em!important;line-height:1.35!important}
+ .welcome-banner h2{
+   font-size:clamp(24px,6.5vw,29px)!important;
+   line-height:1.13!important;
+   letter-spacing:-.035em!important;
+   margin:11px 0 9px!important;
+   max-width:100%!important;
+   overflow-wrap:normal!important;
+ }
+ .welcome-banner p{font-size:12px!important;line-height:1.45!important;max-width:100%!important}
+ .welcome-banner .welcome-benefits{gap:5px!important;margin-top:12px!important}
+ .welcome-banner .welcome-benefits span{font-size:9px!important;padding:5px 8px!important}
+}
