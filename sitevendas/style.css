@@ -2374,27 +2374,3 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
    border:1px solid rgba(255,255,255,.15)!important;
  }
 }
-
-/* Fallback mobile: cobre navegadores que usam viewport de layout ampliado */
-@media (max-device-width:760px) and (pointer:coarse){
- html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
- .welcome-banner{display:none!important}
- .mobile-hero-standalone{
-  display:flex!important;flex-direction:column!important;gap:9px!important;
-  box-sizing:border-box!important;position:relative!important;
-  width:calc(100% - 28px)!important;max-width:calc(100% - 28px)!important;
-  min-height:0!important;height:auto!important;max-height:none!important;
-  margin:12px 14px 0!important;padding:18px 20px!important;
-  border-radius:18px!important;overflow:hidden!important;
-  background:linear-gradient(110deg,#053923,#075333)!important;color:white!important
- }
- .mobile-hero-standalone .mobile-banner-eyebrow{display:flex!important;align-items:center!important;gap:8px!important;font-size:9px!important;color:#d8f7d5!important;font-weight:800!important}
- .mobile-hero-standalone>strong{font-size:clamp(21px,5.5vw,27px)!important;line-height:1.2!important;color:#fff!important;white-space:normal!important}
- .mobile-hero-standalone>strong em{color:#d4f3a0!important;font-style:normal!important}
- .mobile-hero-standalone .mobile-banner-description{font-size:12px!important;line-height:1.45!important;color:#e0f1e6!important}
- .mobile-hero-standalone .mobile-banner-benefits{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
- .mobile-hero-standalone .mobile-banner-benefits span{font-size:9px!important;padding:5px 8px!important;border:1px solid rgba(255,255,255,.15)!important;border-radius:20px!important;color:#fff!important}
- .two-cols{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important;max-width:100%!important;padding:15px 14px 24px!important;gap:16px!important}
- .two-cols>aside,.two-cols>section{width:100%!important;min-width:0!important;max-width:100%!important}
- .booking-panel{padding:20px 18px!important}
-}
