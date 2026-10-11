@@ -1923,7 +1923,7 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
 /* Turin · Cards de viagens e acesso de conta · isolados da seleção de assentos */
 .mobile-account-cta{display:none}
 .btn-account-mobile{display:flex;align-items:center;justify-content:center;gap:9px;min-height:46px;width:100%;background:#eaf6ee;border:1px solid #c9e3d2;color:#08683c;font-weight:800;text-decoration:none;border-radius:12px}
-.btn-account-mobile:before{content:"↗";font-size:19px;line-height:1}
+.btn-account-mobile:before{content:"";display:inline-block;width:21px;height:21px;flex:0 0 21px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2308683c%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22M5%2021v-2a7%207%200%200%201%2014%200v2%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat}
 .btn-account-mobile:hover{background:#dff1e6}
 #schedule-list{display:grid;gap:16px}
 #schedule-list .schedule-card.trip-card{
