@@ -558,4 +558,59 @@ function checkSessionTimeout() {
   localStorage.setItem('lastActive', Date.now());
   const updateActivity = () => localStorage.setItem('lastActive', Date.now());
   ['mousemove', 'keydown', 'click'].forEach(evt => window.addEventListener(evt, updateActivity));
-}
+}           const disponiveis = linha.PoltronasDisponiveis ?? linha.ViagemTFO?.PoltronasDisponiveis ?? null;
+           const tipoHorario = linha.TipoHorario || linha.ViagemTFO?.TipoHorario || '';
+           // Exibir comodidades apenas quando houver indicação explícita nos dados.
+           const dadosComodidades = { ...linha.ViagemTFO, ...linha };
+           const recurso = (campos) => campos.some(c => {
+             const v = dadosComodidades[c];
+             return v === true || v === 1 || (typeof v === 'string' && ['true','sim','s','1'].includes(v.trim().toLowerCase()));
+           });
+           const ar = recurso(['ArCondicionado','PossuiArCondicionado','TemArCondicionado']);
+           const banheiro = recurso(['Banheiro','PossuiBanheiro','TemBanheiro']);
+           const wifi = recurso(['Wifi','WiFi','PossuiWifi','PossuiWiFi','TemWifi']);
+           const extras = document.createElement('div');
+           extras.className = 'trip-extras';
+           if (disponiveis !== null && disponiveis !== '' && Number.isFinite(Number(disponiveis))) {
+             const seats = document.createElement('div');
+             seats.className = 'trip-seats-highlight';
+             const seatInfo = document.createElement('div');
+             const seatLabel = document.createElement('span');
+             seatLabel.className = 'trip-seats-label';
+             seatLabel.textContent = '💺 POLTRONAS DISPONÍVEIS';
+             const seatCount = document.createElement('strong');
+             seatCount.className = 'trip-seats-count';
+             seatCount.textContent = String(disponiveis);
+             seatInfo.append(seatLabel, seatCount);
+             seats.appendChild(seatInfo);
+             if (tipoHorario) {
+               const category = document.createElement('span');
+               category.className = 'trip-category';
+               category.textContent = String(tipoHorario);
+               seats.appendChild(category);
+             }
+             extras.appendChild(seats);
+           } else if (tipoHorario) {
+             const category = document.createElement('span');
+             category.className = 'trip-category';
+             category.textContent = String(tipoHorario);
+             extras.appendChild(category);
+           }
+           const amenities = document.createElement('div');
+           amenities.className = 'trip-amenities';
+           [['❄️', 'Ar-condicionado', ar], ['🚻', 'Banheiro', banheiro], ['📶', 'Wi-Fi', wifi]]
+             .filter(([, , enabled]) => enabled)
+             .forEach(([symbol, label]) => {
+               const item = document.createElement('span');
+               item.className = 'trip-amenity';
+               const icon = document.createElement('span');
+               icon.className = 'trip-amenity-icon';
+               icon.textContent = symbol;
+               const name = document.createElement('span');
+               name.textContent = label;
+               item.append(icon, name);
+               amenities.appendChild(item);
+             });
+           if (amenities.childElementCount) extras.appendChild(amenities);
+           details.append(times, extras);
+
