@@ -1875,7 +1875,7 @@ html,body{width:100%;max-width:100%;overflow-x:clip}
 .login-page .login-form .btn-success{background:linear-gradient(120deg,#077544,#065b36)!important;color:white!important;border-radius:12px!important}
 .login-page .login-form .btn-ghost{background:#f0f5f2!important;border-radius:12px!important;color:#28503d!important}
 .login-page footer{width:100%;flex-shrink:0}
-.two-cols,.two-cols>*,.results-panel,.seats-onepage-root,.seats-onepage,.seats-onepage .bus-wrap{min-width:0!important;max-width:100%}
+.two-cols>*,.results-panel,.seats-onepage-root,.seats-onepage,.seats-onepage .bus-wrap{min-width:0!important;max-width:100%}
 .seats-onepage .bus-wrap{width:100%!important}
 .seats-onepage .bus-img{width:100%!important;height:auto!important;max-width:100%!important}
 .seats-onepage .bus-grid{transform:none!important}
@@ -2494,4 +2494,28 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
    height:46px!important;
    font-size:15px!important;
  }
+}
+
+/* Desktop: formulário e resultados alinhados ao mesmo container do banner.
+   Mobile (<=760px) mantém as regras já existentes. */
+@media (min-width:761px){
+  body > main.two-cols{
+    box-sizing:border-box;
+    width:calc(100% - 48px)!important;
+    max-width:1332px!important;
+    margin:0 auto!important;
+    padding:20px 0 36px!important;
+    display:grid!important;
+    grid-template-columns:minmax(285px,350px) minmax(0,1fr)!important;
+    gap:20px!important;
+    align-items:start!important;
+  }
+  body > main.two-cols > .booking-panel,
+  body > main.two-cols > .results-panel{
+    min-width:0;
+    width:100%;
+  }
+}
+@media (min-width:761px) and (max-width:1030px){
+  body > main.two-cols{grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important}
 }
