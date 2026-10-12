@@ -2546,13 +2546,13 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
   }
   /* Densidade visual do desktop: a busca deve dominar, nao o banner. */
   body:has(> main.two-cols) > .welcome-banner{
-    min-height:185px!important;
-    padding:22px 34px!important;
+    min-height:150px!important;
+    padding:18px 28px!important;
     gap:12px!important;
     border-radius:20px!important;
   }
   body:has(> main.two-cols) > .welcome-banner h2{
-    font-size:clamp(27px,2.5vw,36px)!important;
+    font-size:clamp(26px,2.2vw,34px)!important;
     line-height:1.1!important;
     margin:9px 0 8px!important;
   }
@@ -2572,16 +2572,16 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
     padding:18px!important;
   }
   body > main.two-cols > .results-panel #schedule-list{
-    gap:14px!important;
+    gap:11px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .schedule-card{
-    padding:12px!important;
+    padding:11px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-details{
-    gap:9px!important;
+    gap:7px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-extras{
-    gap:8px!important;
+    gap:6px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-time-block{
     padding:8px 10px!important;
@@ -2606,16 +2606,16 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
     margin-top:0!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-amenity{
-    min-height:54px!important;
-    padding:6px 5px!important;
+    min-height:48px!important;
+    padding:5px 5px!important;
     gap:2px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-amenity-icon{
     font-size:18px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-price-box{
-    padding-top:10px!important;
-    margin-top:9px!important;
+    padding-top:8px!important;
+    margin-top:6px!important;
   }
   body > main.two-cols > .results-panel #schedule-list .trip-price{
     font-size:27px!important;
@@ -2624,7 +2624,48 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
     min-height:40px!important;
     padding:9px 13px!important;
   }
+  body > main.two-cols > .results-panel h2{
+    margin-top:0!important;
+    margin-bottom:13px!important;
+  }
 }
+/* Desktop largo: aproveita a area vazia do banner sem alterar seu conteudo. */
+@media screen and (min-width:1120px){
+  body:has(> main.two-cols) > .welcome-banner .welcome-copy{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(280px,.85fr);
+    grid-template-rows:auto auto;
+    column-gap:34px;
+    row-gap:9px;
+    align-items:center;
+    max-width:none!important;
+    width:100%!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner .eyebrow{
+    grid-column:1;
+    grid-row:1;
+    align-self:end;
+  }
+  body:has(> main.two-cols) > .welcome-banner h2{
+    grid-column:1;
+    grid-row:2;
+    margin:0!important;
+    align-self:start;
+  }
+  body:has(> main.two-cols) > .welcome-banner p{
+    grid-column:2;
+    grid-row:1;
+    align-self:end;
+    max-width:410px!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner .welcome-benefits{
+    grid-column:2;
+    grid-row:2;
+    align-self:start;
+    margin-top:0!important;
+  }
+}
+
 @media screen and (min-width:761px) and (max-width:1030px){
   body > main.two-cols{
     grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important;
