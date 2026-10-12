@@ -2544,6 +2544,86 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
     max-width:none!important;
     margin:0!important;
   }
+  /* Densidade visual do desktop: a busca deve dominar, nao o banner. */
+  body:has(> main.two-cols) > .welcome-banner{
+    min-height:185px!important;
+    padding:22px 34px!important;
+    gap:12px!important;
+    border-radius:20px!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner h2{
+    font-size:clamp(27px,2.5vw,36px)!important;
+    line-height:1.1!important;
+    margin:9px 0 8px!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner p{
+    font-size:13px!important;
+    line-height:1.45!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner .welcome-benefits{
+    margin-top:12px!important;
+    gap:6px!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner .welcome-benefits span{
+    padding:5px 9px!important;
+    font-size:10px!important;
+  }
+  body > main.two-cols > .results-panel{
+    padding:18px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list{
+    gap:14px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .schedule-card{
+    padding:12px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-details{
+    gap:9px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-extras{
+    gap:8px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-time-block{
+    padding:8px 10px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-label{
+    margin-bottom:3px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-time-block strong{
+    font-size:19px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-seats-highlight{
+    padding:10px 13px!important;
+    border-radius:12px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-seat-icon{
+    height:40px!important;
+    width:40px!important;
+    font-size:26px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-seats-count{
+    font-size:30px!important;
+    margin-top:0!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-amenity{
+    min-height:54px!important;
+    padding:6px 5px!important;
+    gap:2px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-amenity-icon{
+    font-size:18px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-price-box{
+    padding-top:10px!important;
+    margin-top:9px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-price{
+    font-size:27px!important;
+  }
+  body > main.two-cols > .results-panel #schedule-list .trip-price-box .select-btn{
+    min-height:40px!important;
+    padding:9px 13px!important;
+  }
 }
 @media screen and (min-width:761px) and (max-width:1030px){
   body > main.two-cols{
