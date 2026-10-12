@@ -2496,26 +2496,57 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
  }
 }
 
-/* Desktop: formulário e resultados alinhados ao mesmo container do banner.
-   Mobile (<=760px) mantém as regras já existentes. */
-@media (min-width:761px){
-  body > main.two-cols{
-    box-sizing:border-box;
+/* Desktop da página inicial: dimensões coerentes e cabeçalho/banner sem encolhimento.
+   O body é flex-column e o main cresce com a lista de viagens; sem flex-shrink:0,
+   cabeçalho e banner eram comprimidos, causando sobreposição do logotipo. */
+@media screen and (min-width:761px){
+  body:has(> main.two-cols) > .top-accent,
+  body:has(> main.two-cols) > .site-header,
+  body:has(> main.two-cols) > .welcome-banner{
+    flex-shrink:0!important;
+  }
+  body:has(> main.two-cols) > .site-header{
+    min-height:0!important;
+    height:auto!important;
+    width:100%!important;
+  }
+  body:has(> main.two-cols) > .site-header > .site-header-inner{
+    box-sizing:border-box!important;
     width:calc(100% - 48px)!important;
     max-width:1332px!important;
+    min-height:85px!important;
+    margin-inline:auto!important;
+    padding:12px 0!important;
+  }
+  body:has(> main.two-cols) > .welcome-banner{
+    box-sizing:border-box!important;
+    width:calc(100% - 48px)!important;
+    max-width:1332px!important;
+    height:auto!important;
+    margin:20px auto 0!important;
+  }
+  body > main.two-cols{
+    box-sizing:border-box!important;
+    display:grid!important;
+    width:calc(100% - 48px)!important;
+    max-width:1332px!important;
+    grid-template-columns:minmax(290px,350px) minmax(0,1fr)!important;
+    align-items:start!important;
+    column-gap:20px!important;
     margin:0 auto!important;
     padding:20px 0 36px!important;
-    display:grid!important;
-    grid-template-columns:minmax(285px,350px) minmax(0,1fr)!important;
-    gap:20px!important;
-    align-items:start!important;
   }
   body > main.two-cols > .booking-panel,
   body > main.two-cols > .results-panel{
-    min-width:0;
-    width:100%;
+    box-sizing:border-box!important;
+    min-width:0!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
   }
 }
-@media (min-width:761px) and (max-width:1030px){
-  body > main.two-cols{grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important}
+@media screen and (min-width:761px) and (max-width:1030px){
+  body > main.two-cols{
+    grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important;
+  }
 }
