@@ -1451,6 +1451,7 @@ footer { text-align: center; }
 #trips-list .reserva .calc-box > .actions{
   position:static!important;
   inset:auto!important;
+  transform:none!important;
   float:none!important;
   display:flex!important;
   align-items:center;
