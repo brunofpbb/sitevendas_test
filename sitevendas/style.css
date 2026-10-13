@@ -2163,7 +2163,7 @@ body:has(> main.two-cols) > .welcome-banner::after{
   z-index:0;
   inset:0 0 0 auto;
   width:62%;
-  background-image:url("img/banner-turin.webp");
+  background-image:url("/img/turin_banner_1600_80.webp");
   background-repeat:no-repeat;
   background-position:center center;
   background-size:cover;
