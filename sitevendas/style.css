@@ -1410,94 +1410,68 @@ footer { text-align: center; }
 
 
 
-/* ===== Preview de cancelamento (dentro do card .reserva) */
-.calc-box{
-  display:block;
-  max-width: 680px;
-  margin: 10px 0 12px 0;
-  float:none;            /* neutraliza floats herdados */
-  position:static;       /* neutraliza posições absolutas */
-}
-
-
-/* ===== Card "reserva" – caixa do preview */
-.calc-box{
-  display:block;
-  max-width: 720px;
-  margin: 8px 0 10px 0;
-  float:none;
-  position:static;
-}
-
-
-
-
-
-
-
-
-
-
-/* 1) Botões do PREVIEW (dentro da calc-box): CENTRALIZADOS */
-#trips-list .reserva .calc-box > .actions{
-  display:flex !important;
-  justify-content:center !important;
-  align-items:center;
-  gap:12px;
-  flex-wrap:wrap;
-  margin-top:10px;   /* mantém o respiro acima */
-  padding:0;
-  float:none !important;
-  position:static !important;
-}
-
-
-
-
-
-
-
-
-/* ⬆️ Garante que o card permita posicionamento absoluto dos botões do topo */
-#trips-list .reserva{
-  position: relative;
-}
-
-
-/* Em telas médias/grandes, reserva espaço à direita p/ não colidir com o texto */
-@media (min-width: 720px){
-  #trips-list .reserva{ padding-right: 220px; }
-}
-
-/* 🎯 Caixinha do PREVIEW centralizada dentro do card */
+/* Cancelamento: resumo e botoes pertencem ao fluxo normal da caixa,
+   sem posicao absoluta e sem sobrepor linhas de valores. */
+#trips-list .reserva{position:relative}
 #trips-list .reserva .calc-box{
-  max-width: 650px; /*era 720*/
-  margin: 15px auto;          /* era 12, centraliza e dá respiro em cima/baixo */
-  float: none;
-  position: auto;      /*era static*/
+  display:flex;
+  flex-direction:column;
+  width:min(100%,720px);
+  max-width:100%;
+  margin:14px auto 12px;
+  padding:18px;
+  box-sizing:border-box;
+  position:static;
+  float:none;
 }
-
-/* ✨ Botões do PREVIEW centralizados e com respiro do texto acima */
+#trips-list .reserva .calc-cols{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:24px;
+  width:100%;
+  min-width:0;
+  align-items:start;
+}
+#trips-list .reserva .calc-left,
+#trips-list .reserva .calc-right{min-width:0;text-align:left}
+#trips-list .reserva .calc-row{
+  min-width:0;
+  display:flex;
+  gap:10px;
+  justify-content:space-between;
+  align-items:baseline;
+  margin:5px 0;
+}
+#trips-list .reserva .calc-row span{min-width:0}
+#trips-list .reserva .calc-row b{
+  min-width:0;
+  text-align:right;
+  overflow-wrap:anywhere;
+}
 #trips-list .reserva .calc-box > .actions{
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 5px;        /* era 12, espaço entre os textos e os botões */
-  padding-top: 30px;        /* era 4, micro respiro extra */
-  position: static !important;
-  float: none !important;
+  position:static!important;
+  inset:auto!important;
+  float:none!important;
+  display:flex!important;
+  align-items:center;
+  justify-content:center!important;
+  flex-wrap:wrap;
+  gap:10px;
+  width:100%;
+  margin:18px 0 0!important;
+  padding:14px 0 0!important;
+  border-top:1px solid #e3eae6;
 }
-
-/* Evita quebra estranha/estouro dos botões */
-#trips-list .reserva .actions .btn{
-  white-space: nowrap;
+#trips-list .reserva .calc-box > .actions .btn{
+  position:static!important;
+  white-space:normal;
+  min-height:40px;
 }
-
-
-
-
+@media(max-width:760px){
+  #trips-list .reserva .calc-box{padding:14px;margin:12px auto}
+  #trips-list .reserva .calc-cols{grid-template-columns:minmax(0,1fr);gap:8px}
+  #trips-list .reserva .calc-box > .actions{margin-top:14px!important}
+}
 /* ===== Espaçamento entre campos ===== */
 #search-form label {
   display: block;
