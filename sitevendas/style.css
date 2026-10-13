@@ -2143,45 +2143,49 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
 }
 
 
-/* Banner fotográfico Turin — ambiente de testes.
-   Foto institucional hospedada no próprio domínio da Turin.
-   Mantemos gradiente sólido de fallback para falhas de rede. */
-.welcome-banner{
+/* Banner fotográfico do ônibus Turin — ativo apenas na página inicial.
+   Foto otimizada armazenada neste próprio repositório (sem hospedagem externa).
+   O texto HTML permanece acessível e independente da imagem. */
+body:has(> main.two-cols) > .welcome-banner{
   isolation:isolate;
-  box-sizing:border-box;
-  min-height:330px;
-  padding:clamp(30px,4.5vw,66px)!important;
-  background-color:#07452d!important;
+  background:#063d29!important;
+  overflow:hidden;
+}
+body:has(> main.two-cols) > .welcome-banner::before{
+  content:none!important;display:none!important;
+}
+body:has(> main.two-cols) > .welcome-banner::after{
+  content:"";
+  display:block;
+  pointer-events:none;
+  position:absolute;
+  z-index:0;
+  inset:0 0 0 auto;
+  width:60%;
   background-image:
-    linear-gradient(90deg,rgba(3,44,30,.97) 0%,rgba(4,54,36,.91) 32%,rgba(5,58,38,.62) 57%,rgba(6,54,34,.12) 100%),
-    url("https://turintransportes.com/wp-content/uploads/2017/12/frota.jpg")!important;
-  background-repeat:no-repeat,no-repeat!important;
-  background-position:center,center right!important;
-  background-size:cover,cover!important;
+    linear-gradient(90deg,#063d29 0%,rgba(6,61,41,.66) 14%,rgba(6,61,41,0) 40%),
+    url("img/banner-turin.webp");
+  background-repeat:no-repeat;
+  background-position:center,right center;
+  background-size:cover,190% auto;
 }
-.welcome-banner::before{display:none!important;content:none!important}
-.welcome-banner .welcome-copy{max-width:630px;width:100%}
-.welcome-banner h2{font-size:clamp(34px,4.1vw,55px);text-wrap:balance}
-.welcome-banner p{max-width:470px}
-.welcome-banner .welcome-benefits{position:relative;z-index:1}
-.welcome-banner .welcome-benefits span{background:rgba(9,65,42,.5);backdrop-filter:blur(5px)}
-@media (max-width:760px){
- .welcome-banner{
-   min-height:315px!important;
-   padding:28px 24px!important;
-   background-image:
-     linear-gradient(90deg,rgba(3,44,30,.93) 0%,rgba(4,54,36,.77) 56%,rgba(3,44,30,.30) 100%),
-     url("https://turintransportes.com/wp-content/uploads/2017/12/frota.jpg")!important;
-   background-position:center,62% center!important;
-   background-size:cover,cover!important;
- }
- .welcome-banner h2{font-size:clamp(31px,8vw,40px)!important;max-width:410px}
- .welcome-banner p{max-width:340px!important}
+body:has(> main.two-cols) > .welcome-banner .welcome-copy{
+  z-index:1;
+  position:relative;
 }
-@media (prefers-reduced-data:reduce){
- .welcome-banner{background-image:linear-gradient(115deg,#07442e,#0b8550)!important}
+body:has(> main.two-cols) > .welcome-banner .welcome-benefits span{
+  background:rgba(2,53,31,.55);
 }
-
+@media(max-width:760px){
+  body:has(> main.two-cols) > .welcome-banner::after{
+    width:65%;
+    opacity:.38;
+    background-size:cover,220% auto;
+  }
+}
+@media(prefers-reduced-data:reduce){
+  body:has(> main.two-cols) > .welcome-banner::after{display:none}
+}
 
 /* Destaque de disponibilidade e comodidades individuais — site de testes */
 #schedule-list .trip-extras{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -2603,43 +2607,19 @@ body:has(.two-cols-pay) .user-nav .pill{position:static!important;white-space:no
     margin-bottom:13px!important;
   }
 }
-/* Desktop largo: aproveita a area vazia do banner sem alterar seu conteudo. */
-@media screen and (min-width:1120px){
+/* Banner desktop fotográfico: mensagem concentrada à esquerda,
+   deixando o ônibus visível e evitando uma segunda coluna de texto. */
+@media screen and (min-width:761px){
   body:has(> main.two-cols) > .welcome-banner .welcome-copy{
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr) minmax(280px,.85fr);
-    grid-template-rows:auto auto;
-    column-gap:34px;
-    row-gap:9px;
-    align-items:center;
-    max-width:none!important;
-    width:100%!important;
+    display:block!important;
+    width:51%!important;
+    max-width:540px!important;
+    min-width:0;
   }
-  body:has(> main.two-cols) > .welcome-banner .eyebrow{
-    grid-column:1;
-    grid-row:1;
-    align-self:end;
-  }
-  body:has(> main.two-cols) > .welcome-banner h2{
-    grid-column:1;
-    grid-row:2;
-    margin:0!important;
-    align-self:start;
-  }
-  body:has(> main.two-cols) > .welcome-banner p{
-    grid-column:2;
-    grid-row:1;
-    align-self:end;
-    max-width:410px!important;
-  }
-  body:has(> main.two-cols) > .welcome-banner .welcome-benefits{
-    grid-column:2;
-    grid-row:2;
-    align-self:start;
-    margin-top:0!important;
+  body:has(> main.two-cols) > .welcome-banner{
+    min-height:175px!important;
   }
 }
-
 @media screen and (min-width:761px) and (max-width:1030px){
   body > main.two-cols{
     grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important;
