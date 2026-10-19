@@ -1274,6 +1274,12 @@ async function emitirBilhetesViaWebhook(payment) {
     return;
   }
 
+  // Recuperações em andamento não podem ser reprocessadas pelo webhook PIX.
+  if (entries.some(e => /^(poltrona indisponível|reemissão em andamento|reembolso em processamento|reembolsado integralmente|análise manual)$/i.test(String(e.status || '').trim()))) {
+    console.log('[Webhook][Emit] recuperação em andamento; não tentar nova emissão automática', extRef);
+    return;
+  }
+
   // se já tem pelo menos 1 linha emitida / com NumPassagem, não vende de novo
   const jaEmitido = entries.some(e => {
     const st = (e.status || '').toLowerCase();
@@ -2674,6 +2680,12 @@ setInterval(() => {
   }
 }, 60000);
 
+// Recuperação assistida: habilitada somente neste ambiente de testes.
+const seatRecovery = require('./seatRecovery')({
+  app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch,
+  logVendaFalha, notifyAdminVendaFalha
+});
+
 app.post('/api/praxio/vender', async (req, res) => {
   const { mpPaymentId, passengers } = req.body || {};
 
@@ -2906,6 +2918,12 @@ app.post('/api/praxio/vender', async (req, res) => {
           return { status: 200, body: { ok: true, vendaResult: vRes, arquivos: arqs, recovered: true } };
         }
 
+        // Só a indisponibilidade confirmada oferece autoatendimento.
+        if (seatRecovery.isSeatError(praxioErr.message)) {
+          const recoverable = (req.get('X-Source') === 'recovery') || await seatRecovery.markUnavailable(payment, passengers, praxioErr.message);
+          if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
+        }
+
         // Se continuou sem bilhete, relança o erro original
         throw praxioErr;
       }
@@ -2947,6 +2965,11 @@ app.post('/api/praxio/vender', async (req, res) => {
           vendaResult,
           errorMessage: msgPraxi,
         };
+
+        if (seatRecovery.isSeatError(msgPraxi)) {
+          const recoverable = (req.get('X-Source') === 'recovery') || await seatRecovery.markUnavailable(payment, passengers, msgPraxi);
+          if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
+        }
 
         await logVendaFalha(erroEntry);
         await notifyAdminVendaFalha(erroEntry);
@@ -3008,6 +3031,11 @@ app.post('/api/praxio/vender', async (req, res) => {
             .filter(Boolean)
             .join(' | ');
 
+          // Não converter essa condição conhecida em erro HTTP 500 genérico.
+          if (seatRecovery.isSeatError(msgs)) {
+            const recoverable = (req.get('X-Source') === 'recovery') || await seatRecovery.markUnavailable(payment, passengers, msgs);
+            if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
+          }
           throw new Error(
             `Erro na venda de uma ou mais poltronas: ${msgs || 'motivo não informado'}`
           );
