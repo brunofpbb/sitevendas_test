@@ -279,6 +279,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 4) Render
+    // Compras pagas com falha recuperável podem ser retomadas neste navegador.
+    let recoveryCtx = null;
+    try { recoveryCtx = JSON.parse(localStorage.getItem('seatRecoveryContext') || 'null'); } catch (_) {}
     const lines = localTickets.map(tk => {
       const dataBR = (typeof formatDateBR === 'function') ? formatDateBR(tk.data) : tk.data;
       const way = tk.idaVolta === 'volta' ? 'Volta' : 'Ida';
@@ -293,7 +296,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const isCanceled = cancelledSet.has(tk.ticketNumber) ||
         String(tk.status || '').toLowerCase() === 'cancelado';
 
-      const podeCancelar = !isCanceled && mayCancel({
+      const isIssued = String(tk.status || '').toLowerCase() === 'emitido' && !!tk.ticketNumber;
+      const canRecover = !!recoveryCtx?.reference && String(recoveryCtx.reference) === String(tk.referencia || '') &&
+        String(tk.status || '').toLowerCase() === 'poltrona indisponível';
+      const podeCancelar = isIssued && !isCanceled && mayCancel({
         date: tk.data, dataViagem: tk.data, departureTime: tk.hora, horaPartida: tk.hora
       });
 
@@ -332,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : ''}
 
         <div class="actions">
+          ${!showPreview && canRecover ? '<a class="btn btn-primary" href="recovery.html">Resolver emissão</a>' : ''}
           ${!showPreview ? btnBilhete : ''}
           ${!showPreview ? `
               <button
