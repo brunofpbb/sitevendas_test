@@ -47,6 +47,14 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
   const issued = e => !!e.numPassagem || norm(e.status) === 'emitido';
   const oneTicket = entries => entries.length === 1 && !entries.some(issued);
   const isPaid = p => ['approved', 'accredited'].includes(norm(p.status));
+  // Não operar automaticamente se o total pago não corresponde ao único bilhete
+  // registrado. Evita estorno da compra inteira quando a pré-reserva está incompleta.
+  const amountMatches = (payment, entries) => {
+    if (entries.length !== 1) return false;
+    const ticket = Number(String(entries[0].valor || '0').replace(',', '.'));
+    const paid = Number(payment.transaction_amount || 0);
+    return ticket > 0 && paid > 0 && Math.abs(ticket - paid) <= 0.02;
+  };
 
   async function markUnavailable(payment, passengers, message) {
     if (!isSeatError(message) || !payment?.external_reference) return false;
@@ -64,7 +72,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       const { paymentId, reference, email } = req.body || {};
       const { payment, entries } = await validated(paymentId, reference, email);
       const e = entries[0], status = norm(e.status);
-      const available = oneTicket(entries);
+      const available = oneTicket(entries) && amountMatches(payment, entries);
       let state = 'pending';
       if (payment.status === 'refunded' || status === norm(REFUNDED)) state = 'refunded';
       else if (entries.every(issued)) state = 'issued';
@@ -99,7 +107,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     locks.add(key);
     try {
       const { payment, entries } = await validated(paymentId, reference, email);
-      if (!isPaid(payment) || !oneTicket(entries)) return res.status(409).json({ ok: false, error: 'Compra não elegível para autoatendimento.' });
+      if (!isPaid(payment) || !oneTicket(entries) || !amountMatches(payment, entries)) return res.status(409).json({ ok: false, error: 'Compra não elegível para autoatendimento. Contate o suporte.' });
       const row = entries[0];
       if (row.status !== FAIL) return res.status(409).json({ ok: false, error: 'Esta compra não está aguardando recuperação.' });
       const refunded = (payment.refunds || []).reduce((s,r)=>s + Number(r.amount || 0),0);
