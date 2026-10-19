@@ -247,7 +247,7 @@
   }
 
   // ===== API pública =====
-  window.renderSeats = async function renderSeats(container, schedule, wayType) {
+  window.renderSeats = async function renderSeats(container, schedule, wayType, options = {}) {
     ensureStyles();
     if (!container) throw new Error('renderSeats: container inválido');
 
@@ -300,6 +300,11 @@
     const paxList = root.querySelector('#paxList');
     const btnConfirm = root.querySelector('#btnConfirm');
     const btnBack = root.querySelector('#btnBack');
+    if (options.recovery) {
+      btnConfirm.textContent = 'Emitir bilhete';
+      btnBack.textContent = 'Voltar às opções';
+    }
+
 
     // Cabeçalho
     const origin = pick(schedule?.originName, schedule?.origin, schedule?.origem, '');
@@ -370,7 +375,9 @@
             phone: obPax[idx].phone || '',
           };
         } else {
-          state.pax[seatNum] ||= { name: '', cpf: '', phone: '' };
+          state.pax[seatNum] ||= options.recovery
+            ? { name: String(options.passenger?.name || ''), cpf: String(options.passenger?.cpf || options.passenger?.document || ''), phone: String(options.passenger?.phone || '') }
+            : { name: '', cpf: '', phone: '' };
         }
 
         const v = state.pax[seatNum];
@@ -426,6 +433,10 @@
             seat.classList.remove('selected');
             delete state.pax[cell];
           } else {
+            if (options.recovery && state.seats.length >= 1) {
+              alert('Escolha apenas uma poltrona para substituir a indisponível.');
+              return;
+            }
             if (isReturn && state.seats.length >= maxSelectable) {
               alert(`Para a volta selecione exatamente ${maxSelectable} poltronas.`);
               return;
@@ -443,6 +454,10 @@
 
     // Botões
     btnConfirm.addEventListener('click', () => {
+      if (options.recovery && state.seats.length !== 1) {
+        alert('Escolha uma poltrona para emitir seu bilhete.');
+        return;
+      }
       if (isReturn && isFinite(maxSelectable) && state.seats.length !== maxSelectable) {
         alert(`Selecione exatamente ${maxSelectable} poltronas para a volta.`);
         return;
