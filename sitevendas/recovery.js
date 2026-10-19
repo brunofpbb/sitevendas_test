@@ -43,9 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if(info.state!=='seat_unavailable'){
-      msg.textContent='Pagamento confirmado. Estamos aguardando a conclusão da emissão. Você não precisa pagar novamente.';
+      msg.textContent='O PIX foi aprovado, mas ainda não há confirmação da emissão nem registro de poltrona indisponível. Estamos consultando o andamento da compra; nenhuma ação financeira será feita automaticamente.';
+      route.hidden=false;
+      route.textContent='Status da emissão: aguardando confirmação da Praxio / processamento do webhook.';
       if(Date.now()-openedAt>120000){
-        msg.textContent='Ainda não foi possível confirmar a emissão. Consulte Minhas compras ou entre em contato com o suporte, sem pagar novamente.';
+        msg.textContent='Ainda não foi possível confirmar o resultado da emissão. Não faça um novo pagamento. Acesse Minhas compras e, se continuar Pendente, informe o comprovante do PIX ao suporte para localizar a operação.';
         stopPoll();
       }
       return;
