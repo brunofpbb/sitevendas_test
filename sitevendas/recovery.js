@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   let current=null,poll=null,submitted=false,mode='checking';
+  const openedAt=Date.now();
   const identity={paymentId:context.paymentId,reference:context.reference,email:context.email};
   const money=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const stopPoll=()=>{if(poll){clearInterval(poll);poll=null;}};
@@ -43,6 +44,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if(info.state!=='seat_unavailable'){
       msg.textContent='Pagamento confirmado. Estamos aguardando a conclusão da emissão. Você não precisa pagar novamente.';
+      if(Date.now()-openedAt>120000){
+        msg.textContent='Ainda não foi possível confirmar a emissão. Consulte Minhas compras ou entre em contato com o suporte, sem pagar novamente.';
+        stopPoll();
+      }
       return;
     }
     stopPoll();
@@ -81,9 +86,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           submitted=true;mode='issuing';stage.hidden=true;msg.textContent='Emitindo seu bilhete, sem nova cobrança. Aguarde…';
           try {
             await request('issue',{...identity,seatNumber,idTipoVeiculo:schedule.idTipoVeiculo||''});
-            msg.textContent='Bilhete emitido! Consulte-o em Minhas compras.';
-            localStorage.removeItem('seatRecoveryContext');
+            msg.textContent='A emissão foi aceita. Estamos finalizando o envio e o registro do bilhete. Consulte Minhas compras.';
             stopPoll();
+            mode='checking';
+            poll=setInterval(refresh,5000);
           } catch(err) {
             msg.textContent=err.message;
             submitted=false;mode='checking';
