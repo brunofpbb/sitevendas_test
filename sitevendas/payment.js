@@ -871,7 +871,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-undefined        if (st === 'approved') {
+        if (st === 'approved') {
           clearInterval(pixPollTimer);
 
           // Exibe o overlay e mantém até o backend concluir tudo
