@@ -746,7 +746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // um bilhete pago sem iniciar outra cobrança.
             if (data.id || data?.payment?.id) {
               const item = order[0] || {};
-              const schedule = getScheduleFromItem(item) || {};
+              const schedule = { ...(item.schedule || {}), ...(getScheduleFromItem(item) || {}) };
               localStorage.setItem('seatRecoveryContext', JSON.stringify({
                 paymentId:String(data.id || data.payment.id),
                 reference:idem,
