@@ -389,8 +389,11 @@
           <input type="text" class="form-control pax-phone" placeholder="Telefone"  ${isReturn ? 'readonly' : ''} ${!isReturn ? 'required' : ''} value="${v.phone || ''}">
         `;
 
+        // Na recuperação, dados do passageiro vêm da pré-reserva confirmada.
+        if (options.recovery) row.querySelectorAll('input').forEach(input => { input.readOnly = true; });
+
         // Bind
-        if (!isReturn) {
+        if (!isReturn && !options.recovery) {
           const [nameI, cpfI, phoneI] = row.querySelectorAll('input');
           nameI.addEventListener('input', () => { state.pax[seatNum].name = nameI.value; });
           cpfI.addEventListener('input', () => { state.pax[seatNum].cpf = cpfI.value; });
