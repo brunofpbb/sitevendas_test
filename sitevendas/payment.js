@@ -901,7 +901,16 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (ctx?.paymentId === String(paymentId)) {
                 const r=await fetch('/api/recovery/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ctx)});
                 const state=await r.json();
-                location.href=(state.state === 'issued') ? 'profile.html' : 'recovery.html';
+                // Só habilitar autoatendimento quando a falha estiver confirmada.
+                // Para pending/reissuing/refunding, a tela acompanha o processamento,
+                // sem oferecer estorno ou nova venda.
+                if (state.state === 'issued') {
+                  location.href = 'profile.html';
+                } else if (['seat_unavailable', 'pending', 'reissuing', 'refunding', 'manual'].includes(state.state)) {
+                  location.href = 'recovery.html';
+                } else {
+                  location.href = 'profile.html';
+                }
               } else location.href='profile.html';
             } catch (_) { location.href='recovery.html'; }
             return;
