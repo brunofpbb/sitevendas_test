@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Recuperar bilhete • Turin Transportes</title>
+  <link rel="stylesheet" href="style.css?v=recovery-test-01">
+  <style>
+    .recovery-page{min-height:100vh;background:linear-gradient(#f3faf6,#fff);padding:25px 16px 60px}
+    .recovery-card{max-width:840px;margin:0 auto;padding:26px;background:#fff;border:1px solid #dce9e1;border-radius:23px;box-shadow:0 14px 35px #003f2510}
+    .recovery-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;color:#075b38}
+    .recovery-head h1{font-size:clamp(22px,4vw,30px);margin:0}
+    .recovery-label{color:#65776c;font-size:13px;font-weight:700}
+    .recovery-msg{line-height:1.6;color:#29493a}
+    .recovery-choices{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0 5px}
+    .recovery-choices .btn{flex:1 1 210px;min-height:51px;border-radius:13px}
+    .recovery-route{margin:16px 0;padding:15px;border-radius:13px;background:#ebf8f0;color:#064e30}
+    .recovery-warning{margin:16px 0;padding:12px 14px;background:#fff9ec;color:#665322;border-radius:12px}
+    #recovery-seats{margin-top:18px}
+    .recovery-card [hidden]{display:none!important}
+    @media(max-width:760px){.recovery-page{padding:12px 10px 45px}.recovery-card{padding:17px 13px;border-radius:18px}}
+  </style>
+</head>
+<body>
+<main class="recovery-page">
+  <section class="recovery-card" aria-live="polite">
+    <div class="recovery-head"><span aria-hidden="true">💺</span><div><div class="recovery-label">TURIN TRANSPORTES • PAGAMENTO APROVADO</div><h1>Vamos resolver seu bilhete</h1></div></div>
+    <p class="recovery-msg" id="recovery-message">Estamos conferindo a emissão do seu bilhete.</p>
+    <div class="recovery-route" id="recovery-route" hidden></div>
+    <div class="recovery-choices" id="recovery-choices" hidden>
+      <button class="btn btn-primary" id="recovery-new-seat" type="button" hidden>Escolher outra poltrona</button>
+      <button class="btn btn-ghost" id="recovery-refund" type="button">Reembolso integral</button>
+    </div>
+    <div id="recovery-seats" hidden></div>
+    <p id="recovery-alert" class="recovery-warning" hidden></p>
+    <p><a href="profile.html" id="recovery-profile">Minhas compras</a></p>
+  </section>
+</main>
+<script defer src="seats.js?v=recovery-test-01"></script>
+<script defer src="recovery.js?v=recovery-test-01"></script>
+</body>
+</html>
