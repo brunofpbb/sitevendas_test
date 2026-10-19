@@ -468,7 +468,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
       });
       const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'Falha ao emitir bilhete (item)');
+      if (!j.ok) {
+        const err = new Error(j.error || 'Falha ao emitir bilhete (item)');
+        err.code = j.code || '';
+        throw err;
+      }
 
       const arquivos = j.arquivos || j.Arquivos || [];
       mergeFilesIntoBookingAtIndex(i, arquivos);            // marca ESTE item como pago
@@ -738,6 +742,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await resp.json();
             if (!resp.ok) throw new Error(data?.message || 'Falha ao processar pagamento');
 
+            // Referência opaca do pagamento, preservada localmente para recuperar
+            // um bilhete pago sem iniciar outra cobrança.
+            if (data.id || data?.payment?.id) {
+              const item = order[0] || {};
+              const schedule = getScheduleFromItem(item) || {};
+              localStorage.setItem('seatRecoveryContext', JSON.stringify({
+                paymentId:String(data.id || data.payment.id),
+                reference:idem,
+                email:String(user.email || user.Email || body.payer?.email || ''),
+                schedule
+              }));
+            }
+
             // === CARTÃO APROVADO ===
             if (data.status === 'approved') {
               showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
@@ -757,11 +774,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 hideOverlayIfShown();
-                alert('Pagamento aprovado, mas não foi possível gerar o bilhete. Suporte notificado.');
+                location.href='recovery.html';
               } catch (e) {
                 console.error('Falha na emissão pós-aprovação (cartão):', e);
                 hideOverlayIfShown();
-                alert('Pagamento aprovado, mas houve um problema ao emitir o bilhete. Tente novamente ou fale com o suporte.');
+                if (e.code === 'SEAT_UNAVAILABLE') {
+                  location.href = 'recovery.html';
+                  return;
+                }
+                alert('Pagamento aprovado, mas houve um problema ao emitir o bilhete. Não realize outro pagamento. O suporte foi notificado.');
               }
               return;
             }
@@ -850,7 +871,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-        if (st === 'approved') {
+undefined        if (st === 'approved') {
           clearInterval(pixPollTimer);
 
           // Exibe o overlay e mantém até o backend concluir tudo
@@ -873,7 +894,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             await new Promise(res => setTimeout(res, 100));
 
             // Redireciona somente após o processo REAL ter finalizado
-            location.href = 'profile.html';
+            // Após PIX aprovado, confirmar estado persistido antes de redirecionar.
+            // Se o webhook ainda estiver emitindo, a tela de recuperação aguarda.
+            try {
+              const ctx=JSON.parse(localStorage.getItem('seatRecoveryContext') || 'null');
+              if (ctx?.paymentId === String(paymentId)) {
+                const r=await fetch('/api/recovery/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ctx)});
+                const state=await r.json();
+                location.href=(state.state === 'issued') ? 'profile.html' : 'recovery.html';
+              } else location.href='profile.html';
+            } catch (_) { location.href='recovery.html'; }
             return;
           } catch (e) {
             console.error('Erro ao aguardar emissão via webhook (Pix):', e);
