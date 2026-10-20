@@ -57,14 +57,14 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     return ticket > 0 && paid > 0 && Math.abs(ticket - paid) <= 0.02;
   };
 
-  async function markUnavailable(payment, passengers, message) {
+  async function markUnavailable(payment, passengers, message, options={}) {
     if (!isSeatError(message) || !payment?.external_reference) return false;
     const { entries } = await sheetsFindByRef(payment.external_reference);
     const requestedSeats = (passengers || []).map(p=>String(p.seatNumber || p.poltrona || ''));
     const reported = [...String(message||'').matchAll(/poltrona\s+(\d+)/gi)].map(m=>m[1]);
     const seats = reported.length ? reported : (requestedSeats.length===1?requestedSeats:[]);
     if(!seats.length || !entries.length) return false;
-    if(entries.some(e=>[REFUNDING,REFUNDED,REISSUING,MANUAL,GROUP_CANCEL].includes(e.status)))return false;
+    if(entries.some(e=>[REFUNDING,REFUNDED,MANUAL,GROUP_CANCEL].includes(e.status) || (e.status===REISSUING && !options.recovery)))return false;
     // Só registrar falha confirmada da(s) poltrona(s) identificada(s).
     const targets = entries.filter(e=>!issued(e)&&seats.includes(String(e.poltrona))&&requestedSeats.includes(String(e.poltrona)));
     if(!targets.length) return false;
@@ -259,7 +259,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
         return res.status(409).json({ok:false,code:'SEAT_UNAVAILABLE',error:'Uma das poltronas já ficou indisponível. Selecione novamente.'});
       const byOld=new Map(replacements.map(x=>[String(x.oldSeat),Number(x.newSeat)]));
       const pax=failed.map(x=>({seatNumber:byOld.get(String(x.poltrona)),name:x.nome,document:x.cpf,phone:x.telefone,price:Number(String(x.valor).replace(',','.'))}));
-      for(const x of failed)await setStatus(x.rowIndex,REISSUING);
+      for(const x of failed)await setStatus(x.rowIndex,REISSUING,byOld.get(String(x.poltrona)));
       const x=entries[0];
       const body={
         mpPaymentId:paymentId,
