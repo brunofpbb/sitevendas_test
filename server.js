@@ -558,6 +558,20 @@ async function sheetsAppendBilhetes({
         if (idxPoltrona >= 0 && seat) {
           if (String(row[idxPoltrona] || '').trim() !== seat) continue;
         }
+        // Uma compra pode conter ida e volta com a mesma poltrona. Além
+        // da referência, comparar a viagem real para não sobrescrever
+        // o bilhete de outro trecho.
+        const sameIfPresent = (index, value) => {
+          const desired = String(value || '').trim();
+          const actual = index >= 0 ? String(row[index] || '').trim() : '';
+          return !desired || !actual || actual === desired;
+        };
+        if (!sameIfPresent(idxIdViagem, b.idViagem || schedule?.idViagem) ||
+            !sameIfPresent(idxIdOrigem, b.idOrigem || schedule?.idOrigem) ||
+            !sameIfPresent(idxIdDestino, b.idDestino || schedule?.idDestino)) continue;
+        // Nunca substituir um bilhete já emitido por um número diferente.
+        if (idxNumPassagem >= 0 && String(row[idxNumPassagem] || '').trim() &&
+            String(row[idxNumPassagem]).trim() !== String(b.numPassagem || '').trim()) continue;
         // achou candidato
         usedRows.add(i);
         return i;
