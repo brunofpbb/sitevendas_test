@@ -428,69 +428,101 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.setItem('bookings', JSON.stringify([...paid, ...open]));
   }
 
-  // === emite UMA venda por item ===
+  // Venda de cartão: cada poltrona tem resultado independente.
+  // Uma indisponibilidade confirmada não pode impedir a tentativa das outras.
+  // Falha de comunicação/resultado incerto, porém, interrompe o fluxo para
+  // evitar qualquer possibilidade de segunda emissão.
   async function venderPraxioApósAprovado(paymentId) {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-
     const results = [];
-
-    // 1) Calcula total de bilhetes esperados (soma de todos passageiros em todos trechos)
-    let totalExpected = 0;
-    for (const it of order) {
-      const pax = getPassengersFromItem(it);
-      totalExpected += (pax.length || 0);
-    }
+    const failedSeats = [];
+    let uncertain = null;
+    const totalExpected = order.reduce((count,it)=>count+getPassengersFromItem(it).length,0);
 
     for (let i = 0; i < order.length; i++) {
-      const it = order[i];
-      const schedule = getScheduleFromItem(it);
-      const passengers = getPassengersFromItem(it);
-      const totalAmount = itemSubtotal(it);                 // valor só daquele trecho
-      const idaVolta = inferLegType(it, i, order);        // 'ida' | 'volta'
-      const userEmail = (user.email || '').toString();
-      const userPhone = (user.phone || user.telefone || '').toString();
-
-      const r = await fetch('/api/praxio/vender', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mpPaymentId: paymentId,
-          schedule,
-          passengers,
-          totalAmount,
-          idEstabelecimentoVenda: '1',
-          idEstabelecimentoTicket: schedule.agencia || '93',
-          serieBloco: '93',
-          userEmail,
-          userPhone,
-          idaVolta,
-          totalExpected // <--- Envia o total GLOBAL para o agregador
-        })
-      });
-      const j = await r.json();
-      if (!j.ok) {
-        const err = new Error(j.error || 'Falha ao emitir bilhete (item)');
-        err.code = j.code || '';
-        throw err;
+      const it=order[i];
+      const schedule=getScheduleFromItem(it);
+      const passengers=getPassengersFromItem(it);
+      const seat=passengers[0]?.seatNumber || it._seat;
+      const body={
+        mpPaymentId:paymentId,schedule,passengers,totalAmount:itemSubtotal(it),
+        idEstabelecimentoVenda:'1',idEstabelecimentoTicket:schedule.agencia || '93',
+        serieBloco:'93',
+        userEmail:(user.email||'').toString(),
+        userPhone:(user.phone||user.telefone||'').toString(),
+        idaVolta:inferLegType(it,i,order),totalExpected
+      };
+      let response, result;
+      try {
+        response=await fetch('/api/praxio/vender',{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+        });
+        result=await response.json();
+      } catch(error) {
+        uncertain={seat,reason:error?.message || 'Falha de comunicação'};
+        console.error('[Card][Issue] Resultado inconclusivo; interrompendo demais vendas:',uncertain);
+        break;
       }
-
-      const arquivos = j.arquivos || j.Arquivos || [];
-      mergeFilesIntoBookingAtIndex(i, arquivos);            // marca ESTE item como pago
-      results.push(j);
+      if(!response.ok || result?.ok !== true) {
+        if(result?.code === 'SEAT_UNAVAILABLE') {
+          failedSeats.push({seat,index:i});
+          console.warn('[Card][Issue] Poltrona indisponível, continuando demais passageiros:',seat);
+          continue;
+        }
+        uncertain={seat,reason:result?.error||result?.message||'Resultado não confirmado'};
+        console.error('[Card][Issue] Falha desconhecida; não prosseguir automaticamente:',uncertain);
+        break;
+      }
+      results.push({index:i,arquivos:result.arquivos||result.Arquivos||[],venda:result.venda||result.Venda});
     }
 
-    // monta um agregado para o restante do fluxo
-    const arquivosAll = results.flatMap(x => x.arquivos || x.Arquivos || []);
-    const vendasAll = results.map(x => x.venda || x.Venda);
-    localStorage.setItem('lastTickets', JSON.stringify(
-      arquivosAll.map(a => ({
-        numPassagem: a.numPassagem || a.NumPassagem || null,
-        driveUrl: a.driveUrl || null,
-        pdfLocal: a.pdfLocal || null
-      }))
-    ));
+    // O pagamento já foi aprovado independentemente do resultado na Praxio:
+    // nenhum item desta compra deve voltar ao checkout para cobrar novamente.
+    // Marca as reservas como pagas, sem inventar número de bilhete.
+    try {
+      const all=JSON.parse(localStorage.getItem('bookings')||'[]');
+      const byOriginal=new Map();
+      for(const it of order){
+        const source=Number(it._srcOpenIdx);
+        if(!byOriginal.has(source))byOriginal.set(source,[]);
+      }
+      for(const r of results){
+        const source=Number(order[r.index]._srcOpenIdx);
+        byOriginal.get(source)?.push(...r.arquivos);
+      }
+      let openIdx=0;
+      for(const booking of all){
+        if(booking.paid===true)continue;
+        const files=byOriginal.get(openIdx);
+        if(files){
+          booking.paid=true;
+          booking.paidAt=new Date().toISOString();
+          booking.pendingRecovery=failedSeats.length>0 || !!uncertain;
+          booking.tickets=files.map(a=>({
+            numPassagem:a.numPassagem||a.NumPassagem||null,
+            driveUrl:a.driveUrl||null,pdfLocal:a.pdfLocal||null,
+            url:a.driveUrl||a.pdfLocal||null
+          }));
+          const first=booking.tickets[0];
+          if(first?.numPassagem)booking.ticketNumber=first.numPassagem;
+          if(first?.url)booking.ticketUrl=first.url;
+        }
+        openIdx++;
+      }
+      localStorage.setItem('bookings',JSON.stringify(all));
+    }catch(error){console.error('[Card][Bookings] Não foi possível atualizar histórico local',error);}
 
-    return { ok: true, vendas: vendasAll, arquivos: arquivosAll };
+    const arquivos=results.flatMap(r=>r.arquivos);
+    localStorage.setItem('lastTickets',JSON.stringify(arquivos.map(a=>({
+      numPassagem:a.numPassagem||a.NumPassagem||null,
+      driveUrl:a.driveUrl||null,pdfLocal:a.pdfLocal||null
+    }))));
+    return {
+      ok:!uncertain,
+      issuedCount:results.reduce((n,r)=>n+r.arquivos.length,0),
+      attempted:results.length+failedSeats.length+(uncertain?1:0),
+      failedSeats,uncertain,arquivos,vendas:results.map(r=>r.venda)
+    };
   }
 
 
@@ -757,32 +789,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // === CARTÃO APROVADO ===
             if (data.status === 'approved') {
-              showOverlayOnce('Pagamento confirmado!', 'Gerando o BPe…');
-
+              showOverlayOnce('Pagamento confirmado!', 'Conferindo as poltronas e emitindo bilhetes…');
+              const paymentId=String(data.id||data?.payment?.id||'');
               try {
-                const paymentId = (data.id || data?.payment?.id);
-                const venda = await venderPraxioApósAprovado(paymentId);
-                const arquivos = venda?.arquivos || venda?.Arquivos || [];
-                if (arquivos.length) {
-                  mergeDriveLinksIntoBookings(arquivos);
-
-                  // 👇 aguarda Sheets + e-mail concluírem no backend
-                  try { await fetch(`/api/mp/wait-flush?paymentId=${encodeURIComponent(paymentId)}`); } catch (_) { }
-
-                  location.href = 'profile.html';
-                  return;
+                const venda=await venderPraxioApósAprovado(paymentId);
+                if(venda.uncertain){
+                  console.error('[Card] Resultado incerto; não concluir automaticamente:',venda.uncertain);
+                } else {
+                  // O backend compara TODOS os assentos com o lote emitido e os
+                  // erros confirmados antes de liberar o processamento do Sheets.
+                  const finishResponse=await fetch('/api/mp/card-issuance-finished',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({paymentId,reference:idem})
+                  });
+                  const finishData=await finishResponse.json().catch(()=>({}));
+                  if(!finishResponse.ok||!finishData.ok)
+                    console.error('[Card] Conciliação incompleta; manter acompanhamento:',finishData);
+                  if(venda.issuedCount>0 && finishResponse.ok){
+                    const flush=await fetch('/api/mp/wait-flush?paymentId='+encodeURIComponent(paymentId));
+                    const status=await flush.json().catch(()=>({}));
+                    if(!status.flushed)console.warn('[Card] Aguardando conciliação final:',status);
+                  }
                 }
 
+                let state=null;
+                try{
+                  const r=await fetch('/api/recovery/state',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({paymentId,reference:idem,email:body.payer.email})
+                  });
+                  if(r.ok)state=await r.json();
+                }catch(error){console.warn('[Card] Consulta do estado falhou:',error);}
+
+                hideOverlayIfShown();
+                if(state?.state==='issued' && !venda.uncertain){
+                  location.href='profile.html';
+                }else{
+                  // Mesmo com alguma emissão concluída, preservar o fluxo de
+                  // recuperação até TODAS as poltronas terem situação definida.
+                  location.href='recovery.html';
+                }
+              }catch(error){
+                console.error('[Card] Pagamento aprovado, emissão inconclusiva:',error);
                 hideOverlayIfShown();
                 location.href='recovery.html';
-              } catch (e) {
-                console.error('Falha na emissão pós-aprovação (cartão):', e);
-                hideOverlayIfShown();
-                if (e.code === 'SEAT_UNAVAILABLE') {
-                  location.href = 'recovery.html';
-                  return;
-                }
-                alert('Pagamento aprovado, mas houve um problema ao emitir o bilhete. Não realize outro pagamento. O suporte foi notificado.');
               }
               return;
             }
