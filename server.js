@@ -3310,6 +3310,15 @@ app.post('/api/praxio/vender', async (req, res) => {
           }
         } catch (err) {
           console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
+          // Uma remoção parcial malsucedida não pode gerar outra linha emitida
+          // para a mesma poltrona: isso esconderia um estado financeiro inconsistente.
+          if (partialIssueSeats.length) {
+            await notifyAdminVendaFalha({
+              stage:'partial-sheet-reconciliation', mpPaymentId,
+              errorMessage:err.message, issuedSeats:partialIssueSeats
+            });
+            return;
+          }
         }
 
         // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
