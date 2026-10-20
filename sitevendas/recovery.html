@@ -22,6 +22,13 @@
     .recovery-profile-btn:hover{background:#dcefe3}
     .recovery-home{color:#52675b;text-decoration:none;font-weight:650;padding:12px}
     .recovery-choices .btn{font-weight:800}
+    .recovery-ticket-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:16px 0}
+    .recovery-ticket{border:1px solid #dce9e1;background:#fafdfb;border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;gap:4px}
+    .recovery-ticket strong{font-size:15px;color:#174b32}.recovery-ticket span{font-size:12px;color:#63786b}
+    .recovery-ticket.ok{border-color:#b5e1c7;background:#f0fbf4}.recovery-ticket.failed{border-color:#efcfb8;background:#fff9f1}
+    .recovery-danger{color:#9e3f25!important;background:#fff4ef!important;border:1px solid #f0c7b5!important}
+    .recovery-choices:has(.recovery-danger:not([hidden])) .recovery-danger{flex-basis:100%}
+    .recovery-card #recovery-seats .seats-onepage-root{max-width:100%}
     .recovery-head>span{display:grid;place-items:center;font-size:24px;width:48px;height:48px;background:#e6f5ed;border-radius:14px;flex:0 0 48px}
     .recovery-card [hidden]{display:none!important}
     @media(max-width:760px){.recovery-page{padding:12px 10px 45px}.recovery-card{padding:20px 17px;border-radius:18px}.recovery-head{align-items:flex-start}.recovery-label{font-size:11px}.recovery-head>span{width:38px;height:38px;flex-basis:38px;font-size:20px}.recovery-footer{align-items:stretch;flex-direction:column}.recovery-profile-btn{width:100%;box-sizing:border-box}.recovery-home{text-align:center}.recovery-choices{gap:10px}.recovery-choices .btn{flex-basis:100%}}
@@ -33,9 +40,11 @@
     <div class="recovery-head"><span aria-hidden="true">💺</span><div><div class="recovery-label">TURIN TRANSPORTES • PAGAMENTO APROVADO</div><h1 id="recovery-title">Sua viagem, sem imprevistos</h1></div></div>
     <p class="recovery-msg" id="recovery-message">Estamos conferindo a emissão da sua passagem.</p>
     <div class="recovery-route" id="recovery-route" hidden></div>
+    <div class="recovery-ticket-list" id="recovery-tickets" hidden></div>
     <div class="recovery-choices" id="recovery-choices" hidden>
       <button class="btn btn-primary" id="recovery-new-seat" type="button" hidden>Escolher outra poltrona</button>
       <button class="btn btn-ghost" id="recovery-refund" type="button">Reembolso integral</button>
+      <button class="btn btn-ghost recovery-danger" id="recovery-group-refund" type="button" hidden>Cancelar viagem do grupo e reembolsar tudo</button>
     </div>
     <div id="recovery-seats" hidden></div>
     <p id="recovery-alert" class="recovery-warning" hidden></p>
@@ -43,6 +52,6 @@
   </section>
 </main>
 <script defer src="seats.js?v=recovery-test-01"></script>
-<script defer src="recovery.js?v=recovery-ui-20261020"></script>
+<script defer src="recovery.js?v=group-recovery-20261020a"></script>
 </body>
 </html>
