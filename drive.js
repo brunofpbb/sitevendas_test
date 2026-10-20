@@ -50,4 +50,19 @@ async function uploadPdfToDrive({ buffer, filename, folderId }) {
   };
 }
 
-module.exports = { uploadPdfToDrive };
+// Recupera o PDF arquivado, sem baixar de URL não confiável.
+async function downloadPdfFromDrive(fileId) {
+  if (!/^[a-zA-Z0-9_-]{10,}$/.test(String(fileId || '')))
+    throw new Error('Identificador de bilhete do Drive inválido');
+  const drive = getDrive();
+  const response = await drive.files.get(
+    { fileId, alt: 'media' },
+    { responseType: 'arraybuffer' }
+  );
+  const data = Buffer.from(response.data);
+  if (!data.length || data.subarray(0,5).toString('ascii') !== '%PDF-')
+    throw new Error('Arquivo recuperado não é um PDF válido');
+  return data;
+}
+
+module.exports = { uploadPdfToDrive, downloadPdfFromDrive };
