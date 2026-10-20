@@ -2375,6 +2375,63 @@ async function resolvePurchaseEmailBundle({payment, bilhetes, arquivos, emailAtt
   return {bilhetes:fullBilhetes,arquivos:fullArquivos,emailAttachments:fullAnexos};
 }
 
+// Notificação de reembolso parcial: os bilhetes já emitidos continuam
+// válidos e devem ser enviados mesmo que outra poltrona da compra tenha
+// sido reembolsada. Nunca aciona uma nova venda Praxio ou novo estorno.
+async function sendIssuedTicketsAfterPartialRefund({payment, reference, buyerEmail, refundedAmount}) {
+  const {entries}=await sheetsFindByRef(reference);
+  const normalize=v=>String(v||'').trim().toLowerCase();
+  const email=normalize(buyerEmail);
+  const emails=new Set(entries.map(e=>normalize(e.email)).filter(Boolean));
+  if(!email || !emails.has(email))
+    throw new Error('E-mail do reembolso difere do registrado na compra');
+  const emailBundle=await resolvePurchaseEmailBundle({
+    payment, bilhetes:[], arquivos:[], emailAttachments:[],
+    recoveryIssue:true,allowRefunded:true
+  });
+  if(!emailBundle) {
+    console.log('[Email][PartialRefund] nenhum bilhete ativo para enviar', {paymentId:payment.id});
+    return {sent:false,reason:'no-active-tickets'};
+  }
+  const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+  const brl=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const {bilhetes,arquivos,emailAttachments}=emailBundle;
+  const list=bilhetes.map(b=>{
+    const file=arquivos.find(a=>String(a.numPassagem)===String(b.numPassagem));
+    const href=String(file?.driveUrl||file?.pdfLocal||'');
+    const safeLink=/^https:\/\/drive\.google\.com\//.test(href)
+      ? '<a href="'+escapeHtml(href)+'">Consultar PDF</a>' : '';
+    return '<li><strong>Bilhete '+escapeHtml(b.numPassagem)+'</strong> — Poltrona '+
+      escapeHtml(b.poltrona||'—')+', passageiro '+escapeHtml(b.nomeCliente||'')+
+      '<div>'+escapeHtml(b.origemNome||b.origem||'')+' → '+escapeHtml(b.destinoNome||b.destino||'')+
+      ' • '+escapeHtml(b.dataViagem||'')+' '+escapeHtml(b.horaPartida||'')+' '+safeLink+'</div></li>';
+  }).join('');
+  const fromEmail=process.env.SUPPORT_FROM_EMAIL||process.env.SMTP_USER;
+  const fromName=process.env.SUPPORT_FROM_NAME||'Turin Transportes';
+  const html='<div style="font-family:Arial,sans-serif;font-size:15px;color:#173a2b">'+
+    '<h2>Seus bilhetes confirmados</h2>'+
+    '<p>A solicitação de reembolso da passagem que não pôde ser emitida foi processada.'+
+    ' Os bilhetes abaixo continuam válidos e seguem anexos.</p>'+
+    '<p><strong>Reembolso solicitado:</strong> '+brl(refundedAmount)+'</p>'+
+    '<p><strong>Bilhetes válidos ('+bilhetes.length+'):</strong></p><ul>'+list+'</ul>'+
+    '<p>Você pode consultar sua compra no site Turin Transportes.</p></div>';
+  const attachments=emailAttachments.map(a=>({filename:a.filename,contentBase64:a.contentBase64}));
+  if(attachments.length!==bilhetes.length)
+    throw new Error('E-mail parcial: quantidade de PDFs divergente dos bilhetes ativos');
+  await sendViaBrevoApi({
+    to:email,cc:fromEmail,fromEmail,fromName,
+    subject:'Seus bilhetes confirmados e reembolso parcial – Turin Transportes',
+    html,text:'Os bilhetes válidos estão anexos. Reembolso da passagem não emitida: '+brl(refundedAmount),
+    attachments
+  });
+  console.log('[Email][PartialRefund] bilhetes enviados', {
+    paymentId:payment.id,ticketCount:bilhetes.length,attachments:attachments.length
+  });
+  return {sent:true,count:bilhetes.length};
+}
+
 // ==== Agregador por compra (webhook/e-mail/Sheets) ====
 // groupId -> { timer, startedAt, base, bilhetes:[], arquivos:[], emailAttachments:[], expected, flushed }
 const AGGR = new Map();
@@ -2874,7 +2931,7 @@ setInterval(() => {
 // Recuperação assistida: habilitada somente neste ambiente de testes.
 const seatRecovery = require('./seatRecovery')({
   app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch,
-  logVendaFalha, notifyAdminVendaFalha,
+  logVendaFalha, notifyAdminVendaFalha, sendIssuedTicketsAfterPartialRefund,
   praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao
 });
 
