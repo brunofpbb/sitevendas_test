@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   let current=null,poll=null,submitted=false,mode='checking';
   const openedAt=Date.now();
-  const identity={paymentId:context.paymentId,reference:context.reference,email:context.email};
+  const identity={paymentId:context.paymentId,reference:context.reference,email:context.email,idTipoVeiculo:(context.schedule||{}).idTipoVeiculo||''};
   const money=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const stopPoll=()=>{if(poll){clearInterval(poll);poll=null;}};
 
@@ -149,6 +149,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       stopPoll();return;
     }
     if(info.state==='refunding'||info.state==='reissuing'){
+      if(Date.now()-openedAt>120000){
+        title.textContent='Sua solicitação precisa de conferência';
+        msg.textContent='A operação ainda não foi confirmada. Não faça uma nova compra nem repita a solicitação. Consulte Minhas compras ou entre em contato com o suporte.';
+        stopPoll();return;
+      }
       title.textContent=info.state==='reissuing'?'Estamos emitindo seu bilhete':'Estamos processando seu reembolso';
       msg.textContent=info.state==='reissuing'?'Seu pagamento já foi confirmado. Aguarde enquanto finalizamos a emissão, sem nova cobrança.':'Sua solicitação foi recebida. Aguarde a confirmação do Mercado Pago.';
       return;
