@@ -121,7 +121,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       else if(entries.some(x=>norm(x.status)===norm(REFUNDING)))state='refunding';
       else if(entries.some(x=>norm(x.status)===norm(REISSUING)))state='reissuing';
       else if(eligible && failures.length)state='seat_unavailable';
-      else if(entries.length>1 && failures.length)state='manual';
+      // Ainda há outros bilhetes Pendente: aguardar conclusão do agregador PIX antes de liberar ações.
       res.json({
         ok: true, state, paymentId: String(payment.id),
         paymentStatus: payment.status,
