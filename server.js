@@ -2271,6 +2271,97 @@ function normalizeHoraPartida(h) {
 }
 
 
+// Monta uma única comunicação contendo todos os bilhetes da compra depois
+// da recuperação. Não altera a emissão nem o estado do pagamento.
+function storedDriveFileId(url) {
+  try {
+    const u = new URL(String(url || ''));
+    if (!['drive.google.com','docs.google.com'].includes(u.hostname)) return null;
+    return u.pathname.match(/\/d\/([a-zA-Z0-9_-]{10,})/)?.[1]
+      || (/^[a-zA-Z0-9_-]{10,}$/.test(u.searchParams.get('id') || '') ? u.searchParams.get('id') : null);
+  } catch (_) { return null; }
+}
+
+async function readPreviouslyIssuedPdf(link) {
+  const id = storedDriveFileId(link);
+  if (id) return downloadPdfFromDrive(id);
+  // Railway pode manter arquivo local enquanto não houver novo deploy.
+  // Essa é uma alternativa; o Drive continua sendo o armazenamento durável.
+  const local = String(link || '');
+  if (/^\/tickets\/[a-zA-Z0-9_./-]+\.pdf$/i.test(local)) {
+    const full = path.resolve(PUBLIC_DIR, '.' + local);
+    const root = path.resolve(TICKETS_DIR);
+    if (full.startsWith(root + path.sep)) {
+      const buf = await fs.promises.readFile(full);
+      if (buf.subarray(0,5).toString('ascii') === '%PDF-') return buf;
+    }
+  }
+  throw new Error('PDF anterior sem endereço válido do Drive ou arquivo local acessível');
+}
+
+async function resolvePurchaseEmailBundle({payment, bilhetes, arquivos, emailAttachments, recoveryIssue}) {
+  const reference=String(payment?.external_reference||'').trim();
+  if (!reference) throw new Error('E-mail: pagamento sem referência da compra');
+  const {entries}=await sheetsFindByRef(reference);
+  if (!entries.length) throw new Error('E-mail: compra sem bilhetes no Sheets');
+
+  const emitted=entries.filter(t=>String(t.status||'').trim().toLowerCase()==='emitido' && String(t.numPassagem||'').trim());
+  // Só encaminhar e-mail de bilhetes quando TODOS estiverem emitidos. Em
+  // compras parcialmente emitidas, aguardar a recuperação ou decisão posterior.
+  if(emitted.length!==entries.length) {
+    console.log('[Email][Group] aguardando recuperação, não enviar mensagem incompleta', {
+      paymentId:payment.id, issued:emitted.length, total:entries.length
+    });
+    return null;
+  }
+  const originalIds=new Set((bilhetes||[]).map(x=>String(x.numPassagem||'')));
+  const allIds=new Set(emitted.map(x=>String(x.numPassagem||'')));
+  if(allIds.size!==emitted.length)
+    throw new Error('E-mail: bilhetes duplicados na compra');
+  if(!recoveryIssue && (originalIds.size!==allIds.size || [...allIds].some(n=>!originalIds.has(n)))) {
+    // O agregador inicial pode disparar depois do recovery. Não enviar um
+    // segundo e-mail incompleto com somente os bilhetes da primeira tentativa.
+    console.log('[Email][Group] lote original incompleto; email consolidado será enviado pelo recovery', {paymentId:payment.id});
+    return null;
+  }
+
+  if(!recoveryIssue) {
+    if(emailAttachments.length !== emitted.length)
+      throw new Error('E-mail: quantidade de PDFs diferente dos bilhetes da compra');
+    return {bilhetes,arquivos,emailAttachments};
+  }
+
+  const byNumber=new Map((bilhetes||[]).map(t=>[String(t.numPassagem),t]));
+  const fileByNumber=new Map((arquivos||[]).map(f=>[String(f.numPassagem),f]));
+  const originals=Array.isArray(emailAttachments)?emailAttachments:[];
+  const fullBilhetes=[],fullArquivos=[],fullAnexos=[];
+  for(const e of emitted) {
+    const number=String(e.numPassagem);
+    const current=byNumber.get(number);
+    const registeredLink=String(e.linkBpe||'');
+    fullBilhetes.push(current || {
+      numPassagem:number, poltrona:e.poltrona,nomeCliente:e.nome,
+      origem:e.origem,destino:e.destino,origemNome:e.origem,destinoNome:e.destino,
+      dataViagem:e.dataViagem,horaPartida:e.horaPartida,
+      idaVolta:String(e.sentido||'').toLowerCase()==='volta'?'Volta':'Ida'
+    });
+    const file=fileByNumber.get(number);
+    fullArquivos.push(file || {numPassagem:number,driveUrl:registeredLink});
+    // O nome do PDF gerado contém '_NUMPASSAGEM_Ida.pdf', mas o nome do
+    // passageiro é variável. Não depender da ordem do array.
+    const currentAttachment=originals.find(a=>String(a.filename||'').includes('_'+number+'_'));
+    let contentBase64=currentAttachment?.contentBase64;
+    if(!contentBase64) {
+      const buf=await readPreviouslyIssuedPdf(registeredLink);
+      contentBase64=buf.toString('base64');
+    }
+    fullAnexos.push({filename:currentAttachment?.filename || 'bilhete_'+number+'.pdf',contentBase64});
+  }
+  if(fullAnexos.length!==emitted.length)
+    throw new Error('E-mail: um ou mais PDFs não puderam ser recuperados');
+  return {bilhetes:fullBilhetes,arquivos:fullArquivos,emailAttachments:fullAnexos};
+}
+
 // ==== Agregador por compra (webhook/e-mail/Sheets) ====
 // groupId -> { timer, startedAt, base, bilhetes:[], arquivos:[], emailAttachments:[], expected, flushed }
 const AGGR = new Map();
