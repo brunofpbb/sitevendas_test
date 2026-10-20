@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       });
 
-      if (!bilhetes.length) return;
+      if (bilhetes.length !== order.reduce((n,it)=>n+getPassengersFromItem(it).length,0) || !bilhetes.length) throw new Error('Dados de passageiros incompletos para registrar a compra.');
 
       const response = await fetch('/api/sheets/pre-reserva', {
         method: 'POST',
