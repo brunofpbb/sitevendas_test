@@ -334,7 +334,7 @@
       });
     }
 
-    const isReturn = state.type === 'volta';
+    const isReturn = state.type === 'volta' && !options.recovery;
     let maxSelectable = Infinity;
     let obPax = [];
     if (isReturn) {
