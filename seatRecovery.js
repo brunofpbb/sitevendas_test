@@ -125,6 +125,8 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       res.json({
         ok: true, state, paymentId: String(payment.id),
         paymentStatus: payment.status,
+        paymentMethod: String(payment.payment_method_id || payment.payment_method?.id || ''),
+        paymentType: String(payment.payment_type_id || ''),
         seat: e.poltrona,
         multiple:entries.length>1,
         totalTickets:entries.length,
