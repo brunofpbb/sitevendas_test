@@ -1261,6 +1261,29 @@ async function sheetsDeleteRowsByRef(externalRef) {
   });
 }
 
+// Remove SOMENTE pré-reservas de poltronas efetivamente emitidas.
+// As linhas com erro permanecem disponíveis para o recovery do grupo.
+async function sheetsDeleteIssuedPreReservations(externalRef, issuedSeats) {
+  if (!externalRef || !issuedSeats?.length) return;
+  const { entries } = await sheetsFindByRef(externalRef);
+  const seats = new Set(issuedSeats.map(x => String(x)));
+  const found = entries.filter(e => seats.has(String(e.poltrona)) && !e.numPassagem);
+  if (found.length !== seats.size) {
+    throw new Error('Pré-reservas emitidas não coincidem com o retorno da Praxio; bloqueando exclusão');
+  }
+  const sheets = await sheetsAuthRW();
+  const meta = await sheets.spreadsheets.get({spreadsheetId:process.env.SHEETS_BPE_ID});
+  const tab = (process.env.SHEETS_BPE_RANGE || 'BPE!A:AK').split('!')[0];
+  const sheet = (meta.data.sheets || []).find(x=>x.properties?.title===tab);
+  if(!sheet) throw new Error('Aba de pré-reservas não encontrada');
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId:process.env.SHEETS_BPE_ID,
+    requestBody:{requests:found.map(e=>e.rowIndex-1).sort((a,b)=>b-a).map(i=>({
+      deleteDimension:{range:{sheetId:sheet.properties.sheetId,dimension:'ROWS',startIndex:i,endIndex:i+1}}
+    }))}
+  });
+}
+
 async function emitirBilhetesViaWebhook(payment) {
   const extRef = (payment?.external_reference || '').trim();
   if (!extRef) {
@@ -3001,12 +3024,14 @@ app.post('/api/praxio/vender', async (req, res) => {
       });
 
 
+      let partialIssueSeats = [];
       if (errosPoltronas.length) {
         // ✅ NOVO: permitir venda parcial (não derrubar tudo se pelo menos 1 bilhete saiu)
         const okPoltronas = lista.filter(p => p?.Sucesso === true && Number(p?.NumPassagem || 0) > 0);
         const badPoltronas = errosPoltronas;
 
         if (okPoltronas.length > 0) {
+          partialIssueSeats = okPoltronas.map(p=>String(p.Poltrona));
           console.warn('[Praxio][Venda] Venda parcial: algumas poltronas falharam:', badPoltronas.map(x => ({
             poltrona: x?.Poltrona,
             idErro: x?.IdErro,
@@ -3154,7 +3179,7 @@ app.post('/api/praxio/vender', async (req, res) => {
       // contagem esperada (qtd de bilhetes desta venda)
       // Se vier totalExpected no body (webhook), usa ele pois é o GLOBAL (ida+volta)
       const expectedCount =
-        req.body?.totalExpected ||
+        (partialIssueSeats.length ? partialIssueSeats.length : Number(req.body?.totalExpected || 0)) ||
         (vendaResult?.ListaPassagem?.length || 0) ||
         (passengers?.length || 0);
 
@@ -3275,8 +3300,13 @@ app.post('/api/praxio/vender', async (req, res) => {
         try {
           const ref = payment?.external_reference || null;
           if (ref) {
-            console.log('[Sheets] limpando pré-reservas da referência', ref);
-            await sheetsDeleteRowsByRef(ref);
+            if (partialIssueSeats.length) {
+              console.log('[Sheets][Partial] preservando poltronas não emitidas; removendo somente:', partialIssueSeats);
+              await sheetsDeleteIssuedPreReservations(ref,partialIssueSeats);
+            } else {
+              console.log('[Sheets] limpando pré-reservas da referência', ref);
+              await sheetsDeleteRowsByRef(ref);
+            }
           }
         } catch (err) {
           console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
