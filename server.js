@@ -3350,35 +3350,11 @@ app.post('/api/praxio/vender', async (req, res) => {
           console.warn('[Email] comprador sem e-mail. Pulando envio.');
         }
 
-        // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
-
-
-        // 2) SHEETS – agora limpa a pré-reserva da mesma Referencia
-        try {
-          const ref = payment?.external_reference || null;
-          if (ref) {
-            if (partialIssueSeats.length || req.get('X-Source') === 'recovery') {
-              // Recovery usa a mesma referência do pagamento original: NUNCA
-              // apagar outras linhas desta compra. Atualizar somente a(s)
-              // poltrona(s) efetivamente emitida(s) via upsert por poltrona.
-              console.log('[Sheets][Recovery/Partial] preservando linhas da compra; atualizando apenas poltronas emitidas:', bilhetes.map(b => b.poltrona));
-            } else {
-              console.log('[Sheets] limpando pré-reservas da referência', ref);
-              await sheetsDeleteRowsByRef(ref);
-            }
-          }
-        } catch (err) {
-          console.error('[Sheets] erro ao limpar pré-reserva:', err?.message || err);
-          // Uma remoção parcial malsucedida não pode gerar outra linha emitida
-          // para a mesma poltrona: isso esconderia um estado financeiro inconsistente.
-          if (partialIssueSeats.length) {
-            await notifyAdminVendaFalha({
-              stage:'partial-sheet-reconciliation', mpPaymentId,
-              errorMessage:err.message, issuedSeats:partialIssueSeats
-            });
-            return;
-          }
-        }
+        // Atualiza cada pré-reserva pelo par (referência, viagem, poltrona).
+        // Não excluir por referência: uma compra pode conter bilhetes emitidos,
+        // pendentes e indisponíveis simultaneamente (cartão e PIX).
+        console.log('[Sheets][Upsert] preservando todas as linhas da compra; conciliando apenas:',
+          bilhetes.map(b => ({poltrona:b.poltrona,numPassagem:b.numPassagem})));
 
         // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
         const sheetsResult = await sheetsAppendBilhetes({
@@ -3396,7 +3372,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           userPhone,
           idaVoltaDefault: idaVolta
         });
-        if (!sheetsResult?.ok || ((partialIssueSeats.length || req.get('X-Source') === 'recovery') && sheetsResult.updated !== bilhetes.length)) {
+        if (!sheetsResult?.ok || (Number(sheetsResult.updated || 0) + Number(sheetsResult.appended || 0)) !== bilhetes.length) {
           const msg = 'Conciliação parcial incompleta no Sheets: ' + JSON.stringify(sheetsResult);
           console.error('[Sheets][Partial]', msg);
           await notifyAdminVendaFalha({
