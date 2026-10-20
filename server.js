@@ -2299,7 +2299,7 @@ async function readPreviouslyIssuedPdf(link) {
   throw new Error('PDF anterior sem endereço válido do Drive ou arquivo local acessível');
 }
 
-async function resolvePurchaseEmailBundle({payment, bilhetes, arquivos, emailAttachments, recoveryIssue}) {
+async function resolvePurchaseEmailBundle({payment, bilhetes, arquivos, emailAttachments, recoveryIssue, allowRefunded=false}) {
   const reference=String(payment?.external_reference||'').trim();
   if (!reference) throw new Error('E-mail: pagamento sem referência da compra');
   const {entries}=await sheetsFindByRef(reference);
@@ -2308,7 +2308,20 @@ async function resolvePurchaseEmailBundle({payment, bilhetes, arquivos, emailAtt
   const emitted=entries.filter(t=>String(t.status||'').trim().toLowerCase()==='emitido' && String(t.numPassagem||'').trim());
   // Só encaminhar e-mail de bilhetes quando TODOS estiverem emitidos. Em
   // compras parcialmente emitidas, aguardar a recuperação ou decisão posterior.
-  if(emitted.length!==entries.length) {
+  const normalizedStatus = (value) => String(value||'').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  if(allowRefunded) {
+    // No reembolso parcial, somente os efetivamente emitidos são anexados.
+    // A notificação só pode ocorrer quando as outras linhas já tiverem
+    // o reembolso confirmado e nenhuma emissão/cancelamento estiver pendente.
+    const ready=entries.every(t=>{
+      const status=normalizedStatus(t.status);
+      return status==='emitido' || status==='reembolsado integralmente';
+    });
+    if(!ready || !entries.some(t=>normalizedStatus(t.status)==='reembolsado integralmente'))
+      throw new Error('E-mail parcial bloqueado: existem passageiros sem resolução definitiva');
+    if(!emitted.length) return null;
+  } else if(emitted.length!==entries.length) {
     console.log('[Email][Group] aguardando recuperação, não enviar mensagem incompleta', {
       paymentId:payment.id, issued:emitted.length, total:entries.length
     });
