@@ -3407,30 +3407,46 @@ app.post('/api/praxio/vender', async (req, res) => {
           return;
         }
 
-        // 1) E-MAIL único com todos os anexos
+        // Para uma recuperação, juntar os PDFs da compra original (arquivados
+        // no Drive) aos PDFs emitidos agora, antes de notificar o comprador.
+        // Não enviar e-mail parcial enquanto existir poltrona não resolvida.
+        let emailBundle=null;
+        try {
+          emailBundle=await resolvePurchaseEmailBundle({
+            payment,bilhetes,arquivos,emailAttachments,recoveryIssue
+          });
+        } catch(error) {
+          console.error('[Email][Group] não foi possível preparar todos os PDFs:',error.message);
+          await notifyAdminVendaFalha({
+            stage:'purchase-email-consolidation',mpPaymentId:payment.id,
+            errorMessage:error.message,
+            tickets:bilhetes.map(b=>b.numPassagem)
+          }).catch(()=>{});
+        }
         const to = userEmail || pickBuyerEmail({ req, payment, vendaResult, fallback: null });
         const emailForSheets = to || userEmail || '';
 
-        if (to) {
+        if (to && emailBundle) {
+          const {bilhetes:emailBilhetes,arquivos:emailArquivos,emailAttachments:emailAnexos}=emailBundle;
           const appName = process.env.APP_NAME || 'Turin Transportes';
           const fromName = process.env.SUPPORT_FROM_NAME || 'Turin Transportes';
           const fromEmail = process.env.SUPPORT_FROM_EMAIL || process.env.SMTP_USER;
 
           // Descobre se há múltiplas rotas
-          const pairs = new Set(bilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
-          const headerRoute = (pairs.size === 1 && bilhetes.length)
+          const pairs = new Set(emailBilhetes.map(b => `${b.origemNome || b.origem || ''}→${b.destinoNome || b.destino || ''}`));
+          const headerRoute = (pairs.size === 1 && emailBilhetes.length)
             ? [...pairs][0]
             : 'Múltiplas rotas (veja por bilhete)';
 
           const valorTotalBRL = (Number(payment?.transaction_amount || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
           // lista <li> com rota/data/hora por bilhete e link
-          const listaHtml = bilhetes.map((b, i) => {
+          const listaHtml = emailBilhetes.map((b, i) => {
             const sentido = b?.idaVolta || (String(idaVolta).toLowerCase() === 'volta' ? 'Volta' : 'Ida');
             const rotaStr = `${b.origemNome || b.origem || '—'} → ${b.destinoNome || b.destino || '—'}`;
             const nome = (b?.nomeCliente || '').toString().trim() || '(passageiro não informado)';
-            const link = (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
-              || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
+            const link = (emailArquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
+              || (emailArquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
               || '';
             const linkHtml = link ? `<div style="margin:2px 0"><a href="${link}" target="_blank" rel="noopener">Abrir bilhete ${i + 1}</a></div>` : '';
             return `<li style="margin:10px 0">
@@ -3458,11 +3474,11 @@ app.post('/api/praxio/vender', async (req, res) => {
             'Olá,', `Recebemos seu pagamento em ${appName}. Bilhetes anexos.`,
             `Rota(s): ${headerRoute}`, `Valor total: ${valorTotalBRL}`,
             '', 'Bilhetes:',
-            ...bilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`)
+            ...emailBilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`)
           ].join('\n');
 
 
-          const attachmentsBrevo = emailAttachments.map((a) => ({
+          const attachmentsBrevo = emailAnexos.map((a) => ({
             filename: a.filename,
             contentBase64: a.contentBase64
           }));
@@ -3487,10 +3503,15 @@ app.post('/api/praxio/vender', async (req, res) => {
               '[Email Brevo] CRITICAL falha ao enviar:',
               err?.message || err
             );
+            await notifyAdminVendaFalha({
+              stage:'purchase-email-delivery',mpPaymentId:payment.id,
+              errorMessage:err.message,
+              bilhetes:emailBilhetes.map(b=>b.numPassagem)
+            }).catch(()=>{});
           }
 
         } else {
-          console.warn('[Email] comprador sem e-mail. Pulando envio.');
+          console.warn('[Email] envio adiado ou sem destinatário.');
         }
 
         // A emissão já foi persistida sincronicamente antes da resposta da
