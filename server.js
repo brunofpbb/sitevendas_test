@@ -2289,7 +2289,7 @@ async function readPreviouslyIssuedPdf(link) {
   // Essa é uma alternativa; o Drive continua sendo o armazenamento durável.
   const local = String(link || '');
   if (/^\/tickets\/[a-zA-Z0-9_./-]+\.pdf$/i.test(local)) {
-    const full = path.resolve(PUBLIC_DIR, '.' + local);
+    const full = path.resolve(TICKETS_DIR, '.' + local.slice('/tickets'.length));
     const root = path.resolve(TICKETS_DIR);
     if (full.startsWith(root + path.sep)) {
       const buf = await fs.promises.readFile(full);
