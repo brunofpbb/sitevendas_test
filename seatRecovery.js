@@ -230,6 +230,125 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     } finally { locks.delete(key); }
   }
 
+
+  // Operações por grupo usam o mesmo pagamento, com conferência integral do lote.
+  // Cada tentativa transita para estado persistente ANTES da chamada Praxio/MP.
+  app.post('/api/recovery/issue-batch', async(req,res)=>{
+    const {paymentId,reference,email,idTipoVeiculo} = req.body||{};
+    const key=String(paymentId);
+    if(locks.has(key))return res.status(409).json({ok:false,error:'Compra em processamento'});
+    locks.add(key);
+    try{
+      const {payment,entries}=await validated(paymentId,reference,email);
+      const failed=entries.filter(ticketFailed);
+      const replacements=req.body.replacements;
+      if(entries.length<=1 || !isPaid(payment) || !coherent(payment,entries) || !failed.length ||
+        !Array.isArray(replacements) || replacements.length!==failed.length)
+        return res.status(409).json({ok:false,error:'Compra ou seleção não elegível para recuperação em grupo'});
+      const originals=new Set(failed.map(x=>String(x.poltrona)));
+      const chosen=new Set(replacements.map(x=>String(x.newSeat)));
+      if(chosen.size!==failed.length || replacements.some(x=>!originals.has(String(x.oldSeat)) ||
+        !Number.isInteger(Number(x.newSeat)) || Number(x.newSeat)<3 || Number(x.newSeat)>99))
+        return res.status(400).json({ok:false,error:'Seleção de poltronas inválida'});
+      const layout=await seatLayout(entries[0],idTipoVeiculo||'');
+      const free=new Set(layout.filter(x=>x.free).map(x=>String(x.number)));
+      if([...chosen].some(seat=>!free.has(seat)))
+        return res.status(409).json({ok:false,code:'SEAT_UNAVAILABLE',error:'Uma das poltronas já ficou indisponível. Selecione novamente.'});
+      const byOld=new Map(replacements.map(x=>[String(x.oldSeat),Number(x.newSeat)]));
+      const pax=failed.map(x=>({seatNumber:byOld.get(String(x.poltrona)),name:x.nome,document:x.cpf,phone:x.telefone,price:Number(String(x.valor).replace(',','.'))}));
+      for(const x of failed)await setStatus(x.rowIndex,REISSUING);
+      const x=entries[0];
+      const body={
+        mpPaymentId:paymentId,
+        schedule:{idViagem:x.idViagem,idOrigem:x.idOrigem,idDestino:x.idDestino,date:x.dataViagem,horaPartida:x.horaPartida,originName:x.origem,destinationName:x.destino},
+        passengers:pax,totalAmount:pax.reduce((v,t)=>v+t.price,0),
+        userEmail:x.email,userPhone:x.telefone,idaVolta:norm(x.sentido).includes('volta')?'volta':'ida',
+        idEstabelecimentoTicket:'93',serieBloco:'93',totalExpected:failed.length
+      };
+      const response=await fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/praxio/vender',{
+        method:'POST',headers:{'Content-Type':'application/json','X-Source':'recovery'},body:JSON.stringify(body)
+      });
+      const result=await response.json();
+      if(!response.ok||!result.ok){
+        if(result.code==='SEAT_UNAVAILABLE'){
+          for(const x of failed)await setStatus(x.rowIndex,FAIL);
+          return res.status(409).json({ok:false,code:'SEAT_UNAVAILABLE',error:'Uma poltrona ficou indisponível; escolha novamente.'});
+        }
+        for(const x of failed)await setStatus(x.rowIndex,MANUAL);
+        await notifyAdminVendaFalha({stage:'group-recovery-issue',mpPaymentId:paymentId,errorMessage:result.error||'Falha no lote'});
+        return res.status(502).json({ok:false,error:'Não foi possível confirmar todos os bilhetes. Suporte acionado.'});
+      }
+      // A confirmação final permanece no Sheets; não presumimos emissão a partir de HTTP 200.
+      return res.json({ok:true,state:'reissuing'});
+    }catch(e){
+      try{
+        const {entries}=await sheetsFindByRef(reference);
+        for(const x of entries.filter(t=>norm(t.status)===norm(REISSUING)))await setStatus(x.rowIndex,MANUAL);
+      }catch(_){}
+      await notifyAdminVendaFalha({stage:'group-recovery-exception',mpPaymentId:paymentId,errorMessage:e.message}).catch(()=>{});
+      return res.status(e.code||502).json({ok:false,error:'Não foi possível confirmar a emissão do grupo. Consulte o suporte.'});
+    }finally{locks.delete(key);}
+  });
+
+  app.post('/api/recovery/refund-group',async(req,res)=>{
+    const {paymentId,reference,email,idTipoVeiculo}=req.body||{};
+    const key=String(paymentId);
+    if(locks.has(key))return res.status(409).json({ok:false,error:'Compra em processamento'});
+    locks.add(key);
+    try{
+      const {payment,entries}=await validated(paymentId,reference,email);
+      const failed=entries.filter(ticketFailed),sold=entries.filter(issued);
+      if(entries.length<2 || !isPaid(payment) || !coherent(payment,entries) || !failed.length)
+        return res.status(409).json({ok:false,error:'Compra não elegível para reembolso em grupo'});
+      const refunded=(payment.refunds||[]).reduce((v,t)=>v+Number(t.amount||0),0);
+      if(refunded>0.001)return res.status(409).json({ok:false,error:'Existe reembolso anterior. Atendimento necessário.'});
+      // Se há emitidos, todo o grupo só pode ser cancelado se faltam assentos
+      // para pelo menos um passageiro ainda sem bilhete.
+      if(sold.length){
+        const free=await availCount(entries,idTipoVeiculo||'');
+        if(free>=failed.length)
+          return res.status(409).json({ok:false,error:'Há vagas para continuar a viagem. O cancelamento integral do grupo não está disponível.'});
+        // Primeiro verifica TODOS os bilhetes emitidos, antes de cancelar qualquer um.
+        const session=await praxioLogin();
+        const verified=[];
+        for(const row of sold){
+          const ver=await praxioVerificaDevolucao({idSessao:session,numPassagem:row.numPassagem,motivo:'Sem vagas para grupo em recuperação de emissão'});
+          const ticket=ver?.Xml?.Passagem;
+          if(!ticket || ver?.IdErro)throw new Error('Cancelamento de um bilhete não autorizado pela Praxio');
+          verified.push({row,ticket});
+        }
+        for(const row of entries)await setStatus(row.rowIndex,GROUP_CANCEL);
+        try{
+          for(const {row,ticket} of verified){
+            const result=await praxioGravaDevolucao({idSessao:session,xmlPassagem:ticket});
+            if(result?.IdErro || result?.Sucesso===false)throw new Error('Praxio não confirmou o cancelamento do bilhete '+row.numPassagem);
+            await setStatus(row.rowIndex,'Cancelado para reembolso integral');
+          }
+        }catch(err){
+          for(const row of entries)await setStatus(row.rowIndex,MANUAL).catch(()=>{});
+          await notifyAdminVendaFalha({stage:'group-cancel-partial',mpPaymentId:paymentId,errorMessage:err.message});
+          return res.status(502).json({ok:false,error:'Cancelamento do grupo inconclusivo. Suporte acionado; reembolso ainda não solicitado.'});
+        }
+      }else{
+        // Nenhum bilhete emitido: não há o que cancelar na Praxio.
+        for(const row of entries)await setStatus(row.rowIndex,REFUNDING);
+      }
+      // Identificador fixo para repetir com idempotência no Mercado Pago.
+      try{
+        const result=await mpRefund({paymentId,amount:Number(payment.transaction_amount),idempotencyKey:'group-seat-shortage-full-'+paymentId});
+        for(const row of entries)await setStatus(row.rowIndex,REFUNDED);
+        return res.json({ok:true,state:'refunded',refundId:result.id});
+      }catch(err){
+        for(const row of entries)await setStatus(row.rowIndex,MANUAL).catch(()=>{});
+        await notifyAdminVendaFalha({stage:'group-full-refund',mpPaymentId:paymentId,errorMessage:err.message});
+        return res.status(502).json({ok:false,error:'Estorno não confirmado. Suporte acionado.'});
+      }
+    }catch(err){
+      await notifyAdminVendaFalha({stage:'group-refund-validation',mpPaymentId:paymentId,errorMessage:err.message}).catch(()=>{});
+      return res.status(err.code||409).json({ok:false,error:'Não foi possível validar o cancelamento integral com segurança. Suporte acionado.'});
+    }finally{locks.delete(key);}
+  });
+
   app.post('/api/recovery/refund', (req,res)=>runAction(req,res,'refund'));
   app.post('/api/recovery/issue', (req,res)=>runAction(req,res,'issue'));
   return { markUnavailable, isSeatError };
