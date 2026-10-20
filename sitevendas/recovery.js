@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const context = JSON.parse(localStorage.getItem('seatRecoveryContext') || 'null');
   const $ = id => document.getElementById(id);
   const msg=$('recovery-message'),route=$('recovery-route'),choices=$('recovery-choices'),title=$('recovery-title');
-  const newSeat=$('recovery-new-seat'),refund=$('recovery-refund'),stage=$('recovery-seats'),alertEl=$('recovery-alert');
+  const newSeat=$('recovery-new-seat'),refund=$('recovery-refund'),groupRefund=$('recovery-group-refund'),ticketsEl=$('recovery-tickets'),stage=$('recovery-seats'),alertEl=$('recovery-alert');
   const notify = text => {alertEl.textContent=text;alertEl.hidden=!text;};
   const request=async(path,body)=>{
     const r=await fetch('/api/recovery/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -19,6 +19,108 @@ document.addEventListener('DOMContentLoaded', async () => {
   const identity={paymentId:context.paymentId,reference:context.reference,email:context.email};
   const money=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const stopPoll=()=>{if(poll){clearInterval(poll);poll=null;}};
+
+  async function showGroup(info) {
+    stopPoll();
+    title.textContent='Vamos concluir a viagem do seu grupo';
+    const failed=(info.tickets||[]).filter(t=>!t.issued && String(t.status||'').toLowerCase()==='poltrona indisponível');
+    const issued=(info.tickets||[]).filter(t=>t.issued);
+    const capacity=info.freeSeats;
+    msg.textContent=failed.length+' poltrona(s) ficaram indisponíveis. '+issued.length+
+      ' bilhete(s) já foram emitidos. Você não precisa realizar outro pagamento.';
+    route.hidden=false;
+    const s=info.schedule||{};
+    route.textContent=[s.originName+' → '+s.destinationName,s.date,s.horaPartida].filter(Boolean).join(' • ');
+    ticketsEl.hidden=false;
+    ticketsEl.replaceChildren();
+    for(const t of info.tickets||[]){
+      const card=document.createElement('div');
+      card.className='recovery-ticket '+(t.issued?'ok':'failed');
+      const strong=document.createElement('strong');
+      strong.textContent=t.passenger || 'Passageiro';
+      const status=document.createElement('span');
+      status.textContent='Poltrona '+t.seat+' • '+(t.issued?'Bilhete emitido':'Escolha outra poltrona');
+      card.append(strong,status);ticketsEl.appendChild(card);
+    }
+    choices.hidden=false;stage.hidden=true;
+    newSeat.hidden=!info.canReplace;
+    newSeat.textContent=failed.length===1?'Escolher outra poltrona':'Escolher novas poltronas';
+    refund.hidden=false;
+    refund.textContent='Reembolsar apenas os bilhetes sem emissão';
+    groupRefund.hidden=!(info.canGroupRefund && issued.length>0);
+    notify('');
+    if(capacity===null){
+      notify('Não foi possível conferir a disponibilidade agora. A opção de trocar poltronas será habilitada após nova consulta.');
+    }else if(capacity<failed.length){
+      notify('Não existem vagas suficientes para todos os passageiros. Por isso, você também pode cancelar toda a viagem e solicitar o reembolso integral.');
+    }
+    newSeat.onclick=async()=>{
+      if(submitted)return;
+      mode='choosing';choices.hidden=true;stage.hidden=false;stage.replaceChildren();
+      try{
+        const trip={...(context.schedule||{}),...info.schedule};
+        const r=await fetch('/api/poltronas',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({idViagem:s.idViagem,idLocOrigem:s.idOrigem,idLocDestino:s.idDestino,
+            idTipoVeiculo:trip.idTipoVeiculo||''})});
+        if(!r.ok)throw Error('A disponibilidade não pôde ser consultada.');
+        const raw=await r.json(),data=Array.isArray(raw)?raw[0]:raw;
+        const items=data?.LaypoltronaXml?.PoltronaXmlRetorno || data?.PoltronaXmlRetorno || [];
+        const rows=Array.isArray(items)?items:[items];
+        const busy=new Set((info.tickets||[]).filter(t=>t.issued).map(t=>Number(t.seat)));
+        trip.seats=rows.map(p=>({number:Number(p.Caption??p.caption??p.Numero??p.NumeroPoltrona),
+          situacao:Number(p.Situacao??p.situacao??-1)}))
+          .filter(p=>Number.isInteger(p.number)&&p.number>=1&&p.number<=42)
+          .map(p=>({...p,occupied:p.situacao!==0||busy.has(p.number)}));
+        await window.renderSeats(stage,trip,info.wayType||'ida',{recovery:true,recoveryCount:failed.length,
+          passengers:failed.map(t=>({name:t.passenger,cpf:t.cpf,phone:t.phone}))});
+        stage.addEventListener('seats:back',()=>{mode='checking';stage.hidden=true;choices.hidden=false;},{once:true});
+        stage.addEventListener('seats:confirm',async e=>{
+          if(submitted)return;
+          const selections=e.detail?.seats||[];
+          if(selections.length!==failed.length)return;
+          submitted=true;mode='issuing';stage.hidden=true;
+          title.textContent='Estamos emitindo os bilhetes';
+          msg.textContent='Estamos confirmando as novas poltronas sem cobrar novamente. Aguarde.';
+          try{
+            await request('issue-batch',{...identity,idTipoVeiculo:trip.idTipoVeiculo||'',
+              replacements:failed.map((t,i)=>({oldSeat:t.seat,newSeat:selections[i]}))});
+            title.textContent='Estamos finalizando a emissão';
+            msg.textContent='A emissão foi encaminhada. Aguarde a confirmação dos bilhetes em Minhas compras.';
+            submitted=false;mode='checking';stopPoll();poll=setInterval(refresh,5000);
+          }catch(err){
+            submitted=false;mode='checking';msg.textContent=err.message;
+            if(err.code==='SEAT_UNAVAILABLE')setTimeout(refresh,500);
+            else notify('Não realize outro pagamento. O suporte poderá conferir a emissão.');
+          }
+        },{once:true});
+      }catch(err){
+        mode='checking';stage.hidden=true;choices.hidden=false;
+        notify(err.message||'Falha ao abrir o mapa de poltronas.');
+      }
+    };
+    refund.onclick=()=>performGroupRefund('refund-failed',
+      'Deseja receber o valor dos bilhetes não emitidos? Os bilhetes já emitidos continuarão válidos.');
+    groupRefund.onclick=()=>performGroupRefund('refund-group',
+      'Confirmar cancelamento de TODOS os bilhetes emitidos e reembolso de 100% da compra? Esta ação não pode ser desfeita.');
+    async function performGroupRefund(endpoint,confirmation){
+      if(submitted||!confirm(confirmation))return;
+      submitted=true;choices.hidden=true;title.textContent='Estamos processando sua solicitação';
+      msg.textContent='Estamos verificando os bilhetes e encaminhando o reembolso. Aguarde.';
+      try{
+        const result=await request(endpoint,{...identity,idTipoVeiculo:(context.schedule||{}).idTipoVeiculo||''});
+        title.textContent='Reembolso solicitado com sucesso';
+        msg.textContent=endpoint==='refund-group'?
+          'Os bilhetes do grupo foram cancelados e o reembolso integral foi solicitado ao Mercado Pago.':
+          'O reembolso das poltronas não emitidas foi solicitado. Os demais bilhetes continuam válidos.';
+        if(result.state==='refunded')localStorage.removeItem('seatRecoveryContext');
+        stopPoll();
+      }catch(err){
+        title.textContent='Solicitação precisa de conferência';
+        msg.textContent=err.message;notify('Não realize outro pagamento nem tente repetir a operação. O suporte poderá verificar o estado.');
+      }finally{submitted=false;}
+    }
+  }
+
   async function refresh() {
     let info;
     try{info=await request('state',identity);}
@@ -26,6 +128,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     current=info;
     if(mode==='choosing')return;
     choices.hidden=true;stage.hidden=true;notify('');
+    if(info.state==='partially_refunded') {
+      title.textContent='Reembolso parcial solicitado';
+      msg.textContent='Os bilhetes emitidos continuam válidos. O valor das poltronas que não foram emitidas foi solicitado ao Mercado Pago.';
+      stopPoll();return;
+    }
     if(info.state==='issued') {
       title.textContent='Bilhete emitido com sucesso!';
       msg.textContent='Sua nova poltrona foi confirmada. O bilhete está disponível na área Minhas compras.';
@@ -56,6 +163,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       return;
     }
+    if(info.multiple){await showGroup(info);return;}
     stopPoll();
     title.textContent='Sua poltrona ficou indisponível';
     msg.textContent='A poltrona '+info.seat+' ficou indisponível antes da emissão. Seu pagamento de '+money(info.amount)+' está confirmado. Você pode escolher outra poltrona na mesma viagem, sem pagar novamente, ou solicitar o reembolso integral.';
