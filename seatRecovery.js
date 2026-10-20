@@ -3,7 +3,7 @@
 // Recuperação de emissão após pagamento aprovado e falha CONFIRMADA por assento ocupado.
 // Mantém os estados no Sheets existente. Operações financeiras só para 1 bilhete,
 // sem emissão parcial, e com chave idempotente no Mercado Pago.
-module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch, logVendaFalha, notifyAdminVendaFalha, praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao }) {
+module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch, logVendaFalha, notifyAdminVendaFalha, sendIssuedTicketsAfterPartialRefund, praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao }) {
   const locks = new Set();
   const FAIL = 'Poltrona indisponível';
   const REFUNDING = 'Reembolso em processamento';
@@ -316,7 +316,17 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       try{
         const refund=await mpRefund({paymentId,amount:total,idempotencyKey:'seat-failed-only-'+paymentId});
         for(const row of failed)await setStatus(row.rowIndex,REFUNDED);
-        return res.json({ok:true,state:entries.some(issued)?'partially_refunded':'refunded',amount:total,refundId:refund.id});
+        let emailStatus='not-applicable';
+        if(entries.some(issued) && sendIssuedTicketsAfterPartialRefund){
+          try{
+            const sent=await sendIssuedTicketsAfterPartialRefund({payment,reference,buyerEmail:email,refundedAmount:total});
+            emailStatus=sent?.sent?'sent':'skipped';
+          }catch(emailError){
+            emailStatus='failed';
+            await notifyAdminVendaFalha({stage:'partial-refund-email',mpPaymentId:paymentId,errorMessage:emailError.message}).catch(()=>{});
+          }
+        }
+        return res.json({ok:true,state:entries.some(issued)?'partially_refunded':'refunded',amount:total,refundId:refund.id,emailStatus});
       }catch(error){
         for(const row of failed)await setStatus(row.rowIndex,MANUAL).catch(()=>{});
         await notifyAdminVendaFalha({stage:'group-partial-refund',mpPaymentId:paymentId,errorMessage:error.message});
