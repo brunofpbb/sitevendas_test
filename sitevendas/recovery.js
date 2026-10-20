@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     newSeat.hidden=!info.canReplace;
     newSeat.textContent=failed.length===1?'Escolher outra poltrona':'Escolher novas poltronas';
     refund.hidden=false;
-    refund.textContent='Reembolsar apenas os bilhetes sem emissão';
+    refund.textContent=issued.length?'Reembolsar apenas os bilhetes sem emissão':'Solicitar reembolso integral';
     groupRefund.hidden=!(info.canGroupRefund && issued.length>0);
     notify('');
     if(capacity===null){
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         title.textContent='Reembolso solicitado com sucesso';
         msg.textContent=endpoint==='refund-group'?
           'Os bilhetes do grupo foram cancelados e o reembolso integral foi solicitado ao Mercado Pago.':
-          'O reembolso das poltronas não emitidas foi solicitado. Os demais bilhetes continuam válidos.';
+          (issued.length ? 'O reembolso das poltronas não emitidas foi solicitado. Os demais bilhetes continuam válidos.' : 'O reembolso integral da compra foi solicitado ao Mercado Pago.');
         if(result.state==='refunded')localStorage.removeItem('seatRecoveryContext');
         stopPoll();
       }catch(err){
