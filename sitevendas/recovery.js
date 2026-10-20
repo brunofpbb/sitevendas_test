@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const openedAt=Date.now();
   const identity={paymentId:context.paymentId,reference:context.reference,email:context.email,idTipoVeiculo:(context.schedule||{}).idTipoVeiculo||''};
   const money=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const dateBR=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'')) ? v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4) : (v||'');
   const stopPoll=()=>{if(poll){clearInterval(poll);poll=null;}};
 
   async function showGroup(info) {
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ' bilhete(s) já foram emitidos. Você não precisa realizar outro pagamento.';
     route.hidden=false;
     const s=info.schedule||{};
-    route.textContent=[s.originName+' → '+s.destinationName,s.date,s.horaPartida].filter(Boolean).join(' • ');
+    route.textContent=[s.originName+' → '+s.destinationName,dateBR(s.date),s.horaPartida].filter(Boolean).join(' • ');
     ticketsEl.hidden=false;
     ticketsEl.replaceChildren();
     for(const t of info.tickets||[]){
@@ -129,16 +130,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(mode==='choosing')return;
     choices.hidden=true;stage.hidden=true;notify('');
     if(info.state==='partially_refunded') {
+      ticketsEl.hidden=true;
       title.textContent='Reembolso parcial solicitado';
       msg.textContent='Os bilhetes emitidos continuam válidos. O valor das poltronas que não foram emitidas foi solicitado ao Mercado Pago.';
       stopPoll();return;
     }
     if(info.state==='issued') {
-      title.textContent='Bilhete emitido com sucesso!';
-      msg.textContent='Sua nova poltrona foi confirmada. O bilhete está disponível na área Minhas compras.';
+      ticketsEl.hidden=true;
+      title.textContent=info.multiple?'Bilhetes emitidos com sucesso!':'Bilhete emitido com sucesso!';
+      msg.textContent=info.multiple?'As poltronas do grupo foram confirmadas. Os bilhetes estão disponíveis em Minhas compras.':'Sua nova poltrona foi confirmada. O bilhete está disponível na área Minhas compras.';
       stopPoll();localStorage.removeItem('seatRecoveryContext');return;
     }
     if(info.state==='refunded') {
+      ticketsEl.hidden=true;
       title.textContent='Reembolso solicitado com sucesso';
       msg.textContent='O reembolso integral foi registrado no Mercado Pago. O prazo de recebimento depende do meio de pagamento utilizado.';
       stopPoll();localStorage.removeItem('seatRecoveryContext');return;
