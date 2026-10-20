@@ -333,8 +333,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===== Pré-reserva no Sheets (antes de criar o pagamento) =====
   async function preRegistrarNoSheets(externalReference, explicitEmail) {
     try {
-      if (!externalReference) return;
-      if (!Array.isArray(order) || !order.length) return;
+      if (!externalReference || !Array.isArray(order) || !order.length)
+        throw new Error('Não foi possível identificar os bilhetes antes do pagamento.');
 
       const userLS = JSON.parse(localStorage.getItem('user') || 'null') || {};
       // Prioridade: Email passado explicitamente (do Form) > localStorage > vazio
@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!bilhetes.length) return;
 
-      await fetch('/api/sheets/pre-reserva', {
+      const response = await fetch('/api/sheets/pre-reserva', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -394,8 +394,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           bilhetes
         })
       });
-    } catch (e) {
-      console.warn('[pre-reserva] falhou, seguindo sem gravar no Sheets:', e);
+      const result=await response.json().catch(()=>({}));
+      if (!response.ok || result.ok!==true || Number(result.appended)!==bilhetes.length)
+        throw new Error('Falha ao registrar os bilhetes antes do pagamento.');
+    } catch (error) {
+      console.error('[pre-reserva] pagamento não será iniciado:',error);
+      throw new Error('Não foi possível preparar a compra. Nenhum pagamento foi iniciado. Tente novamente em instantes.');
     }
   }
 
