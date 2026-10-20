@@ -3234,6 +3234,42 @@ app.post('/api/praxio/vender', async (req, res) => {
 
       }
 
+      // REGISTRO DA EMISSÃO: persistir ANTES de responder HTTP 200.
+      // A Praxio já vendeu; o Sheets precisa refletir a emissão sem depender
+      // do agregador de email, dos anexos ou de um futuro timeout.
+      const persistence = await sheetsAppendBilhetes({
+        bilhetes: bilhetesPayload.map(b=>({
+          ...b,
+          driveUrl: arquivos.find(a=>String(a.numPassagem)===String(b.numPassagem))?.driveUrl
+            || arquivos.find(a=>String(a.numPassagem)===String(b.numPassagem))?.pdfLocal || ''
+        })),
+        schedule,
+        payment,
+        userEmail: getLoginEmail(req,payment,vendaResult) || userEmail,
+        userPhone,
+        idaVoltaDefault: idaVolta
+      });
+      if (!persistence?.ok ||
+          Number(persistence.updated || 0) + Number(persistence.appended || 0) !== bilhetesPayload.length) {
+        const errText='Bilhete emitido na Praxio, mas não conciliado no Sheets: '+JSON.stringify(persistence);
+        console.error('[Sheets][Issue] CRITICAL',errText);
+        await notifyAdminVendaFalha({
+          stage:'ticket-issued-unreconciled',mpPaymentId,userEmail,userPhone,
+          errorMessage:errText,
+          bilhetes:bilhetesPayload.map(b=>({numPassagem:b.numPassagem,poltrona:b.poltrona}))
+        });
+        // A venda NÃO deve ser repetida automaticamente após um resultado
+        // incerto na conciliação. O suporte precisa reconciliar o bilhete.
+        return {status:502,body:{
+          ok:false,code:'ISSUED_UNRECONCILED',
+          error:'A Praxio emitiu o bilhete, mas o registro ainda precisa de conferência. Não repita a compra.'
+        }};
+      }
+      console.log('[Sheets][Issue] emissão conciliada antes da resposta', {
+        mpPaymentId, tickets:bilhetesPayload.map(b=>b.numPassagem),
+        updated:persistence.updated, appended:persistence.appended
+      });
+
       // --- FRAGMENTO a enfileirar no agregador ---
       const loginEmail = getLoginEmail(req, payment, vendaResult);
       const loginPhone = getLoginPhone(req, payment, vendaResult);
@@ -3364,39 +3400,8 @@ app.post('/api/praxio/vender', async (req, res) => {
           console.warn('[Email] comprador sem e-mail. Pulando envio.');
         }
 
-        // Atualiza cada pré-reserva pelo par (referência, viagem, poltrona).
-        // Não excluir por referência: uma compra pode conter bilhetes emitidos,
-        // pendentes e indisponíveis simultaneamente (cartão e PIX).
-        console.log('[Sheets][Upsert] preservando todas as linhas da compra; conciliando apenas:',
-          bilhetes.map(b => ({poltrona:b.poltrona,numPassagem:b.numPassagem})));
-
-        // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
-        const sheetsResult = await sheetsAppendBilhetes({
-          spreadsheetId: process.env.SHEETS_BPE_ID,
-          range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
-          bilhetes: bilhetes.map(b => ({
-            ...b,
-            driveUrl: (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.driveUrl)
-              || (arquivos.find(a => String(a.numPassagem) === String(b.numPassagem))?.pdfLocal)
-              || ''
-          })),
-          schedule,
-          payment,
-          userEmail: emailForSheets,
-          userPhone,
-          idaVoltaDefault: idaVolta
-        });
-        if (!sheetsResult?.ok || (Number(sheetsResult.updated || 0) + Number(sheetsResult.appended || 0)) !== bilhetes.length) {
-          const msg = 'Conciliação parcial incompleta no Sheets: ' + JSON.stringify(sheetsResult);
-          console.error('[Sheets][Partial]', msg);
-          await notifyAdminVendaFalha({
-            stage:'partial-sheet-reconciliation',mpPaymentId,
-            errorMessage:msg,issuedSeats:partialIssueSeats
-          });
-          // Não registrar venda como conciliada quando algum bilhete não foi salvo.
-          return;
-        }
-
+        // A emissão já foi persistida sincronicamente antes da resposta da
+        // Praxio. O agregador processa somente o email e o log consolidado.
         await logVendaSucesso({
           mpPaymentId: String(payment?.id || ''),
           external_reference: String(payment?.external_reference || ''),
