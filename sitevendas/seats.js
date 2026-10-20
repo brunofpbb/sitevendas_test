@@ -301,7 +301,7 @@
     const btnConfirm = root.querySelector('#btnConfirm');
     const btnBack = root.querySelector('#btnBack');
     if (options.recovery) {
-      btnConfirm.textContent = 'Emitir bilhete';
+      btnConfirm.textContent = Number(options.recoveryCount||1)>1 ? 'Emitir bilhetes' : 'Emitir bilhete';
       btnBack.textContent = 'Voltar às opções';
     }
 
@@ -374,6 +374,9 @@
             cpf: obPax[idx].cpf || '',
             phone: obPax[idx].phone || '',
           };
+        } else if (options.recovery && Array.isArray(options.passengers) && options.passengers[idx]) {
+          const original = options.passengers[idx];
+          state.pax[seatNum] = { name:String(original.name||''), cpf:String(original.cpf||original.document||''), phone:String(original.phone||'') };
         } else {
           state.pax[seatNum] ||= options.recovery
             ? { name: String(options.passenger?.name || ''), cpf: String(options.passenger?.cpf || options.passenger?.document || ''), phone: String(options.passenger?.phone || '') }
@@ -436,8 +439,8 @@
             seat.classList.remove('selected');
             delete state.pax[cell];
           } else {
-            if (options.recovery && state.seats.length >= 1) {
-              alert('Escolha apenas uma poltrona para substituir a indisponível.');
+            if (options.recovery && state.seats.length >= Number(options.recoveryCount || 1)) {
+              alert('Escolha exatamente '+Number(options.recoveryCount || 1)+' poltrona(s) para a substituição.');
               return;
             }
             if (isReturn && state.seats.length >= maxSelectable) {
@@ -457,8 +460,8 @@
 
     // Botões
     btnConfirm.addEventListener('click', () => {
-      if (options.recovery && state.seats.length !== 1) {
-        alert('Escolha uma poltrona para emitir seu bilhete.');
+      if (options.recovery && state.seats.length !== Number(options.recoveryCount || 1)) {
+        alert('Selecione '+Number(options.recoveryCount || 1)+' poltrona(s) para continuar.');
         return;
       }
       if (isReturn && isFinite(maxSelectable) && state.seats.length !== maxSelectable) {
