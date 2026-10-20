@@ -3300,11 +3300,11 @@ app.post('/api/praxio/vender', async (req, res) => {
         try {
           const ref = payment?.external_reference || null;
           if (ref) {
-            if (partialIssueSeats.length) {
-              // NÃO excluir a pré-reserva emitida antes do upsert. A rotina
-              // sheetsAppendBilhetes precisa da linha para preencher NumPassagem,
-              // Status=Emitido e LinkBPE, preservando as outras como indisponíveis.
-              console.log('[Sheets][Partial] mantendo as pré-reservas para atualizar apenas os bilhetes emitidos:', partialIssueSeats);
+            if (partialIssueSeats.length || req.get('X-Source') === 'recovery') {
+              // Recovery usa a mesma referência do pagamento original: NUNCA
+              // apagar outras linhas desta compra. Atualizar somente a(s)
+              // poltrona(s) efetivamente emitida(s) via upsert por poltrona.
+              console.log('[Sheets][Recovery/Partial] preservando linhas da compra; atualizando apenas poltronas emitidas:', bilhetes.map(b => b.poltrona));
             } else {
               console.log('[Sheets] limpando pré-reservas da referência', ref);
               await sheetsDeleteRowsByRef(ref);
@@ -3339,7 +3339,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           userPhone,
           idaVoltaDefault: idaVolta
         });
-        if (!sheetsResult?.ok || (partialIssueSeats.length && sheetsResult.updated !== partialIssueSeats.length)) {
+        if (!sheetsResult?.ok || ((partialIssueSeats.length || req.get('X-Source') === 'recovery') && sheetsResult.updated !== bilhetes.length)) {
           const msg = 'Conciliação parcial incompleta no Sheets: ' + JSON.stringify(sheetsResult);
           console.error('[Sheets][Partial]', msg);
           await notifyAdminVendaFalha({
