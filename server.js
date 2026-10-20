@@ -3013,6 +3013,22 @@ app.post('/api/praxio/vender', async (req, res) => {
             msg: x?.Mensagem || x?.MensagemDetalhada
           })));
 
+          // Persiste a falha das poltronas NÃO emitidas para permitir recovery.
+          // Preserva as emitidas; o cliente poderá continuar ou reembolsar o grupo.
+          const failureText = badPoltronas.map(p => p.Mensagem || p.MensagemDetalhada || '').join('; ');
+          if (seatRecovery.isSeatError(failureText)) {
+            try {
+              const marked = await seatRecovery.markUnavailable(payment, passengers, failureText);
+              console.log('[Recovery][Partial] poltronas indisponíveis registradas:', marked);
+            } catch (e) {
+              console.error('[Recovery][Partial] falha ao persistir indisponibilidade:', e.message);
+              await notifyAdminVendaFalha({
+                stage: 'partial-seat-recovery', mpPaymentId,
+                userEmail, errorMessage: e.message, passengers, schedule
+              });
+            }
+          }
+
           // ⚠️ importantíssimo: continuar o fluxo (PDF/email/Sheets) APENAS com as poltronas OK
           lista.length = 0;
           lista.push(...okPoltronas);
