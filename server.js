@@ -3015,7 +3015,7 @@ app.post('/api/praxio/vender', async (req, res) => {
 
           // Persiste a falha das poltronas NÃO emitidas para permitir recovery.
           // Preserva as emitidas; o cliente poderá continuar ou reembolsar o grupo.
-          const failureText = badPoltronas.map(p => p.Mensagem || p.MensagemDetalhada || '').join('; ');
+          const failureText = badPoltronas.map(p => `Poltrona ${p.Poltrona || p.NumeroPoltrona || ''} Motivo: ${p.Mensagem || p.MensagemDetalhada || 'Poltrona indisponível'}`).join('; ');
           if (seatRecovery.isSeatError(failureText)) {
             try {
               const marked = await seatRecovery.markUnavailable(payment, passengers, failureText, { recovery: req.get('X-Source') === 'recovery' });
