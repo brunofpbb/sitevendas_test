@@ -3193,7 +3193,14 @@ app.post('/api/praxio/vender', async (req, res) => {
       };
 
       // chave por compra
-      const groupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
+      // Uma recuperação utiliza o pagamento original, mas é uma emissão DISTINTA.
+      // O agregador original já foi finalizado e não pode bloquear o novo bilhete.
+      const originalGroupId = String(mpPaymentId || payment?.id || payment?.external_reference || computeGroupId(req, payment, schedule));
+      const recoveryIssue = req.get('X-Source') === 'recovery';
+      const recoverySeats = [...new Set(bilhetesPayload.map(b => String(b.poltrona || '').trim()))].sort();
+      const groupId = recoveryIssue
+        ? originalGroupId + ':recovery:' + recoverySeats.join('-')
+        : originalGroupId;
 
         
       // enfileira; quando o AGGR perceber que chegou tudo (ou estourar timeout), ele dispara 1x
@@ -3202,8 +3209,10 @@ app.post('/api/praxio/vender', async (req, res) => {
         const { payment, schedule, userEmail, userPhone, idaVolta } = base;
 
         // trava para evitar e-mail/Sheets duplicados por pagamento
-        if (!guardOnce(String(payment?.id || groupId))) {
-          console.warn('[Idem] envio já realizado para', payment?.id || groupId);
+        // A compra original e cada recuperação possuem chaves separadas;
+        // uma nova poltrona não reutiliza a trava de emissão do pagamento.
+        if (!guardOnce(groupId)) {
+          console.warn('[Idem] finalização já realizada para', groupId);
           return;
         }
 
