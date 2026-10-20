@@ -1524,6 +1524,54 @@ app.use('/api/mp', mpRoutes);
 
 
 
+// Finalização de cartão: a emissão ocorre item a item no frontend.
+// A confirmação só é aceita quando todos os assentos da pré-reserva
+// estão OU comprovadamente indisponíveis OU já constam no agregador.
+// Assim uma falha conhecida não prende a emissão dos demais por 120 segundos.
+app.post('/api/mp/card-issuance-finished', async (req, res) => {
+  try {
+    const paymentId = String(req.body?.paymentId || '').trim();
+    const reference = String(req.body?.reference || '').trim();
+    if (!/^\d{6,25}$/.test(paymentId) || !reference)
+      return res.status(400).json({ok:false,error:'Identificação do pagamento incompleta'});
+    const payment = await mpGetPayment(paymentId);
+    if (!['approved','accredited'].includes(String(payment?.status || '')) ||
+        String(payment.external_reference || '') !== reference ||
+        String(payment.payment_method_id || '').toLowerCase() === 'pix')
+      return res.status(403).json({ok:false,error:'Pagamento não autorizado para finalizar vendas de cartão'});
+
+    const {entries} = await sheetsFindByRef(reference);
+    if (!entries.length) return res.status(409).json({ok:false,error:'Pré-reservas não encontradas'});
+    const aggr = AGGR.get(paymentId);
+    const complete = AGGR_FLUSHED_RECENT.has(paymentId);
+    const issued = aggr?.bilhetes || [];
+    const key = (v) => [v.idViagem,v.idOrigem,v.idDestino,v.poltrona].map(x=>String(x || '').trim()).join('|');
+    const issuedKeys = new Set(issued.map(key));
+    const failed = entries.filter(e=>String(e.status || '').trim().toLowerCase() === 'poltrona indisponível');
+    const settled = entries.every(e => {
+      const status = String(e.status || '').trim().toLowerCase();
+      return status === 'poltrona indisponível' || (!!e.numPassagem && status==='emitido') ||
+        issuedKeys.has(key(e));
+    });
+    if (!settled) {
+      console.warn('[Card][Finalize] Existem poltronas sem resultado confirmado', { paymentId, count:entries.length, failed:failed.length, staged:issued.length });
+      return res.status(409).json({ok:false,error:'Ainda existem poltronas sem resultado confirmado'});
+    }
+    if (!aggr) {
+      if (complete || entries.every(e => String(e.status || '').toLowerCase()==='poltrona indisponível' || !!e.numPassagem))
+        return res.json({ok:true,staged:0,failed:failed.length,flushed:complete});
+      return res.status(409).json({ok:false,error:'Emissão em conciliação, aguarde'});
+    }
+    if (!issued.length) return res.status(409).json({ok:false,error:'Agregador sem bilhetes emitidos'});
+    aggr.expected = issued.length;
+    console.log('[Card][Finalize] Lote confirmado', {paymentId,items:entries.length,issued:issued.length,failed:failed.length});
+    return res.json({ok:true,staged:issued.length,failed:failed.length,flushed:false});
+  } catch (error) {
+    console.error('[Card][Finalize] Não foi possível confirmar lote:', error?.message || error);
+    return res.status(502).json({ok:false,error:'Não foi possível concluir a conciliação. Não tente comprar novamente.'});
+  }
+});
+
 app.get('/api/mp/wait-flush', async (req, res) => {
   try {
     const paymentId = String(req.query.paymentId || '').trim();
