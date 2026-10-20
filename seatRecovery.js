@@ -3,13 +3,14 @@
 // Recuperação de emissão após pagamento aprovado e falha CONFIRMADA por assento ocupado.
 // Mantém os estados no Sheets existente. Operações financeiras só para 1 bilhete,
 // sem emissão parcial, e com chave idempotente no Mercado Pago.
-module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch, logVendaFalha, notifyAdminVendaFalha }) {
+module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch, logVendaFalha, notifyAdminVendaFalha, praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao }) {
   const locks = new Set();
   const FAIL = 'Poltrona indisponível';
   const REFUNDING = 'Reembolso em processamento';
   const REFUNDED = 'Reembolsado integralmente';
   const REISSUING = 'Reemissão em andamento';
   const MANUAL = 'Análise manual';
+  const GROUP_CANCEL = 'Cancelamento de grupo em andamento';
   const norm = value => String(value || '').trim().toLowerCase();
   const isSeatError = message => /poltrona.{0,70}indispon[ií]vel/i.test(String(message || ''));
   const tab = (process.env.SHEETS_BPE_RANGE || 'BPE!A:AK').split('!')[0];
@@ -50,8 +51,8 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
   // Não operar automaticamente se o total pago não corresponde ao único bilhete
   // registrado. Evita estorno da compra inteira quando a pré-reserva está incompleta.
   const amountMatches = (payment, entries) => {
-    if (entries.length !== 1) return false;
-    const ticket = Number(String(entries[0].valor || '0').replace(',', '.'));
+    if (!entries.length) return false;
+    const ticket = entries.reduce((total,e) => total + Number(String(e.valor || '0').replace(',', '.')),0);
     const paid = Number(payment.transaction_amount || 0);
     return ticket > 0 && paid > 0 && Math.abs(ticket - paid) <= 0.02;
   };
@@ -59,31 +60,79 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
   async function markUnavailable(payment, passengers, message) {
     if (!isSeatError(message) || !payment?.external_reference) return false;
     const { entries } = await sheetsFindByRef(payment.external_reference);
-    if (!oneTicket(entries) || (passengers || []).length !== 1) return false;
-    const seat = String(passengers[0]?.seatNumber || passengers[0]?.poltrona || '');
-    if (String(entries[0].poltrona) !== seat) return false;
-    if ([REFUNDING, REFUNDED, REISSUING, MANUAL].includes(entries[0].status)) return false;
-    await setStatus(entries[0].rowIndex, FAIL);
+    const requestedSeats = (passengers || []).map(p=>String(p.seatNumber || p.poltrona || ''));
+    const reported = [...String(message||'').matchAll(/poltrona\s+(\d+)/gi)].map(m=>m[1]);
+    const seats = reported.length ? reported : (requestedSeats.length===1?requestedSeats:[]);
+    if(!seats.length || !entries.length) return false;
+    if(entries.some(e=>[REFUNDING,REFUNDED,REISSUING,MANUAL,GROUP_CANCEL].includes(e.status)))return false;
+    // Só registrar falha confirmada da(s) poltrona(s) identificada(s).
+    const targets = entries.filter(e=>!issued(e)&&seats.includes(String(e.poltrona))&&requestedSeats.includes(String(e.poltrona)));
+    if(!targets.length) return false;
+    for(const row of targets) await setStatus(row.rowIndex, FAIL);
     return true;
   }
+
+
+  const ticketFailed = e => norm(e.status) === norm(FAIL);
+  const sameTrip = entries => entries.every(e=>[
+    'idViagem','idOrigem','idDestino','dataViagem','horaPartida','sentido'
+  ].every(k=>String(e[k]||'') === String(entries[0][k]||'')));
+  const coherent = (payment,entries) => sameTrip(entries) && amountMatches(payment,entries) &&
+    entries.every(e=>issued(e) || ticketFailed(e));
+  const seatLayout = async(row,idTipoVeiculo='')=>{
+    const response=await fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/poltronas',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({idViagem:row.idViagem,idLocOrigem:row.idOrigem,idLocDestino:row.idDestino,idTipoVeiculo})
+    });
+    if(!response.ok)throw new Error('Falha na consulta de disponibilidade');
+    const json=await response.json();
+    const val=Array.isArray(json)?json[0]:json;
+    const raw=val?.LaypoltronaXml?.PoltronaXmlRetorno || val?.PoltronaXmlRetorno || [];
+    const rows=Array.isArray(raw)?raw:[raw];
+    if(!rows.length)throw new Error('Mapa de poltronas indisponível');
+    return rows.map(x=>({number:Number(x.Caption??x.caption??x.Numero??x.NumeroPoltrona),
+      free:Number(x.Situacao??x.situacao??-1)===0})).filter(x=>Number.isInteger(x.number)&&x.number>=3&&x.number<=99);
+  };
+  const availCount=async(entries,idTipoVeiculo='')=>{
+    const seats=await seatLayout(entries[0],idTipoVeiculo);
+    const reserved=new Set(entries.filter(issued).map(e=>Number(e.poltrona)));
+    return seats.filter(x=>x.free&&!reserved.has(x.number)).length;
+  };
 
   app.post('/api/recovery/state', async (req, res) => {
     try {
       const { paymentId, reference, email } = req.body || {};
       const { payment, entries } = await validated(paymentId, reference, email);
-      const e = entries[0], status = norm(e.status);
-      const available = oneTicket(entries) && amountMatches(payment, entries);
-      let state = 'pending';
-      if (payment.status === 'refunded' || status === norm(REFUNDED)) state = 'refunded';
-      else if (entries.every(issued)) state = 'issued';
-      else if (!available || status === norm(MANUAL)) state = 'manual';
-      else if (status === norm(REFUNDING)) state = 'refunding';
-      else if (status === norm(REISSUING)) state = 'reissuing';
-      else if (status === norm(FAIL) && isPaid(payment)) state = 'seat_unavailable';
+      const e = entries.find(ticketFailed) || entries[0], status = norm(e.status);
+      const complete=entries.every(issued);
+      const failures=entries.filter(ticketFailed);
+      const eligible=coherent(payment,entries) && isPaid(payment);
+      let freeSeats=null;
+      if(eligible && failures.length){
+        try{freeSeats=await availCount(entries,String(req.body?.idTipoVeiculo||''));}
+        catch(_){freeSeats=null;}
+      }
+      let state='pending';
+      if(payment.status==='refunded'||entries.every(x=>norm(x.status)===norm(REFUNDED))) state='refunded';
+      else if(complete)state='issued';
+      else if(entries.some(x=>[MANUAL,GROUP_CANCEL].includes(x.status)))state='manual';
+      else if(entries.some(x=>norm(x.status)===norm(REFUNDING)))state='refunding';
+      else if(entries.some(x=>norm(x.status)===norm(REISSUING)))state='reissuing';
+      else if(eligible && failures.length)state='seat_unavailable';
+      else if(entries.length>1 && failures.length)state='manual';
       res.json({
         ok: true, state, paymentId: String(payment.id),
         paymentStatus: payment.status,
         seat: e.poltrona,
+        multiple:entries.length>1,
+        totalTickets:entries.length,
+        tickets:entries.map(t=>({seat:t.poltrona,passenger:t.nome,status:t.status,issued:issued(t),number:t.numPassagem||null})),
+        failedCount:failures.length,
+        issuedCount:entries.filter(issued).length,
+        freeSeats,
+        canReplace:state==='seat_unavailable' && freeSeats!==null && freeSeats>=failures.length,
+        canGroupRefund:state==='seat_unavailable' && failures.length>0 && freeSeats!==null && freeSeats<failures.length,
+        requiresGroupCancellation:entries.some(issued),
         amount: Number(payment.transaction_amount || 0),
         schedule: {
           idViagem: e.idViagem, idOrigem: e.idOrigem, idDestino: e.idDestino,
