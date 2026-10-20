@@ -6,7 +6,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 //const nodemailer = require('nodemailer');
-const { uploadPdfToDrive } = require('./drive');
+const { uploadPdfToDrive, downloadPdfFromDrive } = require('./drive');
 const fetch = require('node-fetch');                // se não existir ainda
 function fetchWithTimeout(url, opts = {}, ms = 10000) {
   const ac = new AbortController();
@@ -1153,6 +1153,7 @@ async function sheetsFindByRef(externalRef) {
     formaPag: idx('Forma_Pagamento'),
     ref: idx('Referencia'),
     numPassagem: idx('NumPassagem'),
+    linkBpe: idx('LinkBPE'),
     seriePassagem: idx('SeriePassagem'),
     origem: idx('Origem'),
     destino: idx('Destino'),
@@ -1191,6 +1192,7 @@ async function sheetsFindByRef(externalRef) {
       status: col.status >= 0 ? norm(row[col.status]) : '',
       statusPag: col.statusPag >= 0 ? norm(row[col.statusPag]) : '',
       numPassagem: col.numPassagem >= 0 ? norm(row[col.numPassagem]) : '',
+      linkBpe: col.linkBpe >= 0 ? norm(row[col.linkBpe]) : '',
       nome: col.nome >= 0 ? norm(row[col.nome]) : '',
       cpf: col.cpf >= 0 ? norm(row[col.cpf]) : '',
       telefone: col.telefone >= 0 ? norm(row[col.telefone]) : '',
