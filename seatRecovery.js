@@ -314,7 +314,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       try{
         const refund=await mpRefund({paymentId,amount:total,idempotencyKey:'seat-failed-only-'+paymentId});
         for(const row of failed)await setStatus(row.rowIndex,REFUNDED);
-        return res.json({ok:true,state:'partially_refunded',amount:total,refundId:refund.id});
+        return res.json({ok:true,state:entries.some(issued)?'partially_refunded':'refunded',amount:total,refundId:refund.id});
       }catch(error){
         for(const row of failed)await setStatus(row.rowIndex,MANUAL).catch(()=>{});
         await notifyAdminVendaFalha({stage:'group-partial-refund',mpPaymentId:paymentId,errorMessage:error.message});
