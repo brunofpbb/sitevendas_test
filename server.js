@@ -2683,7 +2683,8 @@ setInterval(() => {
 // Recuperação assistida: habilitada somente neste ambiente de testes.
 const seatRecovery = require('./seatRecovery')({
   app, sheetsFindByRef, sheetsAuthRW, mpGetPayment, mpRefund, fetch,
-  logVendaFalha, notifyAdminVendaFalha
+  logVendaFalha, notifyAdminVendaFalha,
+  praxioLogin, praxioVerificaDevolucao, praxioGravaDevolucao
 });
 
 app.post('/api/praxio/vender', async (req, res) => {
