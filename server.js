@@ -3301,8 +3301,10 @@ app.post('/api/praxio/vender', async (req, res) => {
           const ref = payment?.external_reference || null;
           if (ref) {
             if (partialIssueSeats.length) {
-              console.log('[Sheets][Partial] preservando poltronas não emitidas; removendo somente:', partialIssueSeats);
-              await sheetsDeleteIssuedPreReservations(ref,partialIssueSeats);
+              // NÃO excluir a pré-reserva emitida antes do upsert. A rotina
+              // sheetsAppendBilhetes precisa da linha para preencher NumPassagem,
+              // Status=Emitido e LinkBPE, preservando as outras como indisponíveis.
+              console.log('[Sheets][Partial] mantendo as pré-reservas para atualizar apenas os bilhetes emitidos:', partialIssueSeats);
             } else {
               console.log('[Sheets] limpando pré-reservas da referência', ref);
               await sheetsDeleteRowsByRef(ref);
@@ -3322,7 +3324,7 @@ app.post('/api/praxio/vender', async (req, res) => {
         }
 
         // 3) SHEETS – 1 linha por bilhete (como já fazia, reaproveitando a função existente)
-        await sheetsAppendBilhetes({
+        const sheetsResult = await sheetsAppendBilhetes({
           spreadsheetId: process.env.SHEETS_BPE_ID,
           range: process.env.SHEETS_BPE_RANGE || 'BPE!A:AK',
           bilhetes: bilhetes.map(b => ({
@@ -3337,6 +3339,16 @@ app.post('/api/praxio/vender', async (req, res) => {
           userPhone,
           idaVoltaDefault: idaVolta
         });
+        if (!sheetsResult?.ok || (partialIssueSeats.length && sheetsResult.updated !== partialIssueSeats.length)) {
+          const msg = 'Conciliação parcial incompleta no Sheets: ' + JSON.stringify(sheetsResult);
+          console.error('[Sheets][Partial]', msg);
+          await notifyAdminVendaFalha({
+            stage:'partial-sheet-reconciliation',mpPaymentId,
+            errorMessage:msg,issuedSeats:partialIssueSeats
+          });
+          // Não registrar venda como conciliada quando algum bilhete não foi salvo.
+          return;
+        }
 
         await logVendaSucesso({
           mpPaymentId: String(payment?.id || ''),
