@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const context = JSON.parse(localStorage.getItem('seatRecoveryContext') || 'null');
   const $ = id => document.getElementById(id);
-  const msg=$('recovery-message'),route=$('recovery-route'),choices=$('recovery-choices');
+  const msg=$('recovery-message'),route=$('recovery-route'),choices=$('recovery-choices'),title=$('recovery-title');
   const newSeat=$('recovery-new-seat'),refund=$('recovery-refund'),stage=$('recovery-seats'),alertEl=$('recovery-alert');
   const notify = text => {alertEl.textContent=text;alertEl.hidden=!text;};
   const request=async(path,body)=>{
@@ -27,19 +27,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(mode==='choosing')return;
     choices.hidden=true;stage.hidden=true;notify('');
     if(info.state==='issued') {
-      msg.textContent='Seu bilhete foi emitido. Você pode consultá-lo em Minhas compras.';
+      title.textContent='Bilhete emitido com sucesso!';
+      msg.textContent='Sua nova poltrona foi confirmada. O bilhete está disponível na área Minhas compras.';
       stopPoll();localStorage.removeItem('seatRecoveryContext');return;
     }
     if(info.state==='refunded') {
-      msg.textContent='Reembolso integral solicitado e registrado no Mercado Pago. O prazo de crédito depende do meio de pagamento.';
+      title.textContent='Reembolso solicitado com sucesso';
+      msg.textContent='O reembolso integral foi registrado no Mercado Pago. O prazo de recebimento depende do meio de pagamento utilizado.';
       stopPoll();localStorage.removeItem('seatRecoveryContext');return;
     }
     if(info.state==='manual') {
-      msg.textContent='Esta compra exige conferência do suporte. Não tente pagar novamente.';
+      title.textContent='Estamos conferindo sua compra';
+      msg.textContent='A situação desta compra precisa ser verificada pela equipe responsável. Você não precisa pagar novamente.';
       stopPoll();return;
     }
     if(info.state==='refunding'||info.state==='reissuing'){
-      msg.textContent='Estamos concluindo sua solicitação. Aguarde, sem realizar outro pagamento.';
+      title.textContent=info.state==='reissuing'?'Estamos emitindo seu bilhete':'Estamos processando seu reembolso';
+      msg.textContent=info.state==='reissuing'?'Seu pagamento já foi confirmado. Aguarde enquanto finalizamos a emissão, sem nova cobrança.':'Sua solicitação foi recebida. Aguarde a confirmação do Mercado Pago.';
       return;
     }
     if(info.state!=='seat_unavailable'){
@@ -53,7 +57,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     stopPoll();
-    msg.textContent='A poltrona '+info.seat+' ficou indisponível antes da emissão. Seu pagamento de '+money(info.amount)+' está confirmado. Escolha outra poltrona na mesma viagem, sem pagar novamente, ou solicite 100% de reembolso.';
+    title.textContent='Sua poltrona ficou indisponível';
+    msg.textContent='A poltrona '+info.seat+' ficou indisponível antes da emissão. Seu pagamento de '+money(info.amount)+' está confirmado. Você pode escolher outra poltrona na mesma viagem, sem pagar novamente, ou solicitar o reembolso integral.';
     const s=info.schedule||{};
     route.hidden=false;
     route.textContent=[s.originName+' → '+s.destinationName,s.date,s.horaPartida].filter(Boolean).join(' • ');
@@ -85,10 +90,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           if(submitted)return;
           const seatNumber=e.detail?.seats?.[0];
           if(!seatNumber)return;
-          submitted=true;mode='issuing';stage.hidden=true;msg.textContent='Emitindo seu bilhete, sem nova cobrança. Aguarde…';
+          submitted=true;mode='issuing';stage.hidden=true;title.textContent='Estamos emitindo seu bilhete';msg.textContent='Seu pagamento já está confirmado. Aguarde enquanto finalizamos a emissão, sem nova cobrança.';
           try {
             await request('issue',{...identity,seatNumber,idTipoVeiculo:schedule.idTipoVeiculo||''});
-            msg.textContent='A emissão foi aceita. Estamos finalizando o envio e o registro do bilhete. Consulte Minhas compras.';
+            msg.textContent='Estamos finalizando o registro do seu bilhete. Em instantes, ele estará disponível em Minhas compras.';
             stopPoll();
             mode='checking';
             poll=setInterval(refresh,5000);
@@ -105,10 +110,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   refund.onclick=async()=>{
     if(submitted||!current||current.state!=='seat_unavailable')return;
     if(!confirm('Solicitar devolução de 100% do valor pago? Depois da confirmação, não será possível emitir o bilhete.'))return;
-    submitted=true;choices.hidden=true;msg.textContent='Solicitando reembolso integral ao Mercado Pago…';
+    submitted=true;choices.hidden=true;title.textContent='Estamos processando seu reembolso';msg.textContent='Sua solicitação está sendo encaminhada ao Mercado Pago. Aguarde a confirmação.';
     try{
       await request('refund',identity);
-      msg.textContent='Reembolso integral solicitado com sucesso. O crédito seguirá os prazos do Mercado Pago.';
+      title.textContent='Reembolso solicitado com sucesso';msg.textContent='O valor integral foi solicitado ao Mercado Pago. O crédito seguirá os prazos do meio de pagamento.';
       localStorage.removeItem('seatRecoveryContext');
     }catch(e){msg.textContent=e.message;notify('Não efetue outro pagamento. Caso o reembolso não seja confirmado, o suporte será notificado.');}
     finally{submitted=false;}
