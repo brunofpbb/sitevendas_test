@@ -194,7 +194,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       if (!chosen || Number(chosen.Situacao ?? chosen.situacao ?? -1) !== 0) {
         return res.status(409).json({ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona escolhida já está ocupada.'});
       }
-      await setStatus(row.rowIndex, REISSUING);
+      await setStatus(row.rowIndex, REISSUING, seat);
       const subtotal = Number(String(row.valor || '').replace(',','.')) || Number(payment.transaction_amount);
       const body = {
         mpPaymentId: paymentId, schedule:{
