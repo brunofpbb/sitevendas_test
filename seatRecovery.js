@@ -105,6 +105,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       const { payment, entries } = await validated(paymentId, reference, email);
       const e = entries.find(ticketFailed) || entries[0], status = norm(e.status);
       const complete=entries.every(issued);
+      const settled=entries.every(x=>issued(x)||norm(x.status)===norm(REFUNDED));
       const failures=entries.filter(ticketFailed);
       const eligible=coherent(payment,entries) && isPaid(payment);
       let freeSeats=null;
@@ -115,6 +116,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       let state='pending';
       if(payment.status==='refunded'||entries.every(x=>norm(x.status)===norm(REFUNDED))) state='refunded';
       else if(complete)state='issued';
+      else if(settled && entries.some(x=>norm(x.status)===norm(REFUNDED)))state='partially_refunded';
       else if(entries.some(x=>[MANUAL,GROUP_CANCEL].includes(x.status)))state='manual';
       else if(entries.some(x=>norm(x.status)===norm(REFUNDING)))state='refunding';
       else if(entries.some(x=>norm(x.status)===norm(REISSUING)))state='reissuing';
@@ -126,12 +128,13 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
         seat: e.poltrona,
         multiple:entries.length>1,
         totalTickets:entries.length,
-        tickets:entries.map(t=>({seat:t.poltrona,passenger:t.nome,status:t.status,issued:issued(t),number:t.numPassagem||null})),
+        tickets:entries.map(t=>({seat:t.poltrona,passenger:t.nome,cpf:t.cpf,phone:t.telefone,status:t.status,issued:issued(t),number:t.numPassagem||null})),
         failedCount:failures.length,
         issuedCount:entries.filter(issued).length,
         freeSeats,
         canReplace:state==='seat_unavailable' && freeSeats!==null && freeSeats>=failures.length,
         canGroupRefund:state==='seat_unavailable' && failures.length>0 && freeSeats!==null && freeSeats<failures.length,
+        canRefundFailed:state==='seat_unavailable' && failures.length>0,
         requiresGroupCancellation:entries.some(issued),
         amount: Number(payment.transaction_amount || 0),
         schedule: {
@@ -287,6 +290,38 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       }catch(_){}
       await notifyAdminVendaFalha({stage:'group-recovery-exception',mpPaymentId:paymentId,errorMessage:e.message}).catch(()=>{});
       return res.status(e.code||502).json({ok:false,error:'Não foi possível confirmar a emissão do grupo. Consulte o suporte.'});
+    }finally{locks.delete(key);}
+  });
+
+
+  // Devolve apenas as passagens não emitidas; bilhetes já emitidos permanecem válidos.
+  app.post('/api/recovery/refund-failed',async(req,res)=>{
+    const {paymentId,reference,email}=req.body||{};
+    const key=String(paymentId);
+    if(locks.has(key))return res.status(409).json({ok:false,error:'Compra em processamento'});
+    locks.add(key);
+    try{
+      const {payment,entries}=await validated(paymentId,reference,email);
+      const failed=entries.filter(ticketFailed);
+      if(entries.length<2 || !isPaid(payment) || !coherent(payment,entries) || !failed.length)
+        return res.status(409).json({ok:false,error:'Compra não elegível para reembolso parcial'});
+      if((payment.refunds||[]).some(x=>Number(x.amount)>0))
+        return res.status(409).json({ok:false,error:'Reembolso prévio encontrado. Suporte necessário.'});
+      const total=+failed.reduce((v,x)=>v+Number(String(x.valor||0).replace(',','.')),0).toFixed(2);
+      if(total<=0 || total>Number(payment.transaction_amount))
+        return res.status(409).json({ok:false,error:'Valor das passagens divergente'});
+      for(const row of failed)await setStatus(row.rowIndex,REFUNDING);
+      try{
+        const refund=await mpRefund({paymentId,amount:total,idempotencyKey:'seat-failed-only-'+paymentId});
+        for(const row of failed)await setStatus(row.rowIndex,REFUNDED);
+        return res.json({ok:true,state:'partially_refunded',amount:total,refundId:refund.id});
+      }catch(error){
+        for(const row of failed)await setStatus(row.rowIndex,MANUAL).catch(()=>{});
+        await notifyAdminVendaFalha({stage:'group-partial-refund',mpPaymentId:paymentId,errorMessage:error.message});
+        return res.status(502).json({ok:false,error:'Reembolso não confirmado. Suporte acionado.'});
+      }
+    }catch(error){
+      return res.status(error.code||502).json({ok:false,error:'Não foi possível validar o reembolso. Consulte o suporte.'});
     }finally{locks.delete(key);}
   });
 
