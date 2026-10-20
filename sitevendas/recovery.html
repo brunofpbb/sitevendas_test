@@ -9,23 +9,29 @@
     .recovery-page{min-height:100vh;background:linear-gradient(#f3faf6,#fff);padding:25px 16px 60px}
     .recovery-card{max-width:840px;margin:0 auto;padding:26px;background:#fff;border:1px solid #dce9e1;border-radius:23px;box-shadow:0 14px 35px #003f2510}
     .recovery-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;color:#075b38}
-    .recovery-head h1{font-size:clamp(22px,4vw,30px);margin:0}
+    .recovery-head h1{font-size:clamp(23px,4vw,30px);margin:5px 0 0;line-height:1.2;letter-spacing:-.025em}
     .recovery-label{color:#65776c;font-size:13px;font-weight:700}
-    .recovery-msg{line-height:1.6;color:#29493a}
+    .recovery-msg{line-height:1.65;color:#29493a;font-size:clamp(15px,2vw,17px);margin:16px 0 20px;max-width:69ch}
     .recovery-choices{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0 5px}
     .recovery-choices .btn{flex:1 1 210px;min-height:51px;border-radius:13px}
-    .recovery-route{margin:16px 0;padding:15px;border-radius:13px;background:#ebf8f0;color:#064e30}
+    .recovery-route{margin:16px 0;padding:17px 19px;border-radius:14px;background:#ebf8f0;color:#064e30;font-weight:650;line-height:1.5}
     .recovery-warning{margin:16px 0;padding:12px 14px;background:#fff9ec;color:#665322;border-radius:12px}
     #recovery-seats{margin-top:18px}
+    .recovery-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px;padding-top:18px;border-top:1px solid #e6efe9}
+    .recovery-profile-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border:1px solid #bcd9c7;border-radius:12px;background:#edf8f1;color:#08643c;text-decoration:none;font-weight:800;min-height:48px;transition:background .15s}
+    .recovery-profile-btn:hover{background:#dcefe3}
+    .recovery-home{color:#52675b;text-decoration:none;font-weight:650;padding:12px}
+    .recovery-choices .btn{font-weight:800}
+    .recovery-head>span{display:grid;place-items:center;font-size:24px;width:48px;height:48px;background:#e6f5ed;border-radius:14px;flex:0 0 48px}
     .recovery-card [hidden]{display:none!important}
-    @media(max-width:760px){.recovery-page{padding:12px 10px 45px}.recovery-card{padding:17px 13px;border-radius:18px}}
+    @media(max-width:760px){.recovery-page{padding:12px 10px 45px}.recovery-card{padding:20px 17px;border-radius:18px}.recovery-head{align-items:flex-start}.recovery-label{font-size:11px}.recovery-head>span{width:38px;height:38px;flex-basis:38px;font-size:20px}.recovery-footer{align-items:stretch;flex-direction:column}.recovery-profile-btn{width:100%;box-sizing:border-box}.recovery-home{text-align:center}.recovery-choices{gap:10px}.recovery-choices .btn{flex-basis:100%}}
   </style>
 </head>
 <body>
 <main class="recovery-page">
   <section class="recovery-card" aria-live="polite">
-    <div class="recovery-head"><span aria-hidden="true">💺</span><div><div class="recovery-label">TURIN TRANSPORTES • PAGAMENTO APROVADO</div><h1>Vamos resolver seu bilhete</h1></div></div>
-    <p class="recovery-msg" id="recovery-message">Estamos conferindo a emissão do seu bilhete.</p>
+    <div class="recovery-head"><span aria-hidden="true">💺</span><div><div class="recovery-label">TURIN TRANSPORTES • PAGAMENTO APROVADO</div><h1 id="recovery-title">Sua viagem, sem imprevistos</h1></div></div>
+    <p class="recovery-msg" id="recovery-message">Estamos conferindo a emissão da sua passagem.</p>
     <div class="recovery-route" id="recovery-route" hidden></div>
     <div class="recovery-choices" id="recovery-choices" hidden>
       <button class="btn btn-primary" id="recovery-new-seat" type="button" hidden>Escolher outra poltrona</button>
@@ -33,10 +39,10 @@
     </div>
     <div id="recovery-seats" hidden></div>
     <p id="recovery-alert" class="recovery-warning" hidden></p>
-    <p><a href="profile.html" id="recovery-profile">Minhas compras</a></p>
+    <div class="recovery-footer"><a href="profile.html" class="recovery-profile-btn" id="recovery-profile"><span aria-hidden="true">▤</span> Ir para Minhas compras <span aria-hidden="true">→</span></a><a class="recovery-home" href="index.html">Voltar ao início</a></div>
   </section>
 </main>
 <script defer src="seats.js?v=recovery-test-01"></script>
-<script defer src="recovery.js?v=recovery-test-01"></script>
+<script defer src="recovery.js?v=recovery-ui-20261020"></script>
 </body>
 </html>
