@@ -424,6 +424,113 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
+  // === Ciência de cancelamento (uma vez por compra, antes do checkout) ===
+  // Usa o horário de partida no fuso de Minas Gerais (UTC-03:00), como
+  // a regra já aplicada em profile.js para cancelamentos.
+  function departureTimeForNotice(schedule) {
+    const rawDate=String(schedule?.date || schedule?.dataViagem || '').trim();
+    const rawTime=String(schedule?.departureTime || schedule?.horaPartida || '').trim();
+    const date=rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      || rawDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const time=rawTime.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+      || rawTime.match(/^(\d{2})(\d{2})$/);
+    if(!date || !time) return null;
+    const iso=/^\d{4}-/.test(rawDate);
+    const yy=+(iso?date[1]:date[3]), mm=+date[2], dd=+(iso?date[3]:date[1]);
+    const hh=+time[1], min=+time[2];
+    const validDate=new Date(Date.UTC(yy,mm-1,dd));
+    if(validDate.getUTCFullYear()!==yy || validDate.getUTCMonth()!==mm-1 ||
+       validDate.getUTCDate()!==dd || hh>23 || min>59) return null;
+    return {
+      timestamp:Date.UTC(yy,mm-1,dd,hh+3,min),
+      label:String(dd).padStart(2,'0')+'/'+String(mm).padStart(2,'0')+'/'+yy+
+        ' às '+String(hh).padStart(2,'0')+':'+String(min).padStart(2,'0')
+    };
+  }
+
+  function confirmCancellationNotice(legs) {
+    const overlay=document.getElementById('purchase-policy-modal');
+    const check=document.getElementById('purchase-policy-checkbox');
+    const proceed=document.getElementById('purchase-policy-continue');
+    const back=document.getElementById('purchase-policy-back');
+    const list=document.getElementById('purchase-policy-itineraries');
+    const alertBox=document.getElementById('purchase-policy-alert');
+    const dialog=overlay?.querySelector('.purchase-policy-dialog');
+    if(!overlay || !check || !proceed || !back || !list || !dialog || !alertBox)
+      return Promise.reject(new Error('Aviso obrigatório de cancelamento não disponível'));
+    list.replaceChildren();
+    const now=Date.now();
+    let hasUrgent=false;
+    let missingTime=false;
+    (legs||[]).forEach(leg=>{
+      const sch=leg.schedule||{};
+      const dep=departureTimeForNotice(sch);
+      const urgent=dep && dep.timestamp-now < 12*60*60*1000;
+      if(urgent)hasUrgent=true;
+      if(!dep)missingTime=true;
+      const item=document.createElement('div');
+      item.className='purchase-policy-trip'+(urgent?' is-urgent':'');
+      const information=document.createElement('div');
+      const route=document.createElement('strong');
+      route.textContent=(leg.leg==='VOLTA'?'Volta':'Ida')+' · '+
+        String(sch.originName||sch.origin||'Origem')+' → '+
+        String(sch.destinationName||sch.destination||'Destino');
+      const when=document.createElement('small');
+      when.textContent=dep?.label || 'Data/horário de partida não identificado';
+      information.append(route,when);
+      const status=document.createElement('span');
+      status.className='purchase-policy-trip-status';
+      status.textContent=!dep?'Verificar horário':urgent?'Menos de 12h':'Prazo regular';
+      item.append(information,status);
+      list.append(item);
+    });
+    alertBox.hidden=!hasUrgent && !missingTime;
+    alertBox.querySelector('strong').textContent=missingTime
+      ? 'Não foi possível verificar o horário de embarque'
+      : 'Atenção: embarque em menos de 12 horas';
+    alertBox.querySelector('p').textContent=missingTime
+      ? 'Volte e confira o horário desta viagem antes de continuar. Sem esse dado, não é possível confirmar o prazo de cancelamento.'
+      : 'A(s) viagem(ns) destacada(s) já está(ão) dentro do limite de 12 horas. O cancelamento por desistência com reembolso pelo site não estará disponível para esses trechos.';
+    check.checked=false;
+    proceed.disabled=true;
+    overlay.hidden=false;
+    const previousOverflow=document.body.style.overflow;
+    const previouslyFocused=document.activeElement;
+    document.body.style.overflow='hidden';
+    back.focus();
+
+    return new Promise(resolve=>{
+      function close(accepted) {
+        overlay.hidden=true;
+        document.body.style.overflow=previousOverflow;
+        check.removeEventListener('change',onCheck);
+        proceed.removeEventListener('click',onProceed);
+        back.removeEventListener('click',onBack);
+        overlay.removeEventListener('click',onBackdrop);
+        document.removeEventListener('keydown',onKeydown);
+        if(previouslyFocused && typeof previouslyFocused.focus==='function') previouslyFocused.focus();
+        resolve(accepted);
+      }
+      function onCheck(){ proceed.disabled=!check.checked || missingTime; }
+      function onProceed(){ if(check.checked && !missingTime)close(true); }
+      function onBack(){close(false);}
+      function onBackdrop(ev){if(ev.target===overlay)close(false);}
+      function onKeydown(ev){
+        if(ev.key==='Escape'){ev.preventDefault();close(false);return;}
+        if(ev.key!=='Tab')return;
+        const available=[back,check,...(proceed.disabled?[]:[proceed])];
+        const current=available.indexOf(document.activeElement);
+        if(ev.shiftKey && current<=0){ev.preventDefault();available[available.length-1].focus();}
+        else if(!ev.shiftKey && current===available.length-1){ev.preventDefault();available[0].focus();}
+      }
+      check.addEventListener('change',onCheck);
+      proceed.addEventListener('click',onProceed);
+      back.addEventListener('click',onBack);
+      overlay.addEventListener('click',onBackdrop);
+      document.addEventListener('keydown',onKeydown);
+    });
+  }
+
   // ===== Painel de poltronas (novo seats.js via eventos)
   function renderSeatsStage(schedule, leg, onBackToList) {
     const titulo = leg === 'IDA' ? 'Escolha suas poltronas (ida)' : 'Escolha suas poltronas (volta)';
@@ -462,8 +569,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // fim do fluxo → pagamento
-      finalizeToPayment();
+      // A ciência aparece somente na última confirmação (ida e volta juntas,
+      // caso existam), não interfere em recovery e nunca inicia cobrança.
+      if(stage.dataset.awaitingPolicy==='true') return;
+      stage.dataset.awaitingPolicy='true';
+      confirmCancellationNotice(state.selected)
+        .then(accepted=>{if(accepted) finalizeToPayment();})
+        .catch(error=>{
+          console.error('[CancelPolicy] aviso não disponível:',error);
+          alert('Não foi possível apresentar as condições de cancelamento. Atualize a página e tente novamente.');
+        })
+        .finally(()=>{stage.dataset.awaitingPolicy='false';});
     });
 
     function onSelectVolta(schedule2) {
