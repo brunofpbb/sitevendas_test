@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Turin Transportes – Venda de Passagens</title>
-  <link rel="stylesheet" href="style.css?v=turin-banner-hq-20261013" />
+  <link rel="stylesheet" href="style.css?v=cancel-policy-20261022a" />
 
   <!-- Favicons -->
   <link rel="icon" href="/img/turin-fav.ico?v=2">
@@ -16,7 +16,7 @@
   <!-- Scripts -->
   <script src="price-normalizer.js?v=1" defer></script>
   <script src="seats.js?v=seat-refinement-20261010b" defer></script>
-  <script src="main.js?v=executivo-amenities-20261010e" defer></script>
+  <script src="main.js?v=cancel-policy-20261022a" defer></script>
 </head>
 <body>
   <div class="top-accent" aria-hidden="true"></div>
@@ -63,6 +63,35 @@
     <section class="content-card results-panel" id="content-root" aria-live="polite"></section>
   </main>
 
+  <!-- Ciência obrigatória das condições de cancelamento antes do checkout -->
+  <div id="purchase-policy-modal" class="purchase-policy-overlay" hidden>
+    <section class="purchase-policy-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="purchase-policy-title" aria-describedby="purchase-policy-intro" tabindex="-1">
+      <div class="purchase-policy-heading">
+        <span class="purchase-policy-eyebrow">ANTES DE CONTINUAR</span>
+        <h2 id="purchase-policy-title">Confira o prazo de cancelamento</h2>
+        <p id="purchase-policy-intro">Leia as condições de cancelamento e remarcação antes de concluir sua compra.</p>
+      </div>
+      <div id="purchase-policy-itineraries" class="purchase-policy-itineraries" aria-label="Viagens desta compra"></div>
+      <div class="purchase-policy-rule">
+        <strong>Cancelamento até 12 horas antes do embarque</strong>
+        <p>Nas viagens intermunicipais de Minas Gerais, a Lei Estadual nº 13.655/2000 e o Decreto nº 44.603/2007 asseguram o direito de solicitar reembolso ou remarcação por desistência dentro desse prazo.</p>
+      </div>
+      <div id="purchase-policy-alert" class="purchase-policy-alert" hidden>
+        <strong>Atenção: embarque em menos de 12 horas</strong>
+        <p>Para a(s) viagem(ns) destacada(s) acima, não será possível solicitar cancelamento com reembolso por desistência pelo site. Confira se deseja prosseguir antes de comprar.</p>
+      </div>
+      <p class="purchase-policy-exception">A regra de desistência não exclui direitos em caso de cancelamento do serviço pela transportadora ou outras situações previstas em lei.</p>
+      <label class="purchase-policy-ack" for="purchase-policy-checkbox">
+        <input type="checkbox" id="purchase-policy-checkbox">
+        <span>Li e estou ciente do prazo de 12 horas para cancelamento ou remarcação e das condições específicas das viagens selecionadas.</span>
+      </label>
+      <div class="purchase-policy-actions">
+        <button type="button" id="purchase-policy-back" class="purchase-policy-button purchase-policy-secondary">Voltar</button>
+        <button type="button" id="purchase-policy-continue" class="purchase-policy-button purchase-policy-primary" disabled>Li e concordo, continuar</button>
+      </div>
+    </section>
+  </div>
   <footer>
     <p>&copy; 2026 Turin Transportes · Viaje bem. Viaje Turin.</p>
   </footer>
