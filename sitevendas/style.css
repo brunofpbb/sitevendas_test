@@ -2630,3 +2630,75 @@ body:has(> main.two-cols) > .welcome-banner .welcome-benefits span{
     grid-template-columns:minmax(260px,300px) minmax(0,1fr)!important;
   }
 }
+
+
+
+/* Aviso de cancelamento antes do pagamento (isolado do estilo dos demais cards) */
+.purchase-policy-overlay[hidden], .purchase-policy-alert[hidden]{display:none !important;}
+.purchase-policy-overlay{
+  position:fixed;inset:0;z-index:10000;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,28,21,.63);padding:20px;
+  overflow-y:auto;
+}
+.purchase-policy-dialog{
+  width:min(100%,590px);max-height:calc(100dvh - 40px);overflow-y:auto;
+  background:#fff;border-radius:20px;
+  padding:25px;box-shadow:0 20px 60px rgba(0,0,0,.22);
+  color:#203e31;line-height:1.45;
+}
+.purchase-policy-eyebrow{
+  display:block;letter-spacing:.1em;font-size:11px;font-weight:800;color:#0a7650;margin-bottom:6px;
+}
+.purchase-policy-heading h2{margin:0;color:#103f2b;font-size:clamp(21px,3vw,27px);line-height:1.2;}
+.purchase-policy-heading p{color:#62756b;font-size:14px;margin:8px 0 15px;}
+.purchase-policy-itineraries{display:grid;gap:8px;margin-bottom:12px;}
+.purchase-policy-trip{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:12px 14px;background:#f3f8f5;border:1px solid #dbeadf;border-radius:12px;
+}
+.purchase-policy-trip div{min-width:0;}
+.purchase-policy-trip strong{display:block;font-size:14px;color:#184f38;}
+.purchase-policy-trip small{display:block;font-size:12px;color:#60756a;margin-top:3px;}
+.purchase-policy-trip-status{
+  flex:0 0 auto;background:#dfefe3;color:#1d633f;font-size:12px;font-weight:700;
+  border-radius:99px;padding:5px 9px;text-align:center;
+}
+.purchase-policy-trip.is-urgent{background:#fff7e8;border-color:#eccb87;}
+.purchase-policy-trip.is-urgent .purchase-policy-trip-status{background:#ffe2ad;color:#804707;}
+.purchase-policy-rule{
+  background:#eef7f0;border:1px solid #d1e7d6;padding:13px 15px;border-radius:12px;
+}
+.purchase-policy-rule strong,.purchase-policy-alert strong{display:block;font-size:14px;}
+.purchase-policy-rule p,.purchase-policy-alert p{font-size:13px;line-height:1.55;margin:5px 0 0;}
+.purchase-policy-alert{
+  margin-top:10px;background:#fff1d7;border:1px solid #e9bf72;border-radius:12px;
+  padding:13px 15px;color:#713e07;
+}
+.purchase-policy-exception{color:#647369;font-size:12px;line-height:1.5;margin:12px 0;}
+.purchase-policy-ack{
+  display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+  font-weight:650;font-size:13px;color:#263c31;margin:14px 0;
+}
+.purchase-policy-ack input{
+  appearance:auto;accent-color:#086c43;flex:0 0 18px;width:18px;height:18px;
+  margin:1px 0 0;cursor:pointer;
+}
+.purchase-policy-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+.purchase-policy-button{
+  border:1px solid #c7dccf;border-radius:10px;min-height:45px;
+  padding:11px 18px;cursor:pointer;font-size:14px;font-weight:700;
+}
+.purchase-policy-secondary{background:#fff;color:#12533a;}
+.purchase-policy-primary{background:#087345;border-color:#087345;color:#fff;}
+.purchase-policy-primary:disabled{background:#d8e3db;border-color:#d8e3db;color:#7b8c81;cursor:not-allowed;}
+.purchase-policy-button:focus-visible,.purchase-policy-ack input:focus-visible{
+  outline:3px solid #77b991;outline-offset:3px;
+}
+@media(max-width:600px){
+  .purchase-policy-overlay{padding:12px;}
+  .purchase-policy-dialog{max-height:calc(100dvh - 24px);padding:19px 17px;border-radius:17px;}
+  .purchase-policy-trip{align-items:flex-start;flex-direction:column;gap:6px;}
+  .purchase-policy-actions{display:grid;grid-template-columns:1fr 1.25fr;}
+  .purchase-policy-button{padding:10px 8px;font-size:13px;}
+}
