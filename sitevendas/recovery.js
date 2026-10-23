@@ -24,11 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function showGroup(info) {
     stopPoll();
     title.textContent='Vamos concluir a viagem do seu grupo';
-    const failed=(info.tickets||[]).filter(t=>!t.issued && String(t.status||'').toLowerCase()==='poltrona indisponível');
+    // Uma compra pode conter ida e volta, até com a mesma poltrona.
+    // Recuperar somente os passageiros do trecho indicado pelo servidor.
+    const failed=info.activeFailures||[];
     const issued=(info.tickets||[]).filter(t=>t.issued);
     const capacity=info.freeSeats;
-    msg.textContent=failed.length+' poltrona(s) ficaram indisponíveis. '+issued.length+
-      ' bilhete(s) já foram emitidos. Você não precisa realizar outro pagamento.';
+    msg.textContent=info.failedCount+' poltrona(s) da compra ficaram indisponíveis. '+issued.length+
+      ' bilhete(s) já foram emitidos. Você não precisa realizar outro pagamento.'+
+      (info.failedCount>failed.length?' Vamos resolver um trecho de cada vez.':'');
     route.hidden=false;
     const s=info.schedule||{};
     route.textContent=[s.originName+' → '+s.destinationName,dateBR(s.date),s.horaPartida].filter(Boolean).join(' • ');
@@ -40,7 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const strong=document.createElement('strong');
       strong.textContent=t.passenger || 'Passageiro';
       const status=document.createElement('span');
-      status.textContent='Poltrona '+t.seat+' • '+(t.issued?'Bilhete emitido':'Escolha outra poltrona');
+      status.textContent=(t.wayType==='volta'?'Volta':'Ida')+' • '+(t.originName||'')+' → '+(t.destinationName||'')+
+        ' • Poltrona '+t.seat+' • '+(t.issued?'Bilhete emitido':'Escolha outra poltrona');
       card.append(strong,status);ticketsEl.appendChild(card);
     }
     choices.hidden=false;stage.hidden=true;
@@ -52,8 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     notify('');
     if(capacity===null){
       notify('Não foi possível conferir a disponibilidade agora. A opção de trocar poltronas será habilitada após nova consulta.');
-    }else if(capacity<failed.length){
-      notify('Não existem vagas suficientes para todos os passageiros. Por isso, você também pode cancelar toda a viagem e solicitar o reembolso integral.');
+    }else if(info.canGroupRefund){
+      notify('Uma das viagens não tem vagas suficientes para os passageiros sem emissão. Você também pode cancelar os bilhetes já emitidos e solicitar reembolso integral de toda a compra.');
     }
     newSeat.onclick=async()=>{
       if(submitted)return;
@@ -84,6 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           msg.textContent='Estamos confirmando as novas poltronas sem cobrar novamente. Aguarde.';
           try{
             await request('issue-batch',{...identity,idTipoVeiculo:trip.idTipoVeiculo||'',
+              trip:{idViagem:s.idViagem,idOrigem:s.idOrigem,idDestino:s.idDestino,
+                dataViagem:s.dataViagem||s.date,horaPartida:s.horaPartida},
               replacements:failed.map((t,i)=>({oldSeat:t.seat,newSeat:selections[i]}))});
             title.textContent='Estamos finalizando a emissão';
             msg.textContent='A emissão foi encaminhada. Aguarde a confirmação dos bilhetes em Minhas compras.';
