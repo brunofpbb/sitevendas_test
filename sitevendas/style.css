@@ -1815,6 +1815,11 @@ footer{background:transparent!important;color:#72857b!important;text-align:cente
 /* Mobile polish for login and in-page seat selector — 2026-10-10 */
 html,body{width:100%;max-width:100%;overflow-x:clip}
 .login-page{min-width:0!important}
+/* Login: cabeçalho não pode encolher quando o formulário muda de etapa
+   ou quando a área útil do navegador é menor. Mantém logo e divisória alinhados. */
+.login-page > .top-accent,
+.login-page > .site-header{flex-shrink:0!important}
+.login-page > .site-header{height:auto!important}
 .login-page .site-header{width:100%!important}
 .login-page main{
   flex:1 0 auto!important;width:calc(100% - 32px)!important;
