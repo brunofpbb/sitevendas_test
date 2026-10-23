@@ -144,7 +144,7 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
           const groups=legFailures(entries);
           for(const group of groups){
             const count=await availCount(entries,group,String(req.body?.idTipoVeiculo||''));
-            if(group===activeLeg)freeSeats=count;
+            if(tripKey(group[0])===tripKey(activeLeg[0]))freeSeats=count;
             if(count<group.length)shortage=true;
           }
         } catch(error){
