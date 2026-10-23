@@ -18,6 +18,23 @@
     [1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41],
   ];
 
+  // Fonte única da regra de disponibilidade usada tanto no card quanto no mapa.
+  // Poltronas 1 e 2 são bloqueadas pela regra operacional atual do mapa.
+  const LAYOUT_SEATS = [...new Set(GRID.flat().filter(Number.isInteger))];
+  function seatBlocked(number, seatMap) {
+    if (number === 1 || number === 2) return true;
+    const seat = seatMap.get(number);
+    if (!seat) return true;
+    return seat.occupied === true || Number(seat.situacao) !== 0;
+  }
+  function normalizedSeatMap(seats) {
+    const map = new Map();
+    for (const seat of seats || []) {
+      if (LAYOUT_SEATS.includes(Number(seat.number))) map.set(Number(seat.number), seat);
+    }
+    return map;
+  }
+
   // ====== estilos ======
   const STYLE_ID = 'seats-onepage-style';
   function ensureStyles() {
@@ -199,13 +216,10 @@
     return { pax, cnt };
   }
 
-  // ====== Busca mapa de poltronas (Praxio) quando não vier pronto ======
-  async function ensureSeatMap(schedule) {
-    const seats = schedule?.seats;
-    const looksReady = Array.isArray(seats) && seats.length > 0 &&
-      (('situacao' in (seats[0] || {})) || ('Situacao' in (seats[0] || {})) || ('occupied' in (seats[0] || {})));
-    if (looksReady) return;
-
+  // Mesma fonte Praxio para lista de viagens e mapa selecionável.
+  // Não usamos PoltronasDisponiveis da lista de partidas: esse total pode
+  // considerar poltronas que o mapa bloqueia.
+  async function fetchSeatMap(schedule) {
     const payload = {
       idViagem: pick(schedule?.idViagem, schedule?.idviagem, schedule?.viagemId),
       idTipoVeiculo: pick(schedule?.idTipoVeiculo, schedule?.tipoVeiculoId),
@@ -214,37 +228,50 @@
       andar: 0,
       verificarSugestao: 1,
     };
+    if (!payload.idViagem || !payload.idLocOrigem || !payload.idLocDestino) {
+      throw new Error('Dados da viagem incompletos para consultar poltronas');
+    }
+    const response = await fetch('/api/poltronas', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error('HTTP '+response.status);
+    const raw = await response.json();
+    const data = Array.isArray(raw) ? (raw[0] || {}) : raw;
+    const result = data?.LaypoltronaXml?.PoltronaXmlRetorno ?? data?.PoltronaXmlRetorno;
+    const items = Array.isArray(result) ? result : result ? [result] : [];
+    const mapped = items.map(p => {
+      const number = parseInt(p.Caption ?? p.caption ?? p.Numero ?? p.NumeroPoltrona, 10);
+      const situacao = Number(p.Situacao ?? p.situacao);
+      return {number, situacao, occupied: situacao !== 0};
+    }).filter(p => LAYOUT_SEATS.includes(p.number));
+    if (!mapped.length) throw new Error('A Praxio não retornou um mapa válido de poltronas');
+    return mapped;
+  }
 
+  async function ensureSeatMap(schedule) {
+    const seats = schedule?.seats;
+    const looksReady = Array.isArray(seats) && seats.length > 0 &&
+      (('situacao' in (seats[0] || {})) || ('Situacao' in (seats[0] || {})) || ('occupied' in (seats[0] || {})));
+    if (looksReady) return;
     try {
-      const resp = await fetch('/api/poltronas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const raw = await resp.json();
-      const data = Array.isArray(raw) ? (raw[0] || {}) : raw;
-
-      let poltronas = [];
-      if (data?.LaypoltronaXml?.PoltronaXmlRetorno) {
-        poltronas = data.LaypoltronaXml.PoltronaXmlRetorno;
-      } else if (data?.PoltronaXmlRetorno) {
-        const p = data.PoltronaXmlRetorno;
-        poltronas = Array.isArray(p) ? p : [p];
-      }
-
-      const mapped = (poltronas || []).map(p => {
-        const caption = p.Caption ?? p.caption;
-        const number = parseInt(caption || p.Numero || p.NumeroPoltrona, 10);
-        const situacao = parseInt(p.Situacao ?? p.situacao ?? 0, 10);
-        return { number, situacao, occupied: situacao !== 0 };
-      }).filter(s => Number.isFinite(s.number) && s.number >= 1 && s.number <= 42);
-
-      if (mapped.length) schedule.seats = mapped;
-    } catch (e) {
-      console.error('Erro ao carregar mapa de poltronas:', e);
+      schedule.seats = await fetchSeatMap(schedule);
+    } catch (error) {
+      console.error('Erro ao carregar mapa de poltronas:', error);
     }
   }
+
+  // Cada consulta reflete o estado atual, sem cache compartilhado entre partidas.
+  // A seleção da viagem consulta novamente para não usar um mapa possivelmente antigo.
+  window.getSeatAvailabilityForSchedule = async function(schedule) {
+    const seats = await fetchSeatMap(schedule);
+    const seatMap = normalizedSeatMap(seats);
+    return {
+      available: LAYOUT_SEATS.filter(n => !seatBlocked(n, seatMap)).length,
+      total: seatMap.size,
+    };
+  };
 
   // ===== API pública =====
   window.renderSeats = async function renderSeats(container, schedule, wayType, options = {}) {
@@ -345,12 +372,7 @@
     }
 
     function isSeatBlocked(num) {
-      if (num === 1 || num === 2) return true;             // bloqueadas fixas
-      const sd = seatMap.get(num);
-      if (!sd) return true;                                 // não existe/indisp.
-      if (Number(sd.situacao) === 3) return true;           // inativa
-      if (sd.occupied === true || Number(sd.situacao) !== 0) return true; // ocupada
-      return false;
+      return seatBlocked(num, seatMap);
     }
 
     // Renderiza inputs de passageiros (uma linha por poltrona selecionada)

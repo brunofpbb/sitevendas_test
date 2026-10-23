@@ -251,6 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return h;
         };
 
+        const seatCheckTasks = [];
         linhas.forEach(linha => {
           let saida = linha.HorarioPartida || linha.HoraPartida || '';
           if (!saida && linha.ViagemTFO) {
@@ -281,8 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const idViagem = linha.IdViagem || linha.CodViagem || 0;
           const idTipoVeiculo = linha.IdTipoVeiculo || linha.TipoVeiculo || linha.IdTipoOnibus || 0;
-          const disponiveis = linha.PoltronasDisponiveis ?? linha.ViagemTFO?.PoltronasDisponiveis ?? null;
-          const capacidade = linha.ViagemTFO?.QtdPoltronas ?? linha.QtdPoltronas ?? linha.TotalPoltronas ?? linha.QuantidadePoltronas ?? null;
           const tipoHorario = linha.TipoHorario || linha.ViagemTFO?.TipoHorario || '';
           const dadosComodidades = { ...(linha.ViagemTFO || {}), ...linha };
           const recurso = campos => campos.some(c => {
@@ -338,12 +337,11 @@ document.addEventListener('DOMContentLoaded', () => {
           seatLabel.textContent = 'POLTRONAS DISPONÍVEIS';
           const seatCount = document.createElement('strong');
           seatCount.className = 'trip-seats-count';
-          seatCount.textContent = disponiveis !== null && disponiveis !== '' ? String(disponiveis) : '—';
-          if (capacidade !== null && capacidade !== '' && Number(capacidade) > 0) {
-            const total = document.createElement('small');
-            total.textContent = ' / ' + capacidade;
-            seatCount.appendChild(total);
-          }
+          // Não mostrar o número agregado da lista, que pode diferir do mapa.
+          // O valor será preenchido após consultar /api/poltronas.
+          seatCount.textContent = '…';
+          seatCount.setAttribute('aria-live', 'polite');
+          let verifiedAvailability = null;
           seatText.append(seatLabel, seatCount);
           seatInfo.className = 'trip-seats-info';
           seatInfo.append(seatIcon, seatText);
@@ -408,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
               arrivalTime: chegada,
               travelTime: tempo,
               price: tarifaRaw,
-              seatsAvailable: disponiveis || null,
+              seatsAvailable: verifiedAvailability,
               serviceType: tipoHorario || null
             };
             onSelect && onSelect(schedule);
@@ -416,7 +414,42 @@ document.addEventListener('DOMContentLoaded', () => {
           actions.append(valueLabel, price, btn);
           card.append(details, actions);
           list.appendChild(card);
+
+          // A mesma chamada usada pela tela de seleção é a fonte da contagem.
+          seatCheckTasks.push(async () => {
+            if (!list.isConnected || !card.isConnected) return;
+            try {
+              const result = await window.getSeatAvailabilityForSchedule({
+                idViagem, idTipoVeiculo,
+                originId: params.originId, destinationId: params.destinationId
+              });
+              if (!list.isConnected || !card.isConnected) return;
+              verifiedAvailability = result.available;
+              seatCount.textContent = String(result.available);
+              const total = document.createElement('small');
+              total.textContent = ' / ' + result.total;
+              seatCount.appendChild(total);
+              seatCount.title = 'Disponibilidade conferida no mapa de poltronas desta viagem';
+            } catch (error) {
+              if (!list.isConnected || !card.isConnected) return;
+              seatCount.textContent = '—';
+              seatCount.title = 'Não foi possível consultar a disponibilidade no momento';
+              console.warn('[Poltronas] falha ao conferir disponibilidade da viagem', idViagem, error);
+            }
+          });
         });
+
+        // Duas consultas por vez, para evitar sobrecarga na API da Praxio.
+        let nextSeatCheck = 0;
+        async function checkWorker() {
+          while (nextSeatCheck < seatCheckTasks.length && list.isConnected) {
+            const task = seatCheckTasks[nextSeatCheck++];
+            await task();
+          }
+        }
+        void Promise.all(
+          Array.from({length: Math.min(2, seatCheckTasks.length)}, () => checkWorker())
+        );
       })
       .catch(err => {
         console.error(err);
