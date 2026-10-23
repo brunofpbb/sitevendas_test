@@ -3021,7 +3021,12 @@ app.post('/api/praxio/vender', async (req, res) => {
         const found = entries.filter(e =>
           e.numPassagem &&
           e.numPassagem.length > 2 &&
-          currentSeats.includes(String(e.poltrona))
+          currentSeats.includes(String(e.poltrona)) &&
+          // Na ida e volta o número da poltrona pode se repetir.
+          // Conferir sempre a viagem real para não reutilizar a emissão
+          // de outro trecho do mesmo pagamento.
+          ['idViagem','idOrigem','idDestino'].every(k=>
+            String(e[k]||'').trim() && String(e[k]).trim()===String(schedule?.[k]||'').trim())
         );
         // Se achou TODAS as poltronas solicitadas, retorna sucesso
         if (found.length > 0 && found.length === currentSeats.length) {
@@ -3169,7 +3174,7 @@ app.post('/api/praxio/vender', async (req, res) => {
 
         // Só a indisponibilidade confirmada oferece autoatendimento.
         if (seatRecovery.isSeatError(praxioErr.message)) {
-          const recoverable = (await seatRecovery.markUnavailable(payment, passengers, praxioErr.message, { recovery: req.get('X-Source') === 'recovery' })) || req.get('X-Source') === 'recovery';
+          const recoverable = (await seatRecovery.markUnavailable(payment, passengers, praxioErr.message, { recovery: req.get('X-Source') === 'recovery', schedule })) || req.get('X-Source') === 'recovery';
           if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
         }
 
@@ -3216,7 +3221,7 @@ app.post('/api/praxio/vender', async (req, res) => {
         };
 
         if (seatRecovery.isSeatError(msgPraxi)) {
-          const recoverable = (await seatRecovery.markUnavailable(payment, passengers, msgPraxi, { recovery: req.get('X-Source') === 'recovery' })) || req.get('X-Source') === 'recovery';
+          const recoverable = (await seatRecovery.markUnavailable(payment, passengers, msgPraxi, { recovery: req.get('X-Source') === 'recovery', schedule })) || req.get('X-Source') === 'recovery';
           if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
         }
 
@@ -3268,7 +3273,7 @@ app.post('/api/praxio/vender', async (req, res) => {
           const failureText = badPoltronas.map(p => `Poltrona ${p.Poltrona || p.NumeroPoltrona || ''} Motivo: ${p.Mensagem || p.MensagemDetalhada || 'Poltrona indisponível'}`).join('; ');
           if (seatRecovery.isSeatError(failureText)) {
             try {
-              const marked = await seatRecovery.markUnavailable(payment, passengers, failureText, { recovery: req.get('X-Source') === 'recovery' });
+              const marked = await seatRecovery.markUnavailable(payment, passengers, failureText, { recovery: req.get('X-Source') === 'recovery', schedule });
               console.log('[Recovery][Partial] poltronas indisponíveis registradas:', marked);
             } catch (e) {
               console.error('[Recovery][Partial] falha ao persistir indisponibilidade:', e.message);
@@ -3300,7 +3305,7 @@ app.post('/api/praxio/vender', async (req, res) => {
 
           // Não converter essa condição conhecida em erro HTTP 500 genérico.
           if (seatRecovery.isSeatError(msgs)) {
-            const recoverable = (await seatRecovery.markUnavailable(payment, passengers, msgs, { recovery: req.get('X-Source') === 'recovery' })) || req.get('X-Source') === 'recovery';
+            const recoverable = (await seatRecovery.markUnavailable(payment, passengers, msgs, { recovery: req.get('X-Source') === 'recovery', schedule })) || req.get('X-Source') === 'recovery';
             if (recoverable) return { status:409, body:{ok:false,code:'SEAT_UNAVAILABLE',error:'A poltrona ficou indisponível antes da emissão.'} };
           }
           throw new Error(
