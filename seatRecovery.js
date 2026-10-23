@@ -65,20 +65,40 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     const seats = reported.length ? reported : (requestedSeats.length===1?requestedSeats:[]);
     if(!seats.length || !entries.length) return false;
     if(entries.some(e=>[REFUNDING,REFUNDED,MANUAL,GROUP_CANCEL].includes(e.status) || (e.status===REISSUING && !options.recovery)))return false;
-    // Só registrar falha confirmada da(s) poltrona(s) identificada(s).
-    const targets = entries.filter(e=>!issued(e)&&seats.includes(String(e.poltrona))&&requestedSeats.includes(String(e.poltrona)));
-    if(!targets.length) return false;
+    // Referência + poltrona NÃO são suficientes para ida e volta com a
+    // mesma numeração. Exigir os IDs da viagem que retornou o erro.
+    const trip=options.schedule||{};
+    const candidates=entries.filter(e=>!issued(e)&&seats.includes(String(e.poltrona))&&requestedSeats.includes(String(e.poltrona)));
+    const withTrip=trip.idViagem && trip.idOrigem && trip.idDestino;
+    const targets=withTrip
+      ? candidates.filter(e=>['idViagem','idOrigem','idDestino'].every(k=>String(e[k]||'')===String(trip[k]||'')))
+      : (candidates.length===1?candidates:[]);
+    if(!targets.length) {
+      console.warn('[Recovery] falha sem identificação inequívoca de viagem; nenhuma linha alterada', {paymentId:String(payment.id),seats});
+      return false;
+    }
     for(const row of targets) await setStatus(row.rowIndex, FAIL);
     return true;
   }
 
 
   const ticketFailed = e => norm(e.status) === norm(FAIL);
-  const sameTrip = entries => entries.every(e=>[
-    'idViagem','idOrigem','idDestino','dataViagem','horaPartida','sentido'
-  ].every(k=>String(e[k]||'') === String(entries[0][k]||'')));
-  const coherent = (payment,entries) => sameTrip(entries) && amountMatches(payment,entries) &&
-    entries.every(e=>issued(e) || ticketFailed(e));
+  // Viagem é diferente de compra. Uma compra pode conter ida e volta, até
+  // na mesma poltrona. As operações de assento são sempre por trecho.
+  const tripKey = e => ['idViagem','idOrigem','idDestino','dataViagem','horaPartida']
+    .map(k=>String(e?.[k]||'').trim()).join('|');
+  const hasTrip = e => ['idViagem','idOrigem','idDestino'].every(k=>String(e?.[k]||'').trim());
+  const coherent = (payment,entries) => amountMatches(payment,entries) &&
+    entries.every(e=>hasTrip(e) && (issued(e) || ticketFailed(e)));
+  const legFailures = entries => {
+    const groups=new Map();
+    for(const e of entries.filter(ticketFailed)) {
+      const key=tripKey(e);
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(e);
+    }
+    return [...groups.values()];
+  };
   const seatLayout = async(row,idTipoVeiculo='')=>{
     const response=await fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/poltronas',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -93,10 +113,19 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     return rows.map(x=>({number:Number(x.Caption??x.caption??x.Numero??x.NumeroPoltrona),
       free:Number(x.Situacao??x.situacao??-1)===0})).filter(x=>Number.isInteger(x.number)&&x.number>=3&&x.number<=99);
   };
-  const availCount=async(entries,idTipoVeiculo='')=>{
-    const seats=await seatLayout(entries[0],idTipoVeiculo);
-    const reserved=new Set(entries.filter(issued).map(e=>Number(e.poltrona)));
+  const availCount=async(entries,failedLeg,idTipoVeiculo='')=>{
+    if(!failedLeg?.length)throw new Error('Trecho de recuperação ausente');
+    const key=tripKey(failedLeg[0]);
+    const seats=await seatLayout(failedLeg[0],idTipoVeiculo);
+    const reserved=new Set(entries.filter(e=>issued(e)&&tripKey(e)===key).map(e=>Number(e.poltrona)));
     return seats.filter(x=>x.free&&!reserved.has(x.number)).length;
+  };
+  const shortageInAnyLeg=async(entries,idTipoVeiculo='')=>{
+    for(const failedLeg of legFailures(entries)){
+      const free=await availCount(entries,failedLeg,idTipoVeiculo);
+      if(free<failedLeg.length)return true;
+    }
+    return false;
   };
 
   app.post('/api/recovery/state', async (req, res) => {
@@ -108,10 +137,21 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       const settled=entries.every(x=>issued(x)||norm(x.status)===norm(REFUNDED));
       const failures=entries.filter(ticketFailed);
       const eligible=coherent(payment,entries) && isPaid(payment);
-      let freeSeats=null;
+      const activeLeg=legFailures(entries)[0]||[];
+      let freeSeats=null,shortage=false;
       if(eligible && failures.length){
-        try{freeSeats=await availCount(entries,String(req.body?.idTipoVeiculo||''));}
-        catch(_){freeSeats=null;}
+        try {
+          const groups=legFailures(entries);
+          for(const group of groups){
+            const count=await availCount(entries,group,String(req.body?.idTipoVeiculo||''));
+            if(group===activeLeg)freeSeats=count;
+            if(count<group.length)shortage=true;
+          }
+        } catch(error){
+          // Falha na consulta de outra viagem não deve autorizar um estorno
+          // de bilhetes já emitidos; conferir tudo no servidor antes.
+          freeSeats=null;shortage=false;
+        }
       }
       let state='pending';
       if(payment.status==='refunded'||entries.every(x=>norm(x.status)===norm(REFUNDED))) state='refunded';
@@ -130,21 +170,23 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
         seat: e.poltrona,
         multiple:entries.length>1,
         totalTickets:entries.length,
-        tickets:entries.map(t=>({seat:t.poltrona,passenger:t.nome,cpf:t.cpf,phone:t.telefone,status:t.status,issued:issued(t),number:t.numPassagem||null})),
+        tickets:entries.map(t=>({seat:t.poltrona,passenger:t.nome,cpf:t.cpf,phone:t.telefone,status:t.status,issued:issued(t),number:t.numPassagem||null,
+          wayType:norm(t.sentido).includes('volta')?'volta':'ida',originName:t.origem,destinationName:t.destino,date:t.dataViagem})),
+        activeFailures:activeLeg.map(t=>({seat:t.poltrona,passenger:t.nome,cpf:t.cpf,phone:t.telefone,status:t.status})),
         failedCount:failures.length,
         issuedCount:entries.filter(issued).length,
         freeSeats,
-        canReplace:state==='seat_unavailable' && freeSeats!==null && freeSeats>=failures.length,
-        canGroupRefund:state==='seat_unavailable' && failures.length>0 && freeSeats!==null && freeSeats<failures.length,
+        canReplace:state==='seat_unavailable' && freeSeats!==null && freeSeats>=activeLeg.length,
+        canGroupRefund:state==='seat_unavailable' && failures.length>0 && shortage,
         canRefundFailed:state==='seat_unavailable' && failures.length>0,
         requiresGroupCancellation:entries.some(issued),
         amount: Number(payment.transaction_amount || 0),
         schedule: {
-          idViagem: e.idViagem, idOrigem: e.idOrigem, idDestino: e.idDestino,
-          originId: e.idOrigem, destinationId: e.idDestino,
-          date: e.dataViagem, dataViagem: e.dataViagem,
-          horaPartida: e.horaPartida, originName: e.origem,
-          destinationName: e.destino
+          idViagem: (activeLeg[0]||e).idViagem, idOrigem: (activeLeg[0]||e).idOrigem, idDestino: (activeLeg[0]||e).idDestino,
+          originId: (activeLeg[0]||e).idOrigem, destinationId: (activeLeg[0]||e).idDestino,
+          date: (activeLeg[0]||e).dataViagem, dataViagem: (activeLeg[0]||e).dataViagem,
+          horaPartida: (activeLeg[0]||e).horaPartida, originName: (activeLeg[0]||e).origem,
+          destinationName: (activeLeg[0]||e).destino
         },
         passenger: { name: e.nome, cpf: e.cpf, document: e.cpf, phone: e.telefone },
         wayType: norm(e.sentido).includes('volta') ? 'volta' : 'ida'
@@ -245,24 +287,27 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
     locks.add(key);
     try{
       const {payment,entries}=await validated(paymentId,reference,email);
-      const failed=entries.filter(ticketFailed);
+      const leg=req.body.trip||{};
+      const failed=entries.filter(e=>ticketFailed(e)&&tripKey(e)===tripKey(leg));
       const replacements=req.body.replacements;
-      if(entries.length<=1 || !isPaid(payment) || !coherent(payment,entries) || !failed.length ||
+      if(entries.length<=1 || !hasTrip(leg) || !isPaid(payment) || !coherent(payment,entries) || !failed.length ||
         !Array.isArray(replacements) || replacements.length!==failed.length)
         return res.status(409).json({ok:false,error:'Compra ou seleção não elegível para recuperação em grupo'});
       const originals=new Set(failed.map(x=>String(x.poltrona)));
       const chosen=new Set(replacements.map(x=>String(x.newSeat)));
-      if(chosen.size!==failed.length || replacements.some(x=>!originals.has(String(x.oldSeat)) ||
+      if(chosen.size!==failed.length || originals.size!==failed.length ||
+        new Set(replacements.map(x=>String(x.oldSeat))).size!==failed.length ||
+        replacements.some(x=>!originals.has(String(x.oldSeat)) || String(x.newSeat)===String(x.oldSeat) ||
         !Number.isInteger(Number(x.newSeat)) || Number(x.newSeat)<3 || Number(x.newSeat)>99))
         return res.status(400).json({ok:false,error:'Seleção de poltronas inválida'});
-      const layout=await seatLayout(entries[0],idTipoVeiculo||'');
+      const layout=await seatLayout(failed[0],idTipoVeiculo||'');
       const free=new Set(layout.filter(x=>x.free).map(x=>String(x.number)));
       if([...chosen].some(seat=>!free.has(seat)))
         return res.status(409).json({ok:false,code:'SEAT_UNAVAILABLE',error:'Uma das poltronas já ficou indisponível. Selecione novamente.'});
       const byOld=new Map(replacements.map(x=>[String(x.oldSeat),Number(x.newSeat)]));
       const pax=failed.map(x=>({seatNumber:byOld.get(String(x.poltrona)),name:x.nome,document:x.cpf,phone:x.telefone,price:Number(String(x.valor).replace(',','.'))}));
       for(const x of failed)await setStatus(x.rowIndex,REISSUING,byOld.get(String(x.poltrona)));
-      const x=entries[0];
+      const x=failed[0];
       const body={
         mpPaymentId:paymentId,
         schedule:{idViagem:x.idViagem,idOrigem:x.idOrigem,idDestino:x.idDestino,date:x.dataViagem,horaPartida:x.horaPartida,originName:x.origem,destinationName:x.destino},
@@ -352,8 +397,8 @@ module.exports = function createRecovery({ app, sheetsFindByRef, sheetsAuthRW, m
       // Se há emitidos, todo o grupo só pode ser cancelado se faltam assentos
       // para pelo menos um passageiro ainda sem bilhete.
       if(sold.length){
-        const free=await availCount(entries,idTipoVeiculo||'');
-        if(free>=failed.length)
+        const insufficient=await shortageInAnyLeg(entries,idTipoVeiculo||'');
+        if(!insufficient)
           return res.status(409).json({ok:false,error:'Há vagas para continuar a viagem. O cancelamento integral do grupo não está disponível.'});
         // Primeiro verifica TODOS os bilhetes emitidos, antes de cancelar qualquer um.
         const session=await praxioLogin();
