@@ -1406,6 +1406,39 @@ async function emitirBilhetesViaWebhook(payment) {
     return;
   }
 
+  // Verificação defensiva antes da emissão: nunca multiplicar passageiros
+  // por pré-reservas idênticas, nem tentar emitir valor superior ao pagamento.
+  // Em caso de inconsistência, parar e solicitar conciliação humana. Nunca
+  // apagar/alterar automaticamente linhas ou pedir novo pagamento ao cliente.
+  const preReservaIdentity = e => [e.idViagem,e.idOrigem,e.idDestino,e.dataViagem,
+    e.horaPartida,e.poltrona].map(v=>String(v ?? '').trim()).join('|');
+  const identities = entries.map(preReservaIdentity);
+  const duplicateSeats = new Set(identities).size !== identities.length;
+  const paidAmount = Math.round(Number(payment.transaction_amount || 0)*100);
+  const sheetAmounts = entries.map(e=>Number(String(e.valor||'0').trim().replace(',','.')));
+  const totalSeatsAmount = Math.round(sheetAmounts.reduce((sum,v)=>sum+v,0)*100);
+  const totalsMismatch = sheetAmounts.some(v=>!Number.isFinite(v)||v<=0)
+    || !Number.isFinite(paidAmount) || paidAmount<=0 || totalSeatsAmount!==paidAmount;
+  if (duplicateSeats || totalsMismatch) {
+    const errorMessage = 'Pagamento aprovado sem emissão: pré-reserva duplicada ou valor inconsistente; exige conciliação manual';
+    console.error('[Webhook][Emit][Conciliação] BLOQUEADO', {
+      paymentId:String(payment.id),reference:extRef,rows:entries.length,
+      duplicateSeats,paidAmount:paidAmount/100,rowsTotal:totalSeatsAmount/100
+    });
+    // Travar novo processamento do webhook para evitar alertas repetidos.
+    // Não altera valor pago nem números de bilhetes existentes.
+    for (const entry of entries.filter(e=>!e.numPassagem)) {
+      try { await sheetsUpdateStatus(entry.rowIndex - 1,'Análise manual'); }
+      catch (error) { console.error('[Webhook][Conciliação] não foi possível sinalizar linha:',error?.message||error); }
+    }
+    const report = {mpPaymentId:String(payment.id),externalReference:extRef,
+      errorMessage,duplicateSeats,rows:entries.length,
+      paidAmount:paidAmount/100,rowsTotal:totalSeatsAmount/100};
+    await logVendaFalha(report);
+    await notifyAdminVendaFalha(report);
+    return;
+  }
+
   // Recuperações em andamento não podem ser reprocessadas pelo webhook PIX.
   if (entries.some(e => /^(poltrona indisponível|reemissão em andamento|reembolso em processamento|reembolsado integralmente|análise manual)$/i.test(String(e.status || '').trim()))) {
     console.log('[Webhook][Emit] recuperação em andamento; não tentar nova emissão automática', extRef);
