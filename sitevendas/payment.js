@@ -391,14 +391,22 @@ document.addEventListener('DOMContentLoaded', async () => {
           external_reference: externalReference,
           userEmail,
           userPhone,
-          bilhetes
+          bilhetes,
+          expectedTotal: Number(cartTotal().toFixed(2))
         })
       });
       const result=await response.json().catch(()=>({}));
-      if (!response.ok || result.ok!==true || Number(result.appended)!==bilhetes.length)
+      if (!response.ok || result.ok!==true || Number(result.appended)!==bilhetes.length) {
+        if ([409,422].includes(response.status)) {
+          const validationError = new Error(String(result.error || 'Confira os dados da viagem e tente novamente.'));
+          validationError.checkoutValidation = true;
+          throw validationError;
+        }
         throw new Error('Falha ao registrar os bilhetes antes do pagamento.');
+      }
     } catch (error) {
       console.error('[pre-reserva] pagamento não será iniciado:',error);
+      if (error?.checkoutValidation) throw error;
       throw new Error('Não foi possível preparar a compra. Nenhum pagamento foi iniciado. Tente novamente em instantes.');
     }
   }
