@@ -3698,7 +3698,7 @@ app.post('/api/praxio/vender', async (req, res) => {
        </p>
        <p><b>Bilhetes:</b></p>
        <ul style="margin-top:8px">${listaHtml}</ul>
-       <div style="margin-top:18px;padding-top:14px;border-top:1px solid #ddd;font-size:13px;line-height:1.5">
+       <div style="margin-top:18px;padding-top:14px;border-top:1px solid #ddd;font-size:13px;line-height:1.5;text-align:center">
          <p style="margin:0 0 8px"><b>Informações importantes — Política de Cancelamento</b></p>
          <p>Em Minas Gerais, para os usuários do transporte intermunicipal, a Lei estadual 13.655, de 2000, e o Decreto 44.603, de 2007, estipulam o prazo de até <b>12 horas antes do embarque</b> para que o passageiro cancele e tenha direito ao reembolso ou remarque sua passagem.</p>
          <p><b>Para solicitar o cancelamento do seu bilhete, observada a política acima, acesse:</b></p>
