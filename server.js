@@ -818,8 +818,12 @@ app.post('/api/sheets/pre-reserva', async (req, res) => {
       if (!Number.isFinite(departure)) {
         return res.status(422).json({ok:false,error:'Não foi possível confirmar o horário de embarque. Selecione novamente a viagem.'});
       }
-      if (departure <= Date.now()) {
-        return res.status(409).json({ok:false,error:'O horário de embarque desta viagem já passou. Selecione outra viagem antes de pagar.'});
+      // Ônibus em trânsito: permitir iniciar a compra até 10 minutos após
+      // o horário programado de embarque da localidade do passageiro.
+      // A igualdade com o limite ainda é permitida.
+      const SELLING_GRACE_PERIOD_MS = 10 * 60 * 1000;
+      if (Date.now() > departure + SELLING_GRACE_PERIOD_MS) {
+        return res.status(409).json({ok:false,error:'O prazo de venda desta viagem terminou (10 minutos após o horário de embarque). Selecione outra viagem antes de pagar.'});
       }
     }
 
