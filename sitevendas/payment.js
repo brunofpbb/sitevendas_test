@@ -803,8 +803,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (data.status === 'approved') {
               showOverlayOnce('Pagamento confirmado!', 'Conferindo as poltronas e emitindo bilhetes…');
               const paymentId=String(data.id||data?.payment?.id||'');
+              const recoveryFlowStart=performance.now();
+              const flowCheckpoint=(stage)=>console.info('[Card][RecoveryTiming]',stage,Math.round(performance.now()-recoveryFlowStart)+'ms',{paymentId});
               try {
                 const venda=await venderPraxioApósAprovado(paymentId);
+                flowCheckpoint('Emissão Praxio + PDF/Drive + Sheets concluída');
                 if(venda.uncertain){
                   console.error('[Card] Resultado incerto; não concluir automaticamente:',venda.uncertain);
                 } else {
@@ -815,6 +818,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body:JSON.stringify({paymentId,reference:idem})
                   });
                   const finishData=await finishResponse.json().catch(()=>({}));
+                  flowCheckpoint('Conciliação do lote consultada');
                   if(!finishResponse.ok||!finishData.ok)
                     console.error('[Card] Conciliação incompleta; manter acompanhamento:',finishData);
                   // Em emissão parcial, as linhas já estão conciliadas para o recovery.
@@ -833,6 +837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body:JSON.stringify({paymentId,reference:idem,email:body.payer.email})
                   });
                   if(r.ok)state=await r.json();
+                  flowCheckpoint('Estado de recovery consultado');
                 }catch(error){console.warn('[Card] Consulta do estado falhou:',error);}
 
                 hideOverlayIfShown();
