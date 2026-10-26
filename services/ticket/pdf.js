@@ -328,10 +328,24 @@ doc.font('Helvetica-Bold').fontSize(9)
 doc.font('Helvetica').fontSize(9)
    .text('para que o passageiro cancele e tenha direito ao reembolso ou remarque sua passagem.', left(), doc.y, { width: pageW(), align:'center' });
 
-// pula +1 linha antes do suporte
-doc.moveDown(1.0);
-doc.font('Helvetica-Bold').fontSize(10)
-   .text('Suporte via WhatsApp (31) 3551-1650', left(), doc.y, { width: pageW(), align:'center' });
+// Orientações para cancelamento pelo portal de vendas.
+// O link é uma anotação clicável no PDF, não apenas texto.
+doc.moveDown(0.9);
+doc.font('Helvetica').fontSize(9).fillColor('#000')
+   .text('Para solicitar o cancelamento do seu bilhete, observada a política acima, acesse:', left(), doc.y, { width: pageW(), align:'center' });
+
+doc.moveDown(0.3);
+doc.font('Helvetica-Bold').fontSize(10).fillColor('#005b28')
+   .text('https://vendas.turintransportes.com/', left(), doc.y, {
+     width: pageW(),
+     align: 'center',
+     link: 'https://vendas.turintransportes.com/',
+     underline: true
+   });
+
+doc.moveDown(0.3);
+doc.font('Helvetica').fontSize(9).fillColor('#000')
+   .text('Entre com seu e-mail e, em Minhas compras, selecione o bilhete que deseja cancelar.', left(), doc.y, { width: pageW(), align:'center' });
 
 
 
