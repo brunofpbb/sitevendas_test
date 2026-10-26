@@ -817,7 +817,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                   const finishData=await finishResponse.json().catch(()=>({}));
                   if(!finishResponse.ok||!finishData.ok)
                     console.error('[Card] Conciliação incompleta; manter acompanhamento:',finishData);
-                  if(venda.issuedCount>0 && finishResponse.ok){
+                  // Em emissão parcial, as linhas já estão conciliadas para o recovery.
+                  // Não prender o cliente aguardando PDFs/e-mail do lote emitido.
+                  if(venda.issuedCount>0 && finishResponse.ok && !venda.failedSeats?.length){
                     const flush=await fetch('/api/mp/wait-flush?paymentId='+encodeURIComponent(paymentId));
                     const status=await flush.json().catch(()=>({}));
                     if(!status.flushed)console.warn('[Card] Aguardando conciliação final:',status);
