@@ -331,7 +331,7 @@ doc.font('Helvetica').fontSize(9)
 // Orientações para cancelamento pelo portal de vendas.
 // O link é uma anotação clicável no PDF, não apenas texto.
 doc.moveDown(0.9);
-doc.font('Helvetica').fontSize(9).fillColor('#000')
+doc.font('Helvetica-Bold').fontSize(9).fillColor('#000')
    .text('Para solicitar o cancelamento do seu bilhete, observada a política acima, acesse:', left(), doc.y, { width: pageW(), align:'center' });
 
 doc.moveDown(0.3);
@@ -344,7 +344,7 @@ doc.font('Helvetica-Bold').fontSize(10).fillColor('#005b28')
    });
 
 doc.moveDown(0.3);
-doc.font('Helvetica').fontSize(9).fillColor('#000')
+doc.font('Helvetica-Bold').fontSize(9).fillColor('#000')
    .text('Entre com seu e-mail e, em Minhas compras, selecione o bilhete que deseja cancelar.', left(), doc.y, { width: pageW(), align:'center' });
 
 
