@@ -2628,11 +2628,31 @@ function queueUnifiedSend(groupId, fragment, doFlushCb) {
     const haveAllAnexos = e.expected > 0 && e.emailAttachments.length >= e.expected;
 
     if (!waited && !(haveAllBilhetes && haveAllAnexos)) {
-      // O lote pode ser completado DEPOIS do primeiro debounce. Sem rearmar,
-      // os waiters ficam presos até o timeout mesmo com os anexos disponíveis.
-      // Reconfira até completar ou atingir o limite de segurança existente.
-      e.timer = setTimeout(tryFlush, AGGR_DEBOUNCE_MS);
-      return;
+      // Uma compra parcialmente emitida nunca produzirá anexos para os trechos
+      // com SEAT_UNAVAILABLE. Conferir o estado persistido antes de ajustar
+      // o lote; não confundir poltronas idênticas de ida e volta.
+      if (e.base?.payment?.external_reference && e.bilhetes.length && e.emailAttachments.length >= e.bilhetes.length) {
+        try {
+          const {entries} = await sheetsFindByRef(String(e.base.payment.external_reference));
+          const statusOf = row => String(row.status || '').trim().toLowerCase();
+          const settled = entries.length >= e.expected && entries.every(row =>
+            statusOf(row) === 'poltrona indisponível' ||
+            (statusOf(row) === 'emitido' && String(row.numPassagem || '').trim())
+          );
+          const failed = entries.some(row => statusOf(row) === 'poltrona indisponível');
+          if (settled && failed && entries.filter(row => statusOf(row) === 'emitido').length === e.bilhetes.length) {
+            console.log('[AGGR] lote parcial confirmado; liberando conciliação sem aguardar bilhetes impossíveis', {expected:e.expected,issued:e.bilhetes.length});
+            e.expected = e.bilhetes.length;
+          }
+        } catch (error) {
+          console.warn('[AGGR] consulta de lote parcial indisponível:', error.message);
+        }
+      }
+      if (Date.now() - e.startedAt < AGGR_MAX_WAIT_MS &&
+          !(e.expected > 0 && e.bilhetes.length >= e.expected && e.emailAttachments.length >= e.expected)) {
+        e.timer = setTimeout(tryFlush, AGGR_DEBOUNCE_MS);
+        return;
+      }
     }
 
     e.flushed = true;
@@ -3678,14 +3698,24 @@ app.post('/api/praxio/vender', async (req, res) => {
        </p>
        <p><b>Bilhetes:</b></p>
        <ul style="margin-top:8px">${listaHtml}</ul>
-       <p style="color:#666;font-size:12px;margin-top:16px">Este é um e-mail automático. Em caso de dúvidas, responda a esta mensagem.</p>
+       <div style="margin-top:18px;padding-top:14px;border-top:1px solid #ddd;font-size:13px;line-height:1.5">
+         <p style="margin:0 0 8px"><b>Informações importantes — Política de Cancelamento</b></p>
+         <p>Em Minas Gerais, para os usuários do transporte intermunicipal, a Lei estadual 13.655, de 2000, e o Decreto 44.603, de 2007, estipulam o prazo de até <b>12 horas antes do embarque</b> para que o passageiro cancele e tenha direito ao reembolso ou remarque sua passagem.</p>
+         <p><b>Para solicitar o cancelamento do seu bilhete, observada a política acima, acesse:</b></p>
+         <p><b><a href="https://vendas.turintransportes.com/" style="color:#005b28;text-decoration:underline">https://vendas.turintransportes.com/</a></b></p>
+         <p><b>Entre com seu e-mail e, em Minhas compras, selecione o bilhete que deseja cancelar.</b></p>
+       </div>
      </div>`;
 
           const text = [
             'Olá,', `Recebemos seu pagamento em ${appName}. Bilhetes anexos.`,
             `Rota(s): ${headerRoute}`, `Valor total: ${valorTotalBRL}`,
             '', 'Bilhetes:',
-            ...emailBilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`)
+            ...emailBilhetes.map((b, i) => ` - ${b.numPassagem} (${(b.idaVolta || 'ida')}) ${b.origemNome || b.origem || ''} -> ${b.destinoNome || b.destino || ''} ${b.dataViagem || ''} ${b.horaPartida || ''}`),
+            '', 'Informações importantes — Política de Cancelamento:',
+            'Em Minas Gerais, a Lei estadual 13.655/2000 e o Decreto 44.603/2007 estipulam o prazo de até 12 horas antes do embarque para cancelar com direito ao reembolso ou remarcar a passagem.',
+            'Para solicitar o cancelamento, observada a política acima, acesse https://vendas.turintransportes.com/',
+            'Entre com seu e-mail e, em Minhas compras, selecione o bilhete que deseja cancelar.'
           ].join('\n');
 
 
