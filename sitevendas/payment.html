@@ -114,9 +114,7 @@
     @keyframes io-spin { to { transform: rotate(360deg); } }
   </style>
 
-  <!-- Valida e prepara o carrinho antes do Mercado Pago -->
-  <script src="payment-guard.js?v=3"></script>
-
+  <!-- As validações do checkout são implementadas em payment.js e no backend. -->
   <!-- SDK do Mercado Pago deve vir antes do payment.js -->
   <script src="https://sdk.mercadopago.com/js/v2"></script>
   <script defer src="payment.js?v=recovery-timing-per-ticket-20261026c"></script>
