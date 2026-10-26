@@ -2627,7 +2627,13 @@ function queueUnifiedSend(groupId, fragment, doFlushCb) {
     const haveAllBilhetes = e.expected > 0 && e.bilhetes.length >= e.expected;
     const haveAllAnexos = e.expected > 0 && e.emailAttachments.length >= e.expected;
 
-    if (!waited && !(haveAllBilhetes && haveAllAnexos)) return;
+    if (!waited && !(haveAllBilhetes && haveAllAnexos)) {
+      // O lote pode ser completado DEPOIS do primeiro debounce. Sem rearmar,
+      // os waiters ficam presos até o timeout mesmo com os anexos disponíveis.
+      // Reconfira até completar ou atingir o limite de segurança existente.
+      e.timer = setTimeout(tryFlush, AGGR_DEBOUNCE_MS);
+      return;
+    }
 
     e.flushed = true;
     clearTimeout(e.timer); e.timer = null;
