@@ -445,6 +445,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Falha de comunicação/resultado incerto, porém, interrompe o fluxo para
   // evitar qualquer possibilidade de segunda emissão.
   async function venderPraxioApósAprovado(paymentId) {
+    const issueStartedAt=performance.now();
+    console.log('[Card][RecoveryTiming] Início da emissão por passageiro', {paymentId});
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const results = [];
     const failedSeats = [];
@@ -465,11 +467,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         idaVolta:inferLegType(it,i,order),totalExpected
       };
       let response, result;
+      const requestStartedAt=performance.now();
+      console.log('[Card][RecoveryTiming] Iniciando bilhete', {trecho:body.idaVolta,indice:i+1,total:order.length});
       try {
         response=await fetch('/api/praxio/vender',{
           method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
         });
         result=await response.json();
+        console.log('[Card][RecoveryTiming] Resposta da emissão', {trecho:body.idaVolta,indice:i+1,ms:Math.round(performance.now()-requestStartedAt),http:response.status,code:result?.code||null});
       } catch(error) {
         uncertain={seat,reason:error?.message || 'Falha de comunicação'};
         console.error('[Card][Issue] Resultado inconclusivo; interrompendo demais vendas:',uncertain);
