@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(submitted)return;
       mode='choosing';choices.hidden=true;stage.hidden=false;stage.replaceChildren();
       try{
-        const trip={...(context.schedule||{}),...info.schedule};
+        const trip={...(context.schedule||{}),...info.schedule, departureTime:info.schedule?.horaPartida, date:info.schedule?.date, originName:info.schedule?.originName, destinationName:info.schedule?.destinationName};
         const r=await fetch('/api/poltronas',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({idViagem:s.idViagem,idLocOrigem:s.idOrigem,idLocDestino:s.idDestino,
             idTipoVeiculo:trip.idTipoVeiculo||''})});
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     refund.hidden=false;
     // Não oferecer nova poltrona até existir disponibilidade realmente confirmada.
     try {
-      const schedule={...s,...(context.schedule||{}),seats:undefined};
+      const schedule={...(context.schedule||{}),...s,departureTime:s.horaPartida, date:s.date, originName:s.originName, destinationName:s.destinationName,seats:undefined};
       const resp=await fetch('/api/poltronas',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({idViagem:s.idViagem,idLocOrigem:s.idOrigem,idLocDestino:s.idDestino,idTipoVeiculo:schedule.idTipoVeiculo||''})});
       if(!resp.ok)throw Error('consulta indisponível');
