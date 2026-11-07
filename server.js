@@ -3869,7 +3869,28 @@ if (String(process.env.RECON_PIX_ENABLED || 'true').toLowerCase() === 'true') {
     // Intencionalmente bloqueado até existir garantia de idempotência
     // persistente e verificação de emissão anterior na Praxio.
     autoIssue: false,
-    processPayment: emitirBilhetesViaWebhook
+    processPayment: emitirBilhetesViaWebhook,
+    onApproved: async ({reference,payment,rows}) => {
+      // Mesmo sem emissão, a planilha deve refletir o pagamento real.
+      // O status do bilhete permanece pendente, sem inventar NumPassagem.
+      const updated=await sheetsUpdatePaymentStatusByRef(reference,payment);
+      if (!updated?.ok || updated.updated === 0)
+        throw new Error('Não foi possível registrar aprovação financeira no Sheets');
+      console.warn('[PIX][Recon] PIX pago e sem bilhete; necessita conferência Praxio', {
+        reference, paymentId:String(payment.id), seats:rows.length
+      });
+      try {
+        await notifyAdminVendaFalha({
+          stage:'pix-reconciliation-manual',
+          mpPaymentId:String(payment.id),
+          externalReference:reference,
+          errorMessage:'PIX aprovado e sem NumPassagem no Sheets; conferir emissão anterior na Praxio antes de reemitir',
+          expectedTickets:rows.length
+        });
+      } catch (error) {
+        console.error('[PIX][Recon] falha no alerta ao suporte',error?.message||error);
+      }
+    }
   });
   pixRecon.start();
 }
