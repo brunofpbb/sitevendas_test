@@ -144,11 +144,18 @@ module.exports = function createPixReconciler({
               result.manual++;
               continue;
             }
-            if(rows.some(e=>{
-              const dep=departureMs(e);return !Number.isFinite(dep)||dep<=todayMs()+10*60000;
-            })) {
+            // Na conciliação de PIX já pago, permitir emissão no próprio dia
+            // da viagem mesmo após a hora prevista. Uma viagem de data anterior
+            // continua bloqueada. Ida e volta são verificadas separadamente.
+            const todayBR = new Intl.DateTimeFormat('en-CA', {
+              timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'
+            }).format(new Date());
+            const expiredLegs=rows.filter(e=>
+              !/^\d{4}-\d{2}-\d{2}$/.test(e.dataViagem) || e.dataViagem<todayBR
+            );
+            if(expiredLegs.length) {
               result.manual++;
-              notify('manual_departure',{ref,paymentId:payment.id});
+              notify('manual_departure',{ref,paymentId:payment.id,expiredLegs:expiredLegs.length});
               continue;
             }
             if(typeof beforeIssue==='function'){
