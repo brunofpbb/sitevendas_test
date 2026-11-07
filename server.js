@@ -3850,6 +3850,30 @@ app.get('*', (req, res, next) => {
   next();
 });
 
+// Conciliação periódica dos PIX que podem ter perdido o webhook.
+// Por segurança, inicia em modo diagnóstico: nenhuma venda Praxio ou
+// reembolso é realizado enquanto a verificação de idempotência persistente
+// e eventual emissão anterior não forem comprovadas.
+// RECON_PIX_ENABLED=false desliga inclusive as consultas.
+if (String(process.env.RECON_PIX_ENABLED || 'true').toLowerCase() === 'true') {
+  const createPixReconciler = require('./reconciliation/pixReconciliation');
+  const pixRecon = createPixReconciler({
+    sheets: sheetsAuthRW,
+    spreadsheetId: process.env.SHEETS_BPE_ID,
+    sheetTab: (process.env.SHEETS_BPE_RANGE || '').split('!')[0] || 'BPE',
+    fetch,
+    accessToken: process.env.MP_ACCESS_TOKEN,
+    intervalMs: 2 * 60 * 1000,
+    lookbackHours: 72,
+    maxRefs: 40,
+    // Intencionalmente bloqueado até existir garantia de idempotência
+    // persistente e verificação de emissão anterior na Praxio.
+    autoIssue: false,
+    processPayment: emitirBilhetesViaWebhook
+  });
+  pixRecon.start();
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] rodando em http://localhost:${PORT} | publicDir: ${PUBLIC_DIR}`);
 });
