@@ -3897,8 +3897,21 @@ if (String(process.env.RECON_PIX_ENABLED || 'true').toLowerCase() === 'true') {
     maxRefs: 40,
     // Intencionalmente bloqueado até existir garantia de idempotência
     // persistente e verificação de emissão anterior na Praxio.
-    autoIssue: false,
-    processPayment: emitirBilhetesViaWebhook,
+    // Ativação explícita somente após validar o cenário de interrupção
+    // entre venda Praxio e persistência no Sheets.
+    autoIssue: process.env.RECON_PIX_AUTO_ISSUE === 'true',
+    processPayment: payment => processPixPaymentOnce(payment,'reconciliation'),
+    beforeIssue: async ({reference,rows}) => {
+      // Revalidar o Sheets no instante anterior à emissão.
+      const current=(await sheetsFindByRef(reference)).entries;
+      if (current.length !== rows.length ||
+          current.some(e=>e.numPassagem ||
+            !/^(pendente|aguardando pagamento)$/i.test(String(e.status || '').trim()))) {
+        console.warn('[PIX][Recon] estado mudou; emissão automática impedida',reference);
+        return false;
+      }
+      return true;
+    },
     onApproved: async ({reference,payment,rows}) => {
       // Mesmo sem emissão, a planilha deve refletir o pagamento real.
       // O status do bilhete permanece pendente, sem inventar NumPassagem.
