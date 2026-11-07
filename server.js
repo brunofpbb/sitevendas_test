@@ -1468,7 +1468,7 @@ async function emitirBilhetesViaWebhook(payment) {
   }
 
   // Recuperações em andamento não podem ser reprocessadas pelo webhook PIX.
-  if (entries.some(e => /^(poltrona indisponível|reemissão em andamento|reembolso em processamento|reembolsado integralmente|análise manual)$/i.test(String(e.status || '').trim()))) {
+  if (entries.some(e => /^(poltrona indisponível|emissão em andamento|reemissão em andamento|reembolso em processamento|reembolsado integralmente|análise manual)$/i.test(String(e.status || '').trim()))) {
     console.log('[Webhook][Emit] recuperação em andamento; não tentar nova emissão automática', extRef);
     return;
   }
@@ -1484,6 +1484,19 @@ async function emitirBilhetesViaWebhook(payment) {
     console.log('[Webhook][Emit] já existe emissão no Sheets para', extRef);
     return;
   }
+
+  // A aprovação financeira já foi gravada. Registrar início de emissão
+  // ANTES da Praxio: se houver crash após a venda, nenhuma varredura posterior
+  // repete automaticamente uma operação cujo resultado ficou incerto.
+  const allowedBeforeSale=entries.every(e=>/^(pendente|aguardando pagamento)$/i.test(String(e.status||'').trim()));
+  if (!allowedBeforeSale) {
+    console.warn('[PIX][Emit] status não autoriza nova venda automática', {reference:extRef,states:entries.map(e=>e.status)});
+    return;
+  }
+  for (const entry of entries) {
+    await sheetsUpdateStatus(entry.rowIndex-1,'Emissão em andamento');
+  }
+  console.log('[PIX][Emit] registro de emissão em andamento confirmado no Sheets', {reference:extRef,rows:entries.length});
 
   // agrupa por viagem (ida / volta)
   const grupos = new Map(); // key -> { schedule, passageiros, idaVolta }
@@ -3899,7 +3912,7 @@ if (String(process.env.RECON_PIX_ENABLED || 'true').toLowerCase() === 'true') {
     // persistente e verificação de emissão anterior na Praxio.
     // Ativação explícita somente após validar o cenário de interrupção
     // entre venda Praxio e persistência no Sheets.
-    autoIssue: process.env.RECON_PIX_AUTO_ISSUE === 'true',
+    autoIssue: process.env.RECON_PIX_AUTO_ISSUE !== 'false',
     processPayment: payment => processPixPaymentOnce(payment,'reconciliation'),
     beforeIssue: async ({reference,rows}) => {
       // Revalidar o Sheets no instante anterior à emissão.
