@@ -3893,6 +3893,29 @@ if (String(process.env.RECON_PIX_ENABLED || 'true').toLowerCase() === 'true') {
     }
   });
   pixRecon.start();
+
+  // Disparo manual opcional para casos antigos (não expor sem segredo robusto).
+  if (process.env.RECON_PIX_ADMIN_TOKEN && process.env.RECON_PIX_ADMIN_TOKEN.length >= 32) {
+    app.post('/api/internal/pix-reconcile', async (req,res) => {
+      const crypto=require('crypto');
+      const given=String(req.headers['x-recon-token']||'');
+      const secret=process.env.RECON_PIX_ADMIN_TOKEN;
+      const provided=Buffer.from(given);
+      const expected=Buffer.from(secret);
+      if(provided.length!==expected.length || !crypto.timingSafeEqual(provided,expected))
+        return res.status(403).json({ok:false,error:'forbidden'});
+      const reference=String(req.body?.reference||'').trim();
+      if(!/^[A-Za-z0-9_-]{8,64}$/.test(reference))
+        return res.status(400).json({ok:false,error:'Referência inválida'});
+      try {
+        const report=await pixRecon.scan({onlyReference:reference});
+        return res.json({ok:true,reference,report});
+      }catch(error){
+        console.error('[PIX][Recon] erro manual:',error);
+        return res.status(500).json({ok:false,error:'Falha na conciliação'});
+      }
+    });
+  }
 }
 
 app.listen(PORT, '0.0.0.0', () => {
