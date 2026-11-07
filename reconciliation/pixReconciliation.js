@@ -6,7 +6,7 @@
  * emissão automática requer RECON_PIX_AUTO_ISSUE=true e validação operacional.
  */
 module.exports = function createPixReconciler({
-  sheets, spreadsheetId, sheetTab, fetch, accessToken, processPayment, beforeIssue,
+  sheets, spreadsheetId, sheetTab, fetch, accessToken, processPayment, beforeIssue, onApproved,
   intervalMs = 120000, lookbackHours = 72, maxRefs = 40,
   autoIssue = false
 }) {
@@ -135,6 +135,9 @@ module.exports = function createPixReconciler({
             // Escrita financeira fica com o mesmo webhook já existente; jamais
             // registrar emissão sem confirmação definitiva na Praxio.
             if(!autoIssue) {
+              // O pagamento é real, mas o fato de NumPassagem estar vazio
+              // não prova que a Praxio nunca tenha emitido.
+              if (typeof onApproved === 'function') await onApproved({reference:ref,payment,rows});
               result.manual++;
               continue;
             }
