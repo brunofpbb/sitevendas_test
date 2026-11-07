@@ -1823,11 +1823,16 @@ app.post('/api/mp/webhook', async (req, res) => {
 
 
 
-    const topic = req.body?.type || req.query?.type;
+    // MP envia tanto notificações v1 (type/data.id) quanto legacy
+    // (topic/resource, inclusive via query string).
+    const topic = req.body?.type || req.body?.topic || req.query?.type || req.query?.topic;
     const action = req.body?.action || req.query?.action;
+    const resource = String(req.body?.resource || '');
     const dataId =
       req.body?.data?.id ||
       req.query?.['data.id'] ||
+      (resource.match(/(?:^|\/)payments?\/(\d+)(?:\?|$)/)?.[1]) ||
+      (/^\d+$/.test(resource) ? resource : null) ||
       req.query?.id ||
       null;
 
