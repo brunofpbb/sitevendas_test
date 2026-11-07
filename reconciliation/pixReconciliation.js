@@ -12,6 +12,7 @@ module.exports = function createPixReconciler({
 }) {
   let running = false;
   const inFlight = new Set();
+  const recentlyReported = new Map(); // evita alertas/e-mails repetidos no mesmo processo
   const normalize = x => String(x ?? '').trim();
   const headerKey = x => normalize(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   const cents = x => {
@@ -34,7 +35,7 @@ module.exports = function createPixReconciler({
   };
   const get = (row,cols,key) => cols[key]===undefined?'':normalize(row[cols[key]]);
   const active = status => /^(pendente|aguardando pagamento)$/i.test(normalize(status));
-  const pending = pg => /^(pendente|aguardando pagamento|)$/i.test(normalize(pg));
+  const pending = pg => /^(pendente|aguardando pagamento|approved|accredited|)$/i.test(normalize(pg));
   const moneyOk = (payment, rows) => rows.length &&
     rows.every(e=>cents(e.valor)>0) &&
     rows.reduce((a,e)=>a+cents(e.valor),0)===cents(payment.transaction_amount);
@@ -114,6 +115,7 @@ module.exports = function createPixReconciler({
           if(inFlight.has(ref))continue;
           inFlight.add(ref);
           try {
+            if (!onlyReference && recentlyReported.has(ref) && recentlyReported.get(ref) > Date.now()) continue;
             const ids=[...new Set(rows.map(x=>x.paymentId).filter(Boolean))];
             if(ids.length>1)throw Error('IDs de pagamento divergentes no mesmo pedido');
             const found=await paymentCandidates(ref,ids[0]);
@@ -138,6 +140,7 @@ module.exports = function createPixReconciler({
               // O pagamento é real, mas o fato de NumPassagem estar vazio
               // não prova que a Praxio nunca tenha emitido.
               if (typeof onApproved === 'function') await onApproved({reference:ref,payment,rows});
+              recentlyReported.set(ref,Date.now()+12*60*60*1000);
               result.manual++;
               continue;
             }
