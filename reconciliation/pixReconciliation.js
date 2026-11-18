@@ -105,7 +105,7 @@ module.exports = function createPixReconciler({
         rows.every(r=>active(r.status)&&!r.numPassagem) &&
         (onlyReference || rows.some(r=>{
           const ts=dateBR(r.created);
-          return Number.isFinite(ts) && ts <= todayMs()-60000 &&
+          return Number.isFinite(ts) && ts <= todayMs()-5*60000 &&
             ts>=todayMs()-lookbackHours*3600000;
         }))
       ).slice(0,onlyReference?1:maxRefs);
@@ -132,6 +132,12 @@ module.exports = function createPixReconciler({
             const seats=new Set(rows.map(e=>[e.idViagem,e.idOrigem,e.idDestino,e.dataViagem,e.horaPartida,e.poltrona].join('|')));
             if(seats.size!==rows.length)throw Error('Poltronas duplicadas na mesma viagem');
             if(rows.some(e=>!e.idViagem||!e.idOrigem||!e.idDestino))throw Error('Viagem sem identificadores');
+            const createdAt=Date.parse(payment.date_created || '');
+            const approvedAt=Date.parse(payment.date_approved || '');
+            if (!onlyReference && (!Number.isFinite(createdAt) || !Number.isFinite(approvedAt) || todayMs()-Math.max(createdAt,approvedAt)<5*60000)) {
+              notify('waiting_grace',{ref,paymentId:payment.id,graceMs:300000});
+              continue;
+            }
             result.approved++;
             notify('approved_orphan',{ref,paymentId:payment.id,legs:rows.length,amount:payment.transaction_amount});
             // Escrita financeira fica com o mesmo webhook já existente; jamais
@@ -178,7 +184,7 @@ module.exports = function createPixReconciler({
     if(timer)return;
     timer=setInterval(()=>{scan().then(summary=>notify('cycle',summary)).catch(e=>console.error('[PIX][Recon] ciclo',e))},intervalMs);
     timer.unref?.();
-    notify('started',{intervalMs,lookbackHours,maxRefs,autoIssue});
+    notify('started',{intervalMs,lookbackHours,maxRefs,autoIssue,graceMs:300000});
   }
   function stop(){if(timer)clearInterval(timer);timer=null;}
   return {start,stop,scan};
